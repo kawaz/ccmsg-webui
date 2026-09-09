@@ -86,7 +86,10 @@ export function SearchBar({
     };
   }, [search]);
 
-  const move = (to: number) => {
+  // 今どこかは描いた時の値ではなく signal から取る: 連打すると次の描画を
+  // 待たずに 2 度目が走り、同じ所から数え直してしまう。
+  const move = (step: (from: number) => number) => {
+    const to = step(search.index.value);
     if (to === 0) return;
     search.index.value = to;
     const key = matched[to - 1];
@@ -143,7 +146,7 @@ export function SearchBar({
               }
               if (event.key !== "Enter" || event.shiftKey) return;
               event.preventDefault();
-              move(nextIndex(search.index.value, total));
+              move((from) => nextIndex(from, total));
             }}
           />
           <button
@@ -185,7 +188,7 @@ export function SearchBar({
         aria-label="前の一致へ"
         disabled={total === 0}
         onClick={() => {
-          move(prevIndex(current, total));
+          move((from) => prevIndex(from, total));
         }}
       >
         ↑
@@ -195,7 +198,7 @@ export function SearchBar({
         aria-label="次の一致へ"
         disabled={total === 0}
         onClick={() => {
-          move(nextIndex(current, total));
+          move((from) => nextIndex(from, total));
         }}
       >
         ↓
