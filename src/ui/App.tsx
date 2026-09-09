@@ -1,4 +1,4 @@
-import { generationWarning, navigate, route } from "../state.ts";
+import { dismissToast, generationWarning, navigate, route, toast } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { SessionList } from "./SessionList.tsx";
 import { Timeline } from "./Timeline.tsx";
@@ -10,6 +10,25 @@ export function App() {
   return (
     <div class="app">
       <ConnectionBar />
+      {toast.value !== undefined && (
+        <p class="toast">
+          <span class="toast-who">{toast.value.notification.sid_label}</span>
+          <span class="toast-text">{toast.value.notification.text}</span>
+          <button
+            type="button"
+            onClick={() => {
+              const at = toast.value?.notification.sid;
+              dismissToast();
+              if (at !== undefined) navigate({ at: "session", sid: at, tab: "timeline" });
+            }}
+          >
+            開く
+          </button>
+          <button type="button" onClick={dismissToast}>
+            閉じる
+          </button>
+        </p>
+      )}
       {generationWarning.value !== undefined && (
         <p class="banner">
           {generationWarning.value} — この画面を再読み込みしてください (互換経路はありません)。

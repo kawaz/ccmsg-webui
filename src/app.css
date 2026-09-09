@@ -518,3 +518,98 @@ select {
   border-left: 3px solid var(--border);
   color: var(--muted);
 }
+
+/* --- 会話 (人 ↔ セッション) --- */
+
+/* 通知は「今それが起きた」の知らせなので、画面のどこを見ていても目に入る
+ * 位置に置く。読んだら閉じられる。 */
+.toast {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.toast-who {
+  flex: none;
+  color: var(--accent);
+}
+
+.toast-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 会話の 2 方向を色で分ける: 届いたものと、このセッションが返したもの。 */
+.tl-bubble {
+  display: flex;
+  gap: 10px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.tl-bubble.incoming {
+  border-left-color: var(--accent);
+}
+
+.tl-bubble.reply {
+  border-left-color: var(--live);
+}
+
+/* 通知の吹き出しは transcript が追いつくまでの仮の姿なので、確定した行と
+ * 同じ重さで置かない。 */
+.tl-bubble.notice {
+  border-left-color: var(--waiting);
+  border-style: dashed;
+  border-width: 0 0 0 3px;
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--gap);
+}
+
+.composer > textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.composer > textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.composer-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.composer-outcome {
+  color: var(--muted);
+}
+
+.composer-closed {
+  margin-top: var(--gap);
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+}

@@ -3,17 +3,26 @@ import type { Sid } from "@ccmsg/protocol";
 import { foldGroupKey } from "../timeline/fold-tree.ts";
 import { foldGroupShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
 import type { TimelineAutoOpenSettings } from "../timeline/timeline-auto-open.ts";
-import { foldGroupLabel, foldGroupNeedsOuterFold } from "../timeline/transcript-model.ts";
+import {
+  extractIncomingMessages,
+  foldGroupLabel,
+  foldGroupNeedsOuterFold,
+  parseCcmsgReplyCommand,
+} from "../timeline/transcript-model.ts";
 import type { ParsedLine, Segment, TimelineGroup } from "../timeline/transcript-model.ts";
 import type { TranscriptView } from "../timeline/transcript-view.ts";
 import {
+  lastLive,
   navigate,
+  notifications,
+  peers,
   timelineAutoOpen,
   timelineFolds,
   toggleTimelineAutoOpenSetting,
   transcript,
 } from "../state.ts";
 import { MarkdownView } from "../markdown/markdown-view.tsx";
+import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 
 /** A session's transcript, read from its end.
@@ -36,6 +45,24 @@ export function Timeline({ sid }: { sid: Sid }) {
     return <p class="empty">接続すると transcript を読みます。</p>;
   }
   return <TimelineBody view={view} />;
+}
+
+/** 送れる相手か、送れないならなぜか。
+ *
+ * 送れるのは instance が今つながっていると言っているセッションだけ。止まった
+ * ものは last_live に残っているので、どう終わったかをそのまま理由にする。 */
+function sendability(sid: Sid): { live: boolean; why: string } {
+  const peer = peers.value.find((one) => one.sid === sid);
+  if (peer !== undefined) {
+    if (peer.state === "live_unmanaged") {
+      return { live: false, why: "instance からも端末からも操作できない状態です" };
+    }
+    return { live: true, why: "" };
+  }
+  const gone = lastLive.value.find((one) => one.sid === sid);
+  if (gone?.state === "paused") return { live: false, why: "セッションは終了しています" };
+  if (gone?.state === "disappeared") return { live: false, why: "セッションは居なくなりました" };
+  return { live: false, why: "このセッションは instance に接続していません" };
 }
 
 function TimelineBody({ view }: { view: TranscriptView }) {
@@ -97,7 +124,19 @@ function TimelineBody({ view }: { view: TranscriptView }) {
         {groups.length === 0 && !view.loading.value && (
           <p class="empty">まだ transcript がありません。</p>
         )}
+        {notifications.value
+          .filter((held) => held.notification.sid === view.sid)
+          .map((held) => (
+            <div key={held.key} class="tl-bubble notice">
+              <span class="tl-who">通知</span>
+              <div class="tl-body">
+                <MarkdownView source={held.notification.text} />
+                <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+              </div>
+            </div>
+          ))}
       </div>
+      <Composer sid={view.sid} {...sendability(view.sid)} />
       <p class="footer">
         <button
           type="button"
@@ -190,6 +229,24 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
       </div>
     );
   }
+  // 会話は行の見た目より先に決まる: 封筒が載っている行はふつうの user turn
+  // としてではなく、届いた 1 通ずつの吹き出しとして描く (封筒の生テキストを
+  // Markdown として読ませると、返信案内や属性が本文に混ざる)。
+  const incoming = extractIncomingMessages(line);
+  if (incoming.length > 0) {
+    return (
+      <div class="tl-line incoming">
+        {incoming.map((message, index) => (
+          <div key={index} class="tl-bubble incoming">
+            <span class="tl-who">{message.fromLabel}</span>
+            <div class="tl-body">
+              <MarkdownView source={message.text} restricted />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   const restricted = line.role === "user";
   return (
     <div class={`tl-line ${line.role}`}>
@@ -257,8 +314,22 @@ function SegmentView({
       return <Tool name="Edit" detail={segment.path} />;
     case "file-tool-result":
       return <Tool name="result" detail={fileResult(segment.result)} />;
-    case "bash-use":
+    case "bash-use": {
+      // このセッションが人や相手に返した 1 通。コマンドとしてではなく、
+      // 会話の片側として読めるようにする。
+      const reply = parseCcmsgReplyCommand(segment.command);
+      if (reply !== undefined) {
+        return (
+          <div class="tl-bubble reply">
+            <span class="tl-who">{reply.to === undefined ? "→ 人" : `→ ${reply.to}`}</span>
+            <div class="tl-body">
+              <MarkdownView source={reply.text} />
+            </div>
+          </div>
+        );
+      }
       return <Tool name="Bash" detail={segment.command} />;
+    }
     case "bash-result":
       return (
         <Tool name={segment.isError ? "Bash 失敗" : "Bash 出力"} detail={brief(segment.text)} />

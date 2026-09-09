@@ -5,6 +5,8 @@ import type {
   AgentsFrame,
   HelloResult,
   LastLiveSession,
+  MessageSendResult,
+  Notification,
   PeerInfo,
   PeersFrame,
   SessionErrorEntry,
@@ -48,8 +50,10 @@ type ErrorsData = Static<typeof SessionErrorsFrame>["data"];
 
 const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
 
-/** The topics the session list stands on. */
-const TOPICS: readonly TopicName[] = ["peers", "agents", "session_errors"];
+/** The topics this build stands on: what the session list is made of, plus the
+ * one topic that is about the person rather than about a session — a
+ * notification is a line a session wrote for whoever is watching. */
+const TOPICS: readonly TopicName[] = ["peers", "agents", "session_errors", "notify"];
 
 export const entry = signal<Partial<Entry>>(loadEntry(localStore, location.hash));
 export const status = signal<ConnectionStatus>("idle");
@@ -83,6 +87,35 @@ export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
  * no session. One at a time: a screen shows one timeline, and a subscription
  * kept for a session nobody is looking at is a file being tailed for nobody. */
 export const transcript = signal<TranscriptView | undefined>(undefined);
+
+/** One notification as this page holds it: the contract's frame plus a key of
+ * this page's own, since two notifications are told apart by nothing on the
+ * wire (a notification is an event, not a record — the contract keeps none). */
+export interface HeldNotification {
+  readonly key: number;
+  readonly notification: Notification;
+}
+
+/** Notifications that arrived while this page has been open.
+ *
+ * Held in memory and nowhere else: the contract says a notification matters
+ * when it happens, and the session's own transcript is where its answer is
+ * written down. What is here is the moment before the transcript catches up. */
+export const notifications = signal<readonly HeldNotification[]>([]);
+
+/** 直近の通知だけを、どの画面を見ていても気づけるように出す。読んだら消す
+ * (消しても transcript 側には残る)。 */
+export const toast = signal<HeldNotification | undefined>(undefined);
+
+export function dismissToast(): void {
+  toast.value = undefined;
+}
+
+/** How many notifications are worth keeping in view. Beyond it the oldest go:
+ * an unread pile is not what this is for. */
+const NOTIFICATION_LIMIT = 50;
+
+let notificationCounter = 0;
 
 /** Which kinds of fold open by themselves, and the open/closed state of each
  * individual fold in the timeline being read.
@@ -143,6 +176,10 @@ export const connection = new Connection({
       agentSlots.value = [];
       errorSlots.value = [];
       hello.value = undefined;
+      // 通知は「今それが起きた」という知らせなので、話し相手が居なくなった
+      // 時点で古い。畳まずに捨てる。
+      notifications.value = [];
+      toast.value = undefined;
     }
   },
   greeted(result) {
@@ -175,6 +212,16 @@ export const connection = new Connection({
           message.data as ErrorsData,
         );
         break;
+      case "notify": {
+        notificationCounter += 1;
+        const held: HeldNotification = {
+          key: notificationCounter,
+          notification: message.data as Notification,
+        };
+        notifications.value = [...notifications.value, held].slice(-NOTIFICATION_LIMIT);
+        toast.value = held;
+        break;
+      }
     }
   },
   generationMismatch(reason) {
@@ -252,6 +299,15 @@ export function navigate(next: Route): void {
 
 export function adoptLocation(): void {
   route.value = parseRoute(location.pathname);
+}
+
+/** 人からセッションへ 1 通送る。
+ *
+ * 宛先は sid ひとつ。返ってくるのは「今届いたか、inbox に積まれたか」で、
+ * どちらも成功なので、呼ぶ側は結果を読んで人に見せる (`describeSendOutcome`)。 */
+export async function sendMessage(sid: Sid, text: string): Promise<MessageSendResult> {
+  const reply = await connection.request("message_send", { to: sid, text });
+  return reply as unknown as MessageSendResult;
 }
 
 /** Drop one entry from the instance's record of sessions that were running.
