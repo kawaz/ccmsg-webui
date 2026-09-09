@@ -967,3 +967,95 @@ select {
     max-height: 40vh;
   }
 }
+
+/* 表示中のものを探す窓 (DR-0022)。行 (= OR 節) ごとに色を変え、同じ行の
+ * AND ワードは同じ色にする。色は地の文の上に載るので、文字の色は変えず
+ * 背景だけを塗る。 */
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 var(--gap);
+  font-size: 12px;
+}
+
+.search-open {
+  padding: 2px 6px;
+}
+
+.search-input {
+  flex: 1 1 12em;
+  min-height: 2em;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.search-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.search-chip {
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.search-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.search-bad {
+  color: var(--danger);
+}
+
+.search-hl {
+  border-radius: 2px;
+  color: inherit;
+}
+
+.search-hl[data-search-color="0"],
+.search-chip[data-search-color="0"] {
+  background: #ffe08a;
+}
+
+.search-hl[data-search-color="1"],
+.search-chip[data-search-color="1"] {
+  background: #a8e6c1;
+}
+
+.search-hl[data-search-color="2"],
+.search-chip[data-search-color="2"] {
+  background: #b7d4f5;
+}
+
+.search-hl[data-search-color="3"],
+.search-chip[data-search-color="3"] {
+  background: #f5c2d6;
+}
+
+.search-hl[data-search-color="4"],
+.search-chip[data-search-color="4"] {
+  background: #d8c4f0;
+}
+
+.search-hl[data-search-color="5"],
+.search-chip[data-search-color="5"] {
+  background: #f7c9a3;
+}
+
+/* 暗い側では同じ色相を暗く敷き、文字は地の色のままにする (明るい背景に
+ * 明るい文字が乗ると読めなくなるため)。 */
+@media (prefers-color-scheme: dark) {
+  .search-hl,
+  .search-chip {
+    color: #17161a;
+  }
+}

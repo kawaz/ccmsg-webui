@@ -3,7 +3,10 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/
 import type { Sid } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { routePath } from "../route.ts";
-import { foldGroupKey } from "../timeline/fold-tree.ts";
+import { foldGroupKey, foldPathsByOffset } from "../timeline/fold-tree.ts";
+import { brief, fileResult } from "../timeline/segment-text.ts";
+import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
+import { timelineSearchUnits } from "../search/timeline-units.ts";
 import { foldGroupShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
 import type { TimelineAutoOpenSettings } from "../timeline/timeline-auto-open.ts";
 import {
@@ -28,6 +31,7 @@ import {
 import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
 import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
+import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 
 /** A session's transcript, read from its end.
  *
@@ -47,6 +51,10 @@ const EDGE_PX = 24;
  * does nothing with, and the value has to keep its identity across renders
  * anyway (MarkdownView re-renders its document when it changes). */
 const PathLinkerContext = createContext<MarkdownPathLinker | undefined>(undefined);
+
+/** 探している言葉。行の中のどこを光らせるかを決めるだけのもので、間の階層は
+ * 素通しなので、パスのリンク先と同じく context で渡す。 */
+const SearchWordsContext = createContext<readonly SearchWord[]>([]);
 
 /** A relative path in a message body is read against the session's working
  * directory — the directory the session itself would have read it in. */
@@ -107,6 +115,35 @@ function TimelineBody({ view }: { view: TranscriptView }) {
   const measured = useRef({ height: 0, top: 0 });
   const groups = view.groups.value;
   const held = view.window.value;
+  const search = useInViewSearch();
+  const words = search.words.value;
+  const units = useMemo(() => timelineSearchUnits(groups), [groups]);
+  const matched = useMemo(() => matchingKeys(units, words), [units, words]);
+
+  // 一致した行を出す。畳まれている中の一致にも辿り着けるように、囲む fold を
+  // 先に開く — 閉じた fold の中身はまだ描かれていないので、開ける前に探しても
+  // その要素はまだ無い。
+  const reveal = (key: string) => {
+    const offset = Number(key);
+    for (const foldKey of foldPathsByOffset(groups).get(offset) ?? []) {
+      timelineFolds.value.set(foldKey, true);
+    }
+    requestAnimationFrame(() => {
+      scroller.current
+        ?.querySelector(`[data-search-key="${key}"]`)
+        ?.scrollIntoView({ block: "center" });
+    });
+  };
+
+  // ハイライトを押したら、その行を今見ている番号にする (DR-0022: この数字の
+  // 変化ではスクロールしない — 押した所は既に目の前にある)。
+  const onClickIn = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest(".search-hl") === null) return;
+    const key = target.closest("[data-search-key]")?.getAttribute("data-search-key");
+    const at = key === null || key === undefined ? -1 : matched.indexOf(key);
+    if (at >= 0) search.index.value = at + 1;
+  };
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -140,50 +177,57 @@ function TimelineBody({ view }: { view: TranscriptView }) {
   const pathLinker = useTimelinePathLinker(view.sid);
   return (
     <PathLinkerContext.Provider value={pathLinker}>
-      <section class="section timeline">
-        <h2>
-          transcript — {held.lines.length} 行 / {held.start}–{held.end} バイト
-        </h2>
-        <AutoOpenBar />
-        {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
-        <div class="tl-scroll" ref={scroller} onScroll={onScroll}>
-          <p class="empty tl-edge">
-            {view.atBeginning.value
-              ? "— 先頭 —"
-              : view.loading.value
-                ? "読み込み中…"
-                : "上にスクロールすると遡ります"}
-          </p>
-          {groups.map((group, index) => (
-            <GroupView key={groupKey(group, index)} group={group} />
-          ))}
-          {groups.length === 0 && !view.loading.value && (
-            <p class="empty">まだ transcript がありません。</p>
-          )}
-          {notifications.value
-            .filter((held) => held.notification.sid === view.sid)
-            .map((held) => (
-              <div key={held.key} class="tl-bubble notice">
-                <span class="tl-who">通知</span>
-                <div class="tl-body">
-                  <MarkdownView source={held.notification.text} pathLinker={pathLinker} />
-                  <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
-                </div>
-              </div>
+      <SearchWordsContext.Provider value={words}>
+        <section class="section timeline">
+          <h2>
+            transcript — {held.lines.length} 行 / {held.start}–{held.end} バイト
+          </h2>
+          <AutoOpenBar />
+          <SearchBar search={search} matched={matched} onReveal={reveal} />
+          {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
+          <div class="tl-scroll" ref={scroller} onScroll={onScroll} onClick={onClickIn}>
+            <p class="empty tl-edge">
+              {view.atBeginning.value
+                ? "— 先頭 —"
+                : view.loading.value
+                  ? "読み込み中…"
+                  : "上にスクロールすると遡ります"}
+            </p>
+            {groups.map((group, index) => (
+              <GroupView key={groupKey(group, index)} group={group} />
             ))}
-        </div>
-        <Composer sid={view.sid} {...sendability(view.sid)} />
-        <p class="footer">
-          <button
-            type="button"
-            onClick={() => {
-              navigate({ at: "sessions" });
-            }}
-          >
-            一覧に戻る
-          </button>
-        </p>
-      </section>
+            {groups.length === 0 && !view.loading.value && (
+              <p class="empty">まだ transcript がありません。</p>
+            )}
+            {notifications.value
+              .filter((held) => held.notification.sid === view.sid)
+              .map((held) => (
+                <div key={held.key} class="tl-bubble notice">
+                  <span class="tl-who">通知</span>
+                  <div class="tl-body">
+                    <MarkdownView
+                      source={held.notification.text}
+                      pathLinker={pathLinker}
+                      highlight={words}
+                    />
+                    <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+                  </div>
+                </div>
+              ))}
+          </div>
+          <Composer sid={view.sid} {...sendability(view.sid)} />
+          <p class="footer">
+            <button
+              type="button"
+              onClick={() => {
+                navigate({ at: "sessions" });
+              }}
+            >
+              一覧に戻る
+            </button>
+          </p>
+        </section>
+      </SearchWordsContext.Provider>
     </PathLinkerContext.Provider>
   );
 }
@@ -251,9 +295,10 @@ function GroupView({ group }: { group: TimelineGroup }) {
 
 function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
   const pathLinker = useContext(PathLinkerContext);
+  const words = useContext(SearchWordsContext);
   if (line.kind === "broken") {
     return (
-      <div class="tl-line broken">
+      <div class="tl-line broken" data-search-key={offset}>
         <span class="tl-who">壊れた行</span>
         <pre class="mono">{line.raw}</pre>
       </div>
@@ -261,7 +306,7 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
   }
   if (line.kind === "meta") {
     return (
-      <div class="tl-line meta">
+      <div class="tl-line meta" data-search-key={offset}>
         <span class="tl-who">{line.type}</span>
         <span class="tl-text">{line.summary}</span>
       </div>
@@ -273,12 +318,17 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
   const incoming = extractIncomingMessages(line);
   if (incoming.length > 0) {
     return (
-      <div class="tl-line incoming">
+      <div class="tl-line incoming" data-search-key={offset}>
         {incoming.map((message, index) => (
           <div key={index} class="tl-bubble incoming">
             <span class="tl-who">{message.fromLabel}</span>
             <div class="tl-body">
-              <MarkdownView source={message.text} restricted pathLinker={pathLinker} />
+              <MarkdownView
+                source={message.text}
+                restricted
+                pathLinker={pathLinker}
+                highlight={words}
+              />
             </div>
           </div>
         ))}
@@ -287,7 +337,7 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
   }
   const restricted = line.role === "user";
   return (
-    <div class={`tl-line ${line.role}`}>
+    <div class={`tl-line ${line.role}`} data-search-key={offset}>
       <span class="tl-who">{line.role}</span>
       <div class="tl-body">
         {line.segments.map((segment, index) => (
@@ -320,11 +370,17 @@ function SegmentView({
   restricted: boolean;
 }) {
   const pathLinker = useContext(PathLinkerContext);
+  const words = useContext(SearchWordsContext);
   switch (segment.kind) {
     case "text":
       return (
         <div class="tl-text">
-          <MarkdownView source={segment.text} restricted={restricted} pathLinker={pathLinker} />
+          <MarkdownView
+            source={segment.text}
+            restricted={restricted}
+            pathLinker={pathLinker}
+            highlight={words}
+          />
         </div>
       );
     case "thinking":
@@ -337,7 +393,7 @@ function SegmentView({
           summary={`思考 (${segment.text.length} 文字)`}
         >
           <div class="tl-text">
-            <MarkdownView source={segment.text} pathLinker={pathLinker} />
+            <MarkdownView source={segment.text} pathLinker={pathLinker} highlight={words} />
           </div>
         </Fold>
       );
@@ -362,7 +418,7 @@ function SegmentView({
           <div class="tl-bubble reply">
             <span class="tl-who">{reply.to === undefined ? "→ 人" : `→ ${reply.to}`}</span>
             <div class="tl-body">
-              <MarkdownView source={reply.text} pathLinker={pathLinker} />
+              <MarkdownView source={reply.text} pathLinker={pathLinker} highlight={words} />
             </div>
           </div>
         );
@@ -391,26 +447,25 @@ function SegmentView({
 }
 
 function Tool({ name, detail }: { name: string; detail: string }) {
+  const words = useContext(SearchWordsContext);
   return (
     <p class="tl-tool mono">
       <span class="tl-tool-name">{name}</span>
-      {detail !== "" && <span class="tl-tool-detail">{detail}</span>}
+      {detail !== "" && <span class="tl-tool-detail">{highlighted(detail, words)}</span>}
     </p>
   );
 }
 
-function fileResult(result: { kind: string; content?: string; message?: string }): string {
-  if (result.kind === "error") return result.message ?? "失敗";
-  if (result.kind === "image") return "画像";
-  return brief(result.content ?? "");
-}
-
-/** One line of whatever it is given: enough to recognise, never enough to
- * scroll past. */
-const BRIEF_CHARS = 160;
-
-function brief(value: unknown): string {
-  const text = typeof value === "string" ? value : (JSON.stringify(value) ?? "");
-  const oneLine = text.replaceAll(/\s+/g, " ").trim();
-  return oneLine.length > BRIEF_CHARS ? `${oneLine.slice(0, BRIEF_CHARS)}…` : oneLine;
+/** 道具の 1 行のような、markdown を通さない文の中を光らせる。 */
+function highlighted(text: string, words: readonly SearchWord[]) {
+  if (words.length === 0) return text;
+  return splitForHighlight(text, words).map((piece, at) =>
+    piece.color === undefined ? (
+      piece.text
+    ) : (
+      <mark key={at} class="search-hl" data-search-color={piece.color}>
+        {piece.text}
+      </mark>
+    ),
+  );
 }

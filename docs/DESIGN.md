@@ -89,6 +89,18 @@ The files screen answers three things: where things are (the tree), what is in o
 
 **A markdown file's view mode is one last choice per session.** Kept per path it would be lost to opening a single `.ts` in between — `.ts` has no answer to "code or preview", so it must not overwrite one.
 
+## Searching what is on screen
+
+The search covers **what this page already holds** — the stretch of the transcript that has been read, and the file that is open. Nothing is asked of the instance (DR-0022). The browser's own Cmd+F cannot see inside a collapsed fold and does not open at all in a standalone PWA, so `/` and ⌘F are taken by this box.
+
+Whitespace within a query line separates AND terms and newlines separate OR clauses. A double-quoted phrase is one term whose internal runs of whitespace match `\s+`. `[Aa]` and `[.*]` switch case sensitivity and regular expressions on. **That grammar belongs to the page, not to the contract**: the contract states what a daemon and a client say to each other, and how a string typed into a search box is read is not one of those things (the previous build kept the parser in its protocol package).
+
+What is counted is what the page holds, not what is currently drawn. A match inside a closed fold is in `[N/M]`, and stepping to it opens the folds enclosing it first (`fold-tree.ts` answers which). The unit is **one line**, named by its byte offset — so reading backwards, which grows the window at the front, never makes the same number mean a different line. In a file the line number is the name, so the count and the navigation belong to the code view; the preview highlights too, but a paragraph has no name to move to.
+
+A counted match must be a match the reader can find, so the text searched is the text as shown: a tool call is drawn as one shortened line, and that shortened line is what the query runs against (`segment-text.ts`). Searching the full text held would produce "[3/12] with no third match to look at".
+
+Highlighting happens two ways. Prose is split at render time and `<mark>` put in (the `text` case in `markdown-view.tsx`). A highlighted code line is already a list of spans, so the same split is projected onto them and the spans are re-cut (`splitSpansForHighlight`). Code inside markdown is the one place nothing lights up: `CodeBlock` assembles it separately and there is no seam to re-cut.
+
 ## The conversation lives on the Timeline
 
 There is no separate screen for talking to a session. **The session's own transcript is the record of the conversation**, and the screen that reads it already exists. The two directions look different in there.

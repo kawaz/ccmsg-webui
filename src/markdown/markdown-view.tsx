@@ -34,6 +34,7 @@ import type {
   Text,
 } from "mdast";
 import { CodeBlock } from "../ui/CodeBlock.tsx";
+import { type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { classifyMarkdownLinkUrl, type FilePathRef, isSafeUrl } from "./markdown-link.ts";
 import { FoldOpen } from "../timeline/fold-open.ts";
 
@@ -196,6 +197,11 @@ interface MarkdownRenderCtx {
   /** Running count of task items visited so far — the ordinal assigned to the
    * next one. Mutated during the walk, mirroring `headingIndex`. */
   taskIndex: number;
+  /** 探している言葉。地の文の中の一致だけを `<mark>` で囲む。コードは囲まない
+   * — 色付けは 1 行を span の列に切ってあり、その境界をまたぐ `<mark>` は
+   * 作れない (ファイル本文の側は `splitSpansForHighlight` が span を切り直す
+   * ことで同じことをしている)。 */
+  highlight?: readonly SearchWord[];
 }
 
 /** A failed write, reported against the item it happened to.
@@ -457,10 +463,35 @@ function renderChildren(
 // through to the `default` case below,
 // which recurses into `children` if present so text content isn't silently
 // dropped, or renders nothing if the node has none.
+/** 地の文の中の一致を `<mark>` で囲む。探していない時と一致が無い時は元の文を
+ * そのまま返すので、囲むための要素が増えることはない。 */
+function marked(
+  text: string,
+  key: string,
+  words: readonly SearchWord[] | undefined,
+): VNode | string {
+  if (words === undefined || words.length === 0) return text;
+  const pieces = splitForHighlight(text, words);
+  if (pieces.length === 1 && pieces[0]!.color === undefined) return text;
+  return (
+    <span key={key}>
+      {pieces.map((piece, at) =>
+        piece.color === undefined ? (
+          piece.text
+        ) : (
+          <mark key={at} class="search-hl" data-search-color={piece.color}>
+            {piece.text}
+          </mark>
+        ),
+      )}
+    </span>
+  );
+}
+
 function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode | string {
   switch (node.type) {
     case "text":
-      return (node as Text).value;
+      return marked((node as Text).value, key, ctx.highlight);
 
     case "paragraph":
       return <p key={key}>{renderChildren((node as Paragraph).children, key, ctx)}</p>;
@@ -1211,7 +1242,11 @@ export function parseMarkdownDocument(source: string): Root {
  * The output is wrapped in `<div class="md md-restricted">`; `.md-restricted`
  * applies `white-space: pre-wrap` so bare newlines in the user's message
  * render as line breaks (matching how the composer showed them). */
-export function renderRestrictedMarkdown(source: string, pathLinker?: MarkdownPathLinker): VNode {
+export function renderRestrictedMarkdown(
+  source: string,
+  pathLinker?: MarkdownPathLinker,
+  highlight?: readonly SearchWord[],
+): VNode {
   const lines = source.split("\n");
   const blocks: (VNode | string)[] = [];
   let key = 0;
@@ -1223,7 +1258,7 @@ export function renderRestrictedMarkdown(source: string, pathLinker?: MarkdownPa
     pending = [];
     blocks.push(
       <span class="md-restricted-text" key={`b${key++}`}>
-        {renderRestrictedInline(text, `b${key}`, pathLinker)}
+        {renderRestrictedInline(text, `b${key}`, pathLinker, highlight)}
       </span>,
     );
   };
@@ -1256,7 +1291,7 @@ export function renderRestrictedMarkdown(source: string, pathLinker?: MarkdownPa
       blocks.push(
         <blockquote key={`b${key++}`}>
           <span class="md-restricted-text">
-            {renderRestrictedInline(text, `b${key}`, pathLinker)}
+            {renderRestrictedInline(text, `b${key}`, pathLinker, highlight)}
           </span>
         </blockquote>,
       );
@@ -1288,6 +1323,7 @@ function renderRestrictedInline(
   text: string,
   keyPrefix: string,
   pathLinker?: MarkdownPathLinker,
+  highlight?: readonly SearchWord[],
 ): (VNode | string)[] {
   // Match either `code` OR [text](url). Alternation is left-to-right so a
   // literal `[foo](bar)` inside `code` stays inside the code span (the
@@ -1301,7 +1337,7 @@ function renderRestrictedInline(
   let n = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(marked(text.slice(last, m.index), `${keyPrefix}t${n}`, highlight));
     if (m[1] !== undefined) {
       out.push(
         <code class="md-inline-code" key={`${keyPrefix}c${n++}`}>
@@ -1315,8 +1351,8 @@ function renderRestrictedInline(
     }
     last = m.index + m[0].length;
   }
-  if (last < text.length) out.push(text.slice(last));
-  return out.length > 0 ? out : [text];
+  if (last < text.length) out.push(marked(text.slice(last), `${keyPrefix}t${n}`, highlight));
+  return out.length > 0 ? out : [marked(text, `${keyPrefix}t0`, highlight)];
 }
 
 /** Render one `[label](url)` link under restricted mode. Mirrors the safe
@@ -1376,6 +1412,7 @@ export function renderMarkdownAst(
      * itself is folded by `foldMarkdownSections` before it gets here — this
      * only tells CSS which layout the children were built for. */
     sections?: boolean;
+    highlight?: readonly SearchWord[];
   },
 ): VNode {
   const ctx: MarkdownRenderCtx = {
@@ -1384,6 +1421,7 @@ export function renderMarkdownAst(
     taskList: opts?.taskList,
     pathLinker: opts?.pathLinker,
     taskIndex: 0,
+    highlight: opts?.highlight,
   };
   return (
     <div class={opts?.sections ? "md md-sections" : "md"}>
@@ -1403,6 +1441,7 @@ export function MarkdownView({
   taskList,
   pathLinker,
   foldSections = false,
+  highlight,
 }: {
   source: string;
   tableOfContents?: boolean;
@@ -1424,6 +1463,8 @@ export function MarkdownView({
    * not a document — its headings are a few lines apart and a caret per heading
    * would be noise — so only a view of a document asks for them. */
   foldSections?: boolean;
+  /** 探している言葉。地の文の一致を `<mark>` で囲む。 */
+  highlight?: readonly SearchWord[];
 }) {
   // One store per document: section keys are positions in *this* source, so a
   // different source has to start from the default (everything open) rather
@@ -1431,7 +1472,7 @@ export function MarkdownView({
   const sectionFold = foldSections && !restricted;
   const sectionStore = useMemo(() => new FoldOpen(), [source, sectionFold]);
   return useMemo(() => {
-    if (restricted) return renderRestrictedMarkdown(source, pathLinker);
+    if (restricted) return renderRestrictedMarkdown(source, pathLinker, highlight);
     const parsed = parseMarkdownDocument(source);
     const headings = tableOfContents ? extractMarkdownHeadings(parsed) : [];
     const root = sectionFold
@@ -1441,6 +1482,7 @@ export function MarkdownView({
       taskList,
       pathLinker,
       sections: sectionFold,
+      highlight,
     });
     const withFold = sectionFold ? (
       <MarkdownSectionFoldContext.Provider
@@ -1485,5 +1527,14 @@ export function MarkdownView({
         {withFold}
       </div>
     );
-  }, [source, tableOfContents, restricted, taskList, pathLinker, sectionFold, sectionStore]);
+  }, [
+    source,
+    tableOfContents,
+    restricted,
+    taskList,
+    pathLinker,
+    sectionFold,
+    sectionStore,
+    highlight,
+  ]);
 }

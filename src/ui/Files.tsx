@@ -22,6 +22,13 @@ import {
   tokenizeLines,
 } from "../markdown/highlight.ts";
 import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
+import {
+  matchingKeys,
+  type SearchWord,
+  splitForHighlight,
+  splitSpansForHighlight,
+} from "../search/in-view-search.ts";
+import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 import { type LineRange, type Route, routePath } from "../route.ts";
 import { files, filesMemory, navigate, sessionPaths } from "../state.ts";
 
@@ -339,6 +346,19 @@ function FileBody({
   );
 
   const pathLinker = usePathLinker(sid, file.path, session, openAt);
+  const search = useInViewSearch();
+  const words = search.words.value;
+  // 探せるかたまりは 1 行。行だけが名前 (行番号) を持っていて、そこへ動ける。
+  const units = useMemo(
+    () => splitLines(file.content).map((text, at) => ({ key: String(at + 1), text })),
+    [file.content],
+  );
+  const matched = useMemo(() => matchingKeys(units, words), [units, words]);
+  const reveal = (key: string) => {
+    scroller.current
+      ?.querySelector(`[data-search-key="${key}"]`)
+      ?.scrollIntoView({ block: "center" });
+  };
 
   return (
     <>
@@ -370,6 +390,7 @@ function FileBody({
           </span>
         )}
       </p>
+      <SearchBar search={search} matched={matched} onReveal={reveal} />
       {file.truncated && (
         <p class="banner">
           先頭 {file.content.length} 文字だけを出しています (全 {file.size} バイト)。契約の
@@ -396,14 +417,61 @@ function FileBody({
               tableOfContents
               foldSections
               pathLinker={pathLinker}
+              highlight={words}
             />
           </div>
         ) : (
-          <CodeLines path={file.path} content={file.content} lines={lines} anchor={anchor} />
+          <CodeLines
+            path={file.path}
+            content={file.content}
+            lines={lines}
+            anchor={anchor}
+            highlight={words}
+          />
         )}
       </div>
     </>
   );
+}
+
+/** 1 行の中身。色付けが届いていれば span の列を、まだなら素の文を出す。
+ *
+ * 探している言葉があれば、どちらの形でも同じ切り方を重ねる — 色付けの span を
+ * 切り直せるので、一致が色の境界をまたいでも光らせられる。 */
+function lineContent(
+  text: string,
+  spans: HighlightSpan[] | undefined,
+  words: readonly SearchWord[],
+) {
+  if (spans === undefined) {
+    if (words.length === 0) return text;
+    return splitForHighlight(text, words).map((piece, at) =>
+      piece.color === undefined ? (
+        piece.text
+      ) : (
+        <mark key={at} class="search-hl" data-search-color={piece.color}>
+          {piece.text}
+        </mark>
+      ),
+    );
+  }
+  return splitSpansForHighlight(spans, words).map((span, at) => {
+    const body =
+      span.style === undefined ? (
+        span.text
+      ) : (
+        <span class="shiki-tok" style={span.style}>
+          {span.text}
+        </span>
+      );
+    return span.color === undefined ? (
+      <span key={at}>{body}</span>
+    ) : (
+      <mark key={at} class="search-hl" data-search-color={span.color}>
+        {body}
+      </mark>
+    );
+  });
 }
 
 /** Where a link inside this document opens.
@@ -455,11 +523,13 @@ function CodeLines({
   content,
   lines,
   anchor,
+  highlight,
 }: {
   path: string;
   content: string;
   lines?: LineRange;
   anchor: { current: HTMLDivElement | null };
+  highlight: readonly SearchWord[];
 }) {
   const language = detectLanguage(path);
   const [highlighted, setHighlighted] = useState<{
@@ -491,22 +561,11 @@ function CodeLines({
           <div
             key={number}
             class={`viewer-line${marked ? " viewer-line-on" : ""}`}
+            data-search-key={number}
             ref={number === start ? anchor : undefined}
           >
             <span class="viewer-lineno">{number}</span>
-            <span class="viewer-text">
-              {rows?.[index] === undefined
-                ? text
-                : rows[index].map((span, at) =>
-                    span.style === undefined ? (
-                      span.text
-                    ) : (
-                      <span class="shiki-tok" style={span.style} key={at}>
-                        {span.text}
-                      </span>
-                    ),
-                  )}
-            </span>
+            <span class="viewer-text">{lineContent(text, rows?.[index], highlight)}</span>
           </div>
         );
       })}
