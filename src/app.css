@@ -216,3 +216,114 @@ select {
   color: var(--muted);
   font-size: 12px;
 }
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tl-scroll {
+  height: 70vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tl-edge {
+  text-align: center;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.tl-line {
+  display: flex;
+  gap: 8px;
+  padding: 6px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.tl-line:first-child {
+  border-top: 0;
+}
+
+.tl-who {
+  flex: none;
+  width: 68px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tl-line.user .tl-who {
+  color: var(--accent);
+}
+
+.tl-line.broken .tl-who {
+  color: var(--danger);
+}
+
+.tl-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tl-text {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tl-note {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tl-tool {
+  margin: 0 0 4px;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tl-tool-name {
+  flex: none;
+  color: var(--accent);
+}
+
+.tl-tool-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.tl-fold,
+.tl-aside {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  background: var(--bg);
+}
+
+.tl-fold > summary,
+.tl-aside > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tl-line pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

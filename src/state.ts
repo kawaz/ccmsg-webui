@@ -1,4 +1,4 @@
-import { computed, signal } from "@preact/signals";
+import { computed, effect, signal } from "@preact/signals";
 import type { Static } from "@sinclair/typebox";
 import type {
   AgentInfo,
@@ -23,6 +23,7 @@ import {
   sortLastLive,
   sortPeers,
 } from "./sessions.ts";
+import { TranscriptView } from "./timeline/transcript-view.ts";
 import { type Slot, TopicFold, union } from "./topic-fold.ts";
 
 /** The whole of this build's state, and the functions that change it.
@@ -70,6 +71,11 @@ export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
   errorsBySid(union(errorSlots.value, "errors")),
 );
 
+/** The transcript of the session the URL names, or nothing when the URL names
+ * no session. One at a time: a screen shows one timeline, and a subscription
+ * kept for a session nobody is looking at is a file being tailed for nobody. */
+export const transcript = signal<TranscriptView | undefined>(undefined);
+
 const folds = new Map<string, TopicFold<unknown>>();
 
 function fold<T>(topic: string): TopicFold<T> {
@@ -84,6 +90,9 @@ export const connection = new Connection({
   status(next, detail) {
     status.value = next;
     statusDetail.value = detail;
+    // A settled greeting is the first moment a request can be made, which is
+    // what a timeline opened before the connection was waiting for.
+    if (next === "open") transcript.peek()?.ensureFirstPage();
     // What an instance said stops being current the moment it stops speaking,
     // so a dropped connection empties the lists rather than leaving them to be
     // read as live.
@@ -98,6 +107,13 @@ export const connection = new Connection({
     hello.value = result;
   },
   topic(message) {
+    const view = transcript.value;
+    if (view !== undefined && message.topic === view.topic) {
+      view.take(
+        message.data as { sid: Sid; size: number; lines?: string[]; start?: number; end?: number },
+      );
+      return;
+    }
     switch (message.topic) {
       case "peers":
         peerSlots.value = fold<PeersData>("peers").push(
@@ -122,6 +138,24 @@ export const connection = new Connection({
   generationMismatch(reason) {
     generationWarning.value = reason;
   },
+});
+
+// Which session's transcript is being followed is decided by the URL and by
+// nothing else, so entering, leaving, and moving between sessions are one rule
+// rather than three call sites that have to agree.
+effect(() => {
+  const at = route.value;
+  const wanted = at.at === "session" ? at.sid : undefined;
+  const held = transcript.peek();
+  if (held?.sid === wanted) return;
+  held?.close();
+  if (wanted === undefined) {
+    transcript.value = undefined;
+    return;
+  }
+  const view = new TranscriptView(connection, wanted);
+  transcript.value = view;
+  view.open();
 });
 
 /** Point at an instance, remember it, and subscribe to what the list needs. */

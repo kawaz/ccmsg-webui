@@ -35,8 +35,27 @@ describe("the entry a link may carry", () => {
   });
 
   test("the fragment wins over what was stored", () => {
-    const kept = store({ "ccmsg.entry.token": "old" });
+    const kept = store({
+      "ccmsg.entry.url": "ws://h/ws",
+      "ccmsg.entry.token:ws://h/ws": "old",
+    });
     expect(loadEntry(kept, "#token=new").token).toBe("new");
+  });
+
+  test("a token is kept under the endpoint it belongs to", () => {
+    const kept = store();
+    loadEntry(kept, "#url=ws://a/ws&token=ta");
+    loadEntry(kept, "#url=ws://b/ws&token=tb");
+    expect(kept.held["ccmsg.entry.token:ws://a/ws"]).toBe("ta");
+    // Going back to the first endpoint answers the first endpoint's token,
+    // rather than whichever was configured last.
+    expect(loadEntry(kept, "#url=ws://a/ws")).toEqual({ url: "ws://a/ws", token: "ta" });
+  });
+
+  test("a token with no endpoint to key it connects this visit and is not kept", () => {
+    const kept = store();
+    expect(loadEntry(kept, "#token=abc")).toEqual({ url: undefined, token: "abc" });
+    expect(kept.held).toEqual({});
   });
 
   test("a fragment naming an endpoint no socket opens on is ignored", () => {
@@ -50,7 +69,8 @@ describe("the entry a link may carry", () => {
     const forgetful: Store = { get: () => undefined, set: () => undefined };
     expect(loadEntry(forgetful, "#url=ws://h/ws&token=abc")).toEqual({
       url: undefined,
-      token: undefined,
+      // Nothing was kept, and what the link carried is still answered.
+      token: "abc",
     });
     expect(completeEntry(parseFragment("#url=ws://h/ws&token=abc"))).toEqual({
       url: "ws://h/ws",

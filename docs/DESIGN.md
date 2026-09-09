@@ -20,6 +20,7 @@ The daemon does not serve this page. It is a static site with an origin of its o
 | fold | `src/topic-fold.ts` | folding topic frames into what is held, by the contract's `granularity` |
 | state | `src/state.ts` | the signals, and the functions that are their only writers |
 | derived | `src/sessions.ts` `src/route.ts` | ordering, sections, display names, the URL grammar (pure) |
+| transcript | `src/timeline/` | the pure jsonl-to-events model, and the `TranscriptView` that gathers its fetching |
 | screens | `src/ui/` | reading only |
 
 The state layer is `@preact/signals`: an action is an update function gathered into the state module, and there is no `useMemo` or `memo` (DR-0032 §2.1).
@@ -30,9 +31,34 @@ The state layer is `@preact/signals`: an action is an update function gathered i
 
 What a fold holds is always a list of **(instance, payload) slots**, which makes `whole` and `per_instance_whole` the same operation with a different key — one slot per topic against one slot per instance. A reader has one shape to read. `union()` concatenates across instances, which is the contract's "what the subscriber holds is the union across instances".
 
-**`append` and `element` are not folded.** No screen subscribes to them yet, and a topic that cannot be folded must not be subscribed to and then read as empty, so `isFoldable` refuses at subscription. The Timeline (`transcript`, an `append` topic) is when they get written.
+`append` does not fold into slots. What is held is not a value an instance states whole but **one contiguous stretch** of a value that keeps growing, so `AppendFold` holds it separately: a window (`start`/`end`/`lines`) and the size the instance last stated. The window fills from two directions — frames add to its end, reads add to its start — and a part that is neither adjacent nor overlapping is a **gap**, which is refused rather than closed by pretending. The offsets are bytes, the same ones the contract's read pages by, so what arrives live and what is read back join without anything being counted twice.
+
+**`element` is not folded.** No screen subscribes to it yet, and a topic that cannot be folded must not be subscribed to and then read as empty, so `isFoldable` refuses at subscription.
 
 When a connection to an instance drops, what that instance said is dropped with it: a stopped value is indistinguishable from a live one.
+
+## The Timeline's three layers
+
+A transcript is fetched, read, and drawn, and those are three layers.
+
+| Layer | File | Responsibility |
+|---|---|---|
+| fetch | `src/timeline/transcript-view.ts` | the `transcript:<sid>` subscription and the backwards `transcript_read`, gathered into one `AppendFold` |
+| model | `src/timeline/transcript-model.ts` and neighbours | jsonl line to `ParsedLine`, joining tool_use with tool_result and pairing queued turns, then `TimelineGroup`. Pure functions only |
+| draw | `src/ui/Timeline.tsx` | reading the groups, and what a scroll position means |
+
+**Subscribe first, read second.** The other order loses whatever is appended between the end of the read and the start of the subscription. The snapshot says only where the file ends now, and that is where the first read of the tail begins.
+
+The model layer splits into a pure **per-line** map (`incremental-line-map`) and a **cross-line** one (`incremental-cross-line`). The second recomputes the whole window every time and then hands back the previous objects wherever they are equal: appending a tool_result can rewrite a tool_use thousands of lines back, and a delivered user turn cancels a queued copy that appeared earlier, so a "recompute the tail only" scheme cannot reproduce that reach.
+
+The scroll position is what separates following from reading. At the bottom a person is watching it happen, so an append moves the view; anywhere else they are reading, so it does not. A page added above is cancelled out by adding the `scrollHeight` difference, which leaves the line being read where it was.
+
+## localStorage keys name what they belong to
+
+A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.
+
+- entry: the endpoint under `ccmsg.entry.url`, its token under `ccmsg.entry.token:<url>`. A token is an instance's whole entry credential, and one kept under a bare name would be handed to whichever endpoint was configured last
+- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance
 
 ## The contract validates its own frames
 

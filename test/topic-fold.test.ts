@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isFoldable, TopicFold, union } from "../src/topic-fold.ts";
+import { AppendFold, isFoldable, TopicFold, union } from "../src/topic-fold.ts";
 
 /** How frames fold into what is already held (contract, "観測系は snapshot +
  * delta の 1 形"). The rule is read from the contract's granularity table, so
@@ -60,5 +60,97 @@ describe("what this build refuses", () => {
   test("a name this generation does not define is refused", () => {
     expect(isFoldable("nonsense")).toBe(false);
     expect(() => new TopicFold("nonsense")).toThrow(/unknown topic/);
+  });
+});
+
+describe("append", () => {
+  const TOPIC = "transcript:00000000-0000-0000-0000-000000000000";
+  // Byte offsets count each line plus the newline that ends it.
+  const size = (...lines: string[]) => lines.reduce((n, line) => n + line.length + 1, 0);
+
+  test("the snapshot pins where the value ends, and frames add to it", () => {
+    const fold = new AppendFold(TOPIC);
+    expect(fold.begin(120)).toEqual({ start: 120, end: 120, lines: [] });
+    const after = fold.append({ lines: ["a", "bb"], start: 120, end: 120 + size("a", "bb") });
+    expect(after.lines).toEqual(["a", "bb"]);
+    expect(after.start).toBe(120);
+    expect(after.end).toBe(125);
+  });
+
+  test("a read of the tail lands on the point the snapshot pinned", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(10);
+    const after = fold.prepend({ lines: ["old"], start: 6, end: 10 }, 10);
+    expect(after).toEqual({ start: 6, end: 10, lines: ["old"] });
+    expect(fold.atBeginning).toBe(false);
+  });
+
+  test("reads add to the start until the beginning is held", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(8);
+    fold.prepend({ lines: ["ccc"], start: 4, end: 8 });
+    const after = fold.prepend({ lines: ["aaa"], start: 0, end: 4 });
+    expect(after).toEqual({ start: 0, end: 8, lines: ["aaa", "ccc"] });
+    expect(fold.atBeginning).toBe(true);
+  });
+
+  test("what is already held is never taken twice", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(4);
+    fold.append({ lines: ["bbb"], start: 4, end: 8 });
+    // A read racing the live tail answers lines that already arrived; only the
+    // part before the window is new.
+    const after = fold.prepend({ lines: ["aaa", "bbb"], start: 0, end: 8 });
+    expect(after).toEqual({ start: 0, end: 8, lines: ["aaa", "bbb"] });
+    // And a frame repeating what was read adds nothing.
+    expect(fold.append({ lines: ["bbb"], start: 4, end: 8 }).lines).toEqual(["aaa", "bbb"]);
+  });
+
+  test("a gap is refused rather than closed by pretending", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(0);
+    expect(() => fold.append({ lines: ["x"], start: 40, end: 42 })).toThrow(/gap/);
+    fold.append({ lines: ["x"], start: 0, end: 2 });
+    expect(() => fold.prepend({ lines: ["y"], start: 100, end: 102 })).toThrow(/gap/);
+  });
+
+  test("the size an instance states is what says there is more to take", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(0);
+    fold.append({ lines: ["x"], start: 0, end: 2 }, 900);
+    expect(fold.size).toBe(900);
+    expect(fold.window.end).toBe(2);
+  });
+
+  test("a topic that does not fold as append is refused", () => {
+    expect(() => new AppendFold("peers")).toThrow(/per_instance_whole/);
+    expect(() => new AppendFold("nonsense")).toThrow(/unknown topic/);
+  });
+});
+
+describe("append: where the window sits", () => {
+  const TOPIC = "transcript:00000000-0000-0000-0000-000000000000";
+
+  test("a read with no snapshot before it puts the window where the read was", () => {
+    // What an instance that is not following this transcript looks like: the
+    // subscription is accepted and no snapshot arrives, so the first read is
+    // what says where the end is.
+    const fold = new AppendFold(TOPIC);
+    expect(fold.pinned).toBe(false);
+    expect(fold.atBeginning).toBe(false);
+    expect(fold.prepend({ lines: ["z"], start: 998, end: 1000 }, 1000)).toEqual({
+      start: 998,
+      end: 1000,
+      lines: ["z"],
+    });
+  });
+
+  test("a snapshot after a page has been read keeps what was read", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.prepend({ lines: ["z"], start: 998, end: 1000 }, 1000);
+    // What a restored subscription sends: the file still ends where it did.
+    expect(fold.begin(1000).lines).toEqual(["z"]);
+    // A file shorter than what was read is a different file.
+    expect(fold.begin(4)).toEqual({ start: 4, end: 4, lines: [] });
   });
 });

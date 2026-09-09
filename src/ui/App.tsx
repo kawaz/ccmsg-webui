@@ -1,6 +1,7 @@
 import { generationWarning, navigate, route } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { SessionList } from "./SessionList.tsx";
+import { Timeline } from "./Timeline.tsx";
 
 /** The whole page: the connection bar, whatever the URL names, and the one
  * banner that is not about a screen but about the contract itself. */
@@ -15,7 +16,8 @@ export function App() {
         </p>
       )}
       {at.at === "sessions" && <SessionList />}
-      {at.at === "session" && (
+      {at.at === "session" && at.tab === "timeline" && <Timeline sid={at.sid} />}
+      {at.at === "session" && at.tab !== "timeline" && (
         <section class="section">
           <h2>{at.tab}</h2>
           <p class="empty">

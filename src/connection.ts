@@ -93,6 +93,16 @@ export class Connection {
     if (this.#socket?.readyState === WebSocket.OPEN) void this.#subscribeNow(topic);
   }
 
+  /** Stop wanting a topic. Dropped from the set first, so a reconnection does
+   * not bring it back, and only then said over the wire. */
+  unsubscribe(topic: TopicName): void {
+    if (!this.#topics.delete(topic)) return;
+    if (this.#socket?.readyState !== WebSocket.OPEN) return;
+    this.request("topic_unsubscribe", { topic }).catch(() => {
+      // A subscription on a connection that is gone is gone with it.
+    });
+  }
+
   /** Call an op and wait for the reply that names this request. */
   request(op: string, args: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     const socket = this.#socket;

@@ -9,7 +9,17 @@
  * server that serves this page, while a query string is. */
 
 const URL_KEY = "ccmsg.entry.url";
-const TOKEN_KEY = "ccmsg.entry.token";
+
+/** Where one endpoint's token is kept.
+ *
+ * A browser holds one store for the whole site while a person reaches several
+ * instances from it, so anything that belongs to one instance is stored under a
+ * key naming it. A token stored under a bare name would be handed to whichever
+ * endpoint was configured last — the wrong instance, with another instance's
+ * whole entry credential. */
+function tokenKey(url: string): string {
+  return `ccmsg.entry.token:${url}`;
+}
 
 export interface Entry {
   /** The WebSocket endpoint, e.g. `ws://127.0.0.1:39847/ws`. */
@@ -67,17 +77,30 @@ export const localStore: Store = {
 };
 
 /** What the page starts with: the fragment wins over what was stored, and what
- * the fragment carried is stored so a reload without it still connects. */
+ * the fragment carried is stored so a reload without it still connects.
+ *
+ * The endpoint settles first, because it is what the token is stored under. A
+ * fragment carrying a token and no endpoint, with none configured either, has
+ * nowhere to put it: the visit connects on it once nothing is remembered. */
 export function loadEntry(store: Store, hash: string): Partial<Entry> {
   const fragment = parseFragment(hash);
   if (fragment.url !== undefined && isEntryUrl(fragment.url)) store.set(URL_KEY, fragment.url);
-  if (fragment.token !== undefined && fragment.token !== "") store.set(TOKEN_KEY, fragment.token);
-  return { url: store.get(URL_KEY), token: store.get(TOKEN_KEY) };
+  const url = store.get(URL_KEY);
+  if (fragment.token !== undefined && fragment.token !== "" && url !== undefined) {
+    store.set(tokenKey(url), fragment.token);
+  }
+  const token =
+    fragment.token !== undefined && fragment.token !== ""
+      ? fragment.token
+      : url === undefined
+        ? undefined
+        : store.get(tokenKey(url));
+  return { url, token };
 }
 
 export function saveEntry(store: Store, entry: Entry): void {
   store.set(URL_KEY, entry.url);
-  store.set(TOKEN_KEY, entry.token);
+  store.set(tokenKey(entry.url), entry.token);
 }
 
 /** Whether both halves are present and usable, which is what the connection
