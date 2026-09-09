@@ -73,6 +73,22 @@ Whether a fold is open is held **outside** the component drawing it (`src/timeli
 
 **A closed fold's body is not drawn, but a body once drawn stays.** Most of a transcript lives inside a fold, so drawing every closed body would mean rendering — and highlighting — a whole session to show the few lines anyone is reading. Discarding a body on close would instead make closing a fold mean throwing away the work of having opened it.
 
+## Files: the tree, the file, and the links
+
+The files screen answers three things: where things are (the tree), what is in one (the file), and where a path written in some text points (the links).
+
+**How a path is spelled is which surface it is reached through.** The contract spells `contained` paths relative to the session's root and `workspace`/`external` paths absolute (contract `files.ts`), so a leading `/` is the whole of the distinction — which is why the tree's keys, the stored selection and the URL are all the same one string. A relative path can only be `contained`; **the surface of an absolute one is asked for** with `file_stat_batch`, since `workspace` and `external` share a spelling and only the instance can say which admits it.
+
+**The tree is asked for one level at a time**, as it is expanded (`dir_list`). What comes back is a copy of a moment rather than a subscription, so re-reading is a button. A refusal is remembered as an answer too — otherwise a row reads `loading` forever.
+
+**The URL is the record.** `/s/<sid>/files?path=<p>&lines=<a>-<b>` names the open file and the lines being pointed at, so a link shows its reader the same thing. Opening a file is a navigation; the lines live in the query because a path contains slashes and a path segment cannot. **Named lines beat what was remembered**: whoever sent the link was pointing at lines, so both the stored view mode and the stored scroll position give way.
+
+**There is no next page.** `file_read` answers up to the instance's read limit (512KiB) and sets `truncated`; the contract gives it no offset to ask for the rest (contract `files.ts`). So the head is shown with a banner saying why it stops there — cutting it silently would read as "that is the file".
+
+**What is outside the project is a trail, not a listing.** The `external` allowlist is the files this session's transcript named, and the contract has no op that enumerates it (only `file_stat_batch`, which answers about a path already in hand). What the tree shows is therefore the absolute paths this browser has actually opened for that session.
+
+**A markdown file's view mode is one last choice per session.** Kept per path it would be lost to opening a single `.ts` in between — `.ts` has no answer to "code or preview", so it must not overwrite one.
+
 ## The conversation lives on the Timeline
 
 There is no separate screen for talking to a session. **The session's own transcript is the record of the conversation**, and the screen that reads it already exists. The two directions look different in there.
@@ -99,7 +115,7 @@ A send that goes through has two successes to tell apart: handed over now, or he
 A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.
 
 - entry: the endpoint under `ccmsg.entry.url`, its token under `ccmsg.entry.token:<url>`. A token is an instance's whole entry credential, and one kept under a bare name would be handed to whichever endpoint was configured last
-- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) and an unsent draft (`ccmsg.draft:<instance>:<sid>`) are this
+- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) an unsent draft (`ccmsg.draft:<instance>:<sid>`) and what the files tab remembers (`ccmsg.files:<instance>:<sid>`) are this
 
 ## The contract validates its own frames
 

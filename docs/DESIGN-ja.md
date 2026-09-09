@@ -73,6 +73,22 @@ fold の開閉状態は fold を描く component の**外**に置く (`src/timel
 
 **閉じた fold の中身は描かない。ただし一度開いたら描き続ける**。transcript の大半は fold の中にいるので、閉じた中身まで描くと数行読むためにセッション全体を描いて (ハイライトして) しまう。逆に一度開いた中身を捨てると、閉じる操作が「開いた仕事を捨てる」意味になる。
 
+## Files: 木・本文・リンク
+
+ファイルの画面が答えるのは 3 つ — どこに何があるか (木)、その中身 (本文)、文章の中のパスがどこを指すか (リンク)。
+
+**パスの綴りがそのまま認可の面になる**。契約は `contained` をセッションの根からの相対、`workspace` / `external` を絶対で綴る (契約 `files.ts`) ので、先頭の `/` の有無だけが 3 面の区別になる。木の鍵も、記録した選択も、URL も同じ 1 本の文字列で足りるのはこのため。相対なら `contained` と決まり、**絶対パスの面は `file_stat_batch` に聞く** — `workspace` と `external` は綴りが同じで、どちらが admit するかを答えられるのは instance だけ。
+
+**木は展開時に 1 段ずつ聞く** (`dir_list`)。答えは「聞いた時点の写し」で購読ではないので、再取得は明示のボタン。断られた理由も「答えが出た」側に畳んで覚える — 覚えないと `読み込み中` の行が永遠に残る。
+
+**URL が正本**。`/s/<sid>/files?path=<p>&lines=<a>-<b>` が開いているファイルと指している行を名指しするので、リンクを送れば相手は同じものを見る。ファイルを開くことは navigation で、行は `path` に入れられない (パスは `/` を含む) ため query に置く。**行の名指しは記録より強い** — リンクを送った人は行を指しているので、覚えていた表示モードもスクロール位置も譲る。
+
+**続きは読めない**。`file_read` は instance の読み取り上限 (512KiB) までを答えて `truncated` を立てるだけで、offset を渡す引数を契約が持たない (契約 `files.ts`)。だから先頭だけを出し、なぜここで切れているかをバナーで言う。黙って切ると「そういうファイル」に見える。
+
+**プロジェクト外は履歴であって一覧ではない**。`external` の許可集合はセッションの transcript が名指したファイルで、契約にそれを列挙する op は無い (手元のパスについて admit するかを答える `file_stat_batch` だけ)。なので木に出るのは、このブラウザがそのセッションで実際に開いた絶対パスになる。
+
+**markdown の表示モードはセッション単位の「最後の選択」**。パスごとに持つと、間に `.ts` を 1 つ開いただけで選択が消える (`.ts` に「コードかプレビューか」の答えは無いので、上書きさせない)。
+
 ## 会話は Timeline の上にある
 
 人がセッションに話しかけ、返事を読む画面は別に作らない。**会話の正本はセッションの transcript** で、それを読む画面は既にあるため。往復の 2 方向は transcript の中で違う形をしている。
@@ -99,7 +115,7 @@ composer が有効なのは、instance が今つながっていると言って�
 ブラウザの store はサイトに 1 つで、1 人が複数の instance に届く。だから **instance に属するものは instance を名前に含める**。
 
 - entry: endpoint 自体は `ccmsg.entry.url`、token は `ccmsg.entry.token:<url>`。token は instance の入口資格そのものなので、素の名前で持つと最後に設定した endpoint の値を別の instance に渡しうる
-- session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない。Timeline の「自動で開く」設定 (`ccmsg.tl.autoOpen:...`) と、書きかけの本文 (`ccmsg.draft:<instance>:<sid>`) がこれ
+- session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない。Timeline の「自動で開く」設定 (`ccmsg.tl.autoOpen:...`) 、書きかけの本文 (`ccmsg.draft:<instance>:<sid>`)、Files タブが覚えている選択 (`ccmsg.files:<instance>:<sid>`) がこれ
 
 ## 契約の検証は契約の検証器で
 

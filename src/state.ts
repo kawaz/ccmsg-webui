@@ -15,6 +15,13 @@ import type {
   TopicName,
 } from "@ccmsg/protocol";
 import { type ConnectionStatus, Connection } from "./connection.ts";
+import { type FilesMemory, FilesView } from "./files/files-view.ts";
+import {
+  type FilesRecord,
+  filesStorageKey,
+  formatFilesRecord,
+  parseFilesRecord,
+} from "./files/files-store.ts";
 import { parseRoute, type Route, routePath } from "./route.ts";
 import { type Entry, completeEntry, loadEntry, localStore, saveEntry } from "./settings.ts";
 import {
@@ -68,7 +75,7 @@ const agentSlots = signal<readonly Slot<AgentsData>[]>([]);
 const errorSlots = signal<readonly Slot<ErrorsData>[]>([]);
 
 export const sortKey = signal<SortKey>(loadSortKey());
-export const route = signal<Route>(parseRoute(location.pathname));
+export const route = signal<Route>(parseRoute(location.pathname, location.search));
 
 export const peers = computed<readonly PeerInfo[]>(() =>
   sortPeers(union(peerSlots.value, "peers"), sortKey.value),
@@ -167,7 +174,10 @@ export const connection = new Connection({
     statusDetail.value = detail;
     // A settled greeting is the first moment a request can be made, which is
     // what a timeline opened before the connection was waiting for.
-    if (next === "open") transcript.peek()?.ensureFirstPage();
+    if (next === "open") {
+      transcript.peek()?.ensureFirstPage();
+      files.peek()?.start();
+    }
     // What an instance said stops being current the moment it stops speaking,
     // so a dropped connection empties the lists rather than leaving them to be
     // read as live.
@@ -180,6 +190,10 @@ export const connection = new Connection({
       // 時点で古い。畳まずに捨てる。
       notifications.value = [];
       toast.value = undefined;
+      // 木もファイル本文も「聞いた時点の写し」なので、話し相手が居なくなったら
+      // 次に繋がった時に取り直す (捨てはしない — 読んでいた画面が空になるより、
+      // 古いと分かる形で残る方がよい)。
+      files.peek()?.dropped();
     }
   },
   greeted(result) {
@@ -250,6 +264,67 @@ effect(() => {
   view.open();
 });
 
+/** The files tab's state for the session the URL names, or nothing when the URL
+ * names another tab. Made and dropped by the same rule the transcript is. */
+export const files = signal<FilesView | undefined>(undefined);
+
+/** How one session's files record is read and written.
+ *
+ * The key names the instance, so nothing is stored before it has greeted: a
+ * session id alone names a session on no particular instance, and a record
+ * written under a guess would be read back for the wrong one. */
+export function filesMemory(sid: Sid): FilesMemory {
+  const key = (): string | undefined => {
+    const instance = hello.value?.instance;
+    return instance === undefined ? undefined : filesStorageKey(instance, sid);
+  };
+  return {
+    read(): FilesRecord {
+      const at = key();
+      return at === undefined ? {} : parseFilesRecord(localStore.get(at));
+    },
+    write(record: FilesRecord): void {
+      const at = key();
+      if (at !== undefined) localStore.set(at, formatFilesRecord(record));
+    },
+  };
+}
+
+effect(() => {
+  const at = route.value;
+  const wanted = at.at === "session" && at.tab === "files" ? at.sid : undefined;
+  const held = files.peek();
+  if (held?.sid !== wanted) {
+    files.value =
+      wanted === undefined ? undefined : new FilesView(connection, wanted, filesMemory(wanted));
+    if (wanted !== undefined && status.peek() === "open") files.peek()?.start();
+  }
+  if (at.at !== "session" || at.tab !== "files") return;
+  files.peek()?.show(at.path);
+});
+
+// Entering the files tab without a file named opens the one that was open
+// last, and says so in the URL — what is on screen and what the address bar
+// says are the same thing everywhere else in this app, and a restored file is
+// no exception. Nothing happens before the instance has greeted: that is when
+// there is a key to read the record under.
+effect(() => {
+  const at = route.value;
+  const instance = hello.value?.instance;
+  if (at.at !== "session" || at.tab !== "files" || at.path !== undefined) return;
+  if (instance === undefined) return;
+  const stored = filesMemory(at.sid).read().path;
+  if (stored !== undefined) navigate({ ...at, path: stored }, { replace: true });
+});
+
+/** Where one session works, as the instance last said. What resolves a path
+ * written in a transcript into the path this build opens. */
+export function sessionPaths(sid: Sid): { cwd?: string; root?: string } {
+  const peer = peers.value.find((one) => one.sid === sid);
+  if (peer === undefined) return {};
+  return { cwd: peer.cwd, ...(peer.repo_root === undefined ? {} : { root: peer.repo_root }) };
+}
+
 // The settings a session was last read with, once there is an instance to key
 // them on. Read rather than written here: a look at a session neither creates
 // nor migrates a stored value.
@@ -292,13 +367,20 @@ function loadSortKey(): SortKey {
   return held !== undefined && isSortKey(held) ? held : "user_input";
 }
 
-export function navigate(next: Route): void {
+/** Move to another place in the app.
+ *
+ * `replace` is for a move the person did not ask for — restoring the file that
+ * was open when the tab is entered without one named — so the back button does
+ * not have to walk through the app's own bookkeeping. */
+export function navigate(next: Route, options?: { replace?: boolean }): void {
   route.value = next;
-  history.pushState(null, "", routePath(next));
+  const path = routePath(next);
+  if (options?.replace === true) history.replaceState(null, "", path);
+  else history.pushState(null, "", path);
 }
 
 export function adoptLocation(): void {
-  route.value = parseRoute(location.pathname);
+  route.value = parseRoute(location.pathname, location.search);
 }
 
 /** 人からセッションへ 1 通送る。

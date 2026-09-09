@@ -613,3 +613,357 @@ select {
   border-radius: var(--radius);
   color: var(--muted);
 }
+
+/* ---- タブ ---- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 var(--gap);
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs a {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.tabs a:hover {
+  color: var(--text);
+}
+
+.tabs a.on {
+  border-color: var(--border);
+  margin-bottom: -1px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ---- Markdown の見出しセクション ---- */
+
+/* 折り畳みのキャレットは見出しの左の溝に置く。溝は常に空けてあり、開閉で
+ * 本文の左端が動かない (動くと読んでいる行が横に跳ねる)。 */
+.md-sections .md-sec {
+  --md-sec-gutter: 18px;
+}
+
+.md-sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: calc(-1 * var(--md-sec-gutter, 18px));
+}
+
+.md-sec-caret-wrap {
+  position: relative;
+  flex: 0 0 var(--md-sec-gutter, 18px);
+  align-self: stretch;
+}
+
+.md-sec-caret {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.md-sec-caret::before {
+  content: "▾";
+}
+
+.md-sec-closed > .md-sec-head .md-sec-caret::before {
+  content: "▸";
+}
+
+.md-sec-caret:hover {
+  color: var(--text);
+}
+
+.md-sec-menu {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+}
+
+.md-sec-menu button {
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.md-sec-menu button:hover {
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.md-sec-body {
+  display: flex;
+  gap: 4px;
+  margin-left: calc(-1 * var(--md-sec-gutter, 18px));
+}
+
+/* 開いている間、見出しの下に伸びる縦線がそのまま「閉じる」ボタンになる
+ * (Timeline の .tl-fold-guide と同じ扱い)。 */
+.md-sec-guide {
+  flex: 0 0 var(--md-sec-gutter, 18px);
+  padding: 0;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+}
+
+.md-sec-guide:hover {
+  border-right-color: var(--accent);
+}
+
+.md-sec-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.md-sec-closed > .md-sec-body {
+  display: none;
+}
+
+/* ---- Markdown の目次 ---- */
+
+.md-toc {
+  margin: 0 0 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.md-toc > summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.md-toc ol {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-toc li {
+  padding-left: calc(var(--md-toc-depth, 0) * 12px);
+}
+
+.md-toc a {
+  display: flex;
+  gap: 6px;
+  padding: 1px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.md-toc a:hover {
+  color: var(--accent);
+}
+
+.md-toc-number {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.md-toc-depth-2 > a {
+  font-weight: 600;
+}
+
+/* transcript や文書の中から、このセッションのファイルを開くリンク */
+.md-path-link {
+  color: var(--accent);
+  text-decoration-style: dotted;
+}
+
+/* ---- Files タブ ---- */
+
+.files-panes {
+  display: flex;
+  min-height: 0;
+  gap: var(--gap);
+}
+
+.files-tree {
+  overflow: auto;
+  flex: 0 0 clamp(180px, 30%, 320px);
+  max-height: 70vh;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.files-section {
+  margin: 8px 8px 2px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.files-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 8px 2px calc(6px + var(--files-depth, 0) * 12px);
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.files-row:hover {
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.files-row-on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.files-caret {
+  flex: 0 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.files-glyph {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.files-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-note {
+  margin: 2px 0;
+  padding-left: calc(20px + var(--files-depth, 0) * 12px);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.files-note.error {
+  color: var(--danger);
+}
+
+.files-viewer {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.viewer-head,
+.viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.viewer-path {
+  overflow-wrap: anywhere;
+  flex: 1;
+}
+
+.viewer-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.viewer-kind {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.viewer-modes {
+  display: flex;
+  margin-left: auto;
+  gap: 4px;
+}
+
+.viewer-modes button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viewer-scroll {
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.viewer-preview {
+  padding: 10px 12px;
+}
+
+.viewer-body {
+  margin: 0;
+  padding: 6px 0;
+}
+
+.viewer-line {
+  display: flex;
+  gap: 10px;
+  padding: 0 8px;
+  white-space: pre;
+}
+
+.viewer-line-on {
+  background: color-mix(in srgb, var(--waiting) 22%, transparent);
+}
+
+.viewer-lineno {
+  flex: 0 0 auto;
+  min-width: 3.5ch;
+  color: var(--muted);
+  text-align: right;
+  user-select: none;
+}
+
+.viewer-text {
+  flex: 1;
+}
+
+@media (width <= 720px) {
+  .files-panes {
+    flex-direction: column;
+  }
+
+  .files-tree {
+    flex: none;
+    max-height: 40vh;
+  }
+}

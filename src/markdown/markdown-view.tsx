@@ -34,7 +34,7 @@ import type {
   Text,
 } from "mdast";
 import { CodeBlock } from "../ui/CodeBlock.tsx";
-import { classifyMarkdownLinkUrl, isSafeUrl } from "./markdown-link.ts";
+import { classifyMarkdownLinkUrl, type FilePathRef, isSafeUrl } from "./markdown-link.ts";
 import { FoldOpen } from "../timeline/fold-open.ts";
 
 /** `location.origin`, or `null` where there is no `location` (unit tests
@@ -167,9 +167,26 @@ export function extractTaskStates(root: Root): boolean[] {
   return states;
 }
 
+/** Where a path-shaped link goes, once something in this build can open one.
+ *
+ * `href` is a real URL so the browser's own affordances (middle click, open in
+ * a new tab, the status bar) keep working; `onClick` is how the app takes the
+ * plain click back, since routing here is `history.pushState` and a full
+ * navigation would reload the page. */
+export interface MarkdownPathLink {
+  readonly href: string;
+  readonly onClick?: (event: MouseEvent) => void;
+}
+
+/** Answers where one file reference opens, or nothing when it opens nowhere —
+ * which is every caller that shows no files, and any reference that cannot be
+ * resolved against the session that wrote it. */
+export type MarkdownPathLinker = (ref: FilePathRef) => MarkdownPathLink | undefined;
+
 interface MarkdownRenderCtx {
   headings?: readonly MarkdownHeading[];
   headingIndex: number;
+  pathLinker?: MarkdownPathLinker;
   /** Interactive GFM task lists. When set, every task item renders as a real
    * `<input type="checkbox">` whose click reports the item's document-order
    * ordinal back to the caller, which owns the file write. Absent (every
@@ -498,14 +515,23 @@ function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode |
         return <span key={key}>{label}</span>;
       }
       if (target.kind === "path") {
-        // A repo-relative or absolute path the author meant as a file. Nothing
-        // here opens files yet, and a path-shaped target that navigates this
-        // origin instead leads away from the app with no way back — so it is
-        // shown as its own text, with the target as the tooltip.
+        // A repo-relative or absolute path the author meant as a file. It opens
+        // where the caller says files open; a caller that shows none, or a
+        // reference that resolves against nothing, leaves it as its own text
+        // with the target as the tooltip — a path-shaped `href` on this origin
+        // would navigate away from the app with no way back.
+        const to = ctx.pathLinker?.(target.ref);
+        if (to === undefined) {
+          return (
+            <span key={key} title={link.url}>
+              {label}
+            </span>
+          );
+        }
         return (
-          <span key={key} title={link.url}>
+          <a key={key} class="md-path-link" href={to.href} title={link.url} onClick={to.onClick}>
             {label}
-          </span>
+          </a>
         );
       }
       if (target.kind === "anchor" || target.kind === "internal") {
@@ -540,7 +566,22 @@ function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode |
       const image = node as Image;
       const label = image.alt || image.url;
       const target = classifyMarkdownLinkUrl(image.url, currentOrigin());
-      if (target.kind === "disarm" || target.kind === "path") {
+      if (target.kind === "path") {
+        // An image whose source is a repository file. It is not fetched — the
+        // rationale above stands whatever the path is — but it does name a file
+        // this build can show, so it opens there like any other path link.
+        const to = ctx.pathLinker?.(target.ref);
+        return to === undefined ? (
+          <span key={key} title={image.url}>
+            🖼 {label}
+          </span>
+        ) : (
+          <a key={key} class="md-image-link" href={to.href} title={image.url} onClick={to.onClick}>
+            🖼 {label}
+          </a>
+        );
+      }
+      if (target.kind === "disarm") {
         return (
           <span key={key} title={image.url}>
             🖼 {label}
@@ -1170,7 +1211,7 @@ export function parseMarkdownDocument(source: string): Root {
  * The output is wrapped in `<div class="md md-restricted">`; `.md-restricted`
  * applies `white-space: pre-wrap` so bare newlines in the user's message
  * render as line breaks (matching how the composer showed them). */
-export function renderRestrictedMarkdown(source: string): VNode {
+export function renderRestrictedMarkdown(source: string, pathLinker?: MarkdownPathLinker): VNode {
   const lines = source.split("\n");
   const blocks: (VNode | string)[] = [];
   let key = 0;
@@ -1182,7 +1223,7 @@ export function renderRestrictedMarkdown(source: string): VNode {
     pending = [];
     blocks.push(
       <span class="md-restricted-text" key={`b${key++}`}>
-        {renderRestrictedInline(text, `b${key}`)}
+        {renderRestrictedInline(text, `b${key}`, pathLinker)}
       </span>,
     );
   };
@@ -1214,7 +1255,9 @@ export function renderRestrictedMarkdown(source: string): VNode {
       const text = quoted.join("\n");
       blocks.push(
         <blockquote key={`b${key++}`}>
-          <span class="md-restricted-text">{renderRestrictedInline(text, `b${key}`)}</span>
+          <span class="md-restricted-text">
+            {renderRestrictedInline(text, `b${key}`, pathLinker)}
+          </span>
         </blockquote>,
       );
       continue;
@@ -1241,7 +1284,11 @@ export function renderRestrictedMarkdown(source: string): VNode {
  * A backtick or `[` with no matching pair on the same string is left
  * verbatim (no swallowing). Scanning is left-to-right with `lastIndex`
  * tracked manually so each character is claimed by at most one token. */
-function renderRestrictedInline(text: string, keyPrefix: string): (VNode | string)[] {
+function renderRestrictedInline(
+  text: string,
+  keyPrefix: string,
+  pathLinker?: MarkdownPathLinker,
+): (VNode | string)[] {
   // Match either `code` OR [text](url). Alternation is left-to-right so a
   // literal `[foo](bar)` inside `code` stays inside the code span (the
   // backtick match wins first at that position).
@@ -1264,7 +1311,7 @@ function renderRestrictedInline(text: string, keyPrefix: string): (VNode | strin
     } else {
       const label = m[2] ?? "";
       const url = m[3] ?? "";
-      out.push(renderRestrictedLink(label, url, `${keyPrefix}l${n++}`));
+      out.push(renderRestrictedLink(label, url, `${keyPrefix}l${n++}`, pathLinker));
     }
     last = m.index + m[0].length;
   }
@@ -1276,13 +1323,24 @@ function renderRestrictedInline(text: string, keyPrefix: string): (VNode | strin
  * subset of the full renderer's `link` case (the URL scheme allowlist), minus
  * the mdast child recursion — a restricted link's label is always the plain
  * text tokenized above. */
-function renderRestrictedLink(label: string, url: string, key: string): VNode {
+function renderRestrictedLink(
+  label: string,
+  url: string,
+  key: string,
+  pathLinker?: MarkdownPathLinker,
+): VNode {
   const target = classifyMarkdownLinkUrl(url, currentOrigin());
-  // A path a person typed names a file nothing here opens, so it renders inert
-  // rather than navigating this origin. Disarm and path collapse to the same
-  // output here.
+  // A path a person typed opens where the caller says files open. With no such
+  // caller it renders inert rather than navigating this origin.
   if (target.kind === "path") {
-    return <span key={key}>{label || url}</span>;
+    const to = pathLinker?.(target.ref);
+    return to === undefined ? (
+      <span key={key}>{label || url}</span>
+    ) : (
+      <a key={key} class="md-path-link" href={to.href} title={url} onClick={to.onClick}>
+        {label || url}
+      </a>
+    );
   }
   if (target.kind === "disarm") {
     // Drop the `<a>` entirely but keep the label visible so the reader isn't
@@ -1313,6 +1371,7 @@ export function renderMarkdownAst(
   headings?: readonly MarkdownHeading[],
   opts?: {
     taskList?: MarkdownTaskListCtx;
+    pathLinker?: MarkdownPathLinker;
     /** Marks the root for the section-fold layout (the caret gutter). The tree
      * itself is folded by `foldMarkdownSections` before it gets here — this
      * only tells CSS which layout the children were built for. */
@@ -1323,6 +1382,7 @@ export function renderMarkdownAst(
     headings,
     headingIndex: 0,
     taskList: opts?.taskList,
+    pathLinker: opts?.pathLinker,
     taskIndex: 0,
   };
   return (
@@ -1341,6 +1401,7 @@ export function MarkdownView({
   tableOfContents = false,
   restricted = false,
   taskList,
+  pathLinker,
   foldSections = false,
 }: {
   source: string;
@@ -1355,6 +1416,10 @@ export function MarkdownView({
   /** Interactive task lists. A message body has no file behind it to write a
    * toggle back to, so only a view of a writable document passes this. */
   taskList?: MarkdownTaskListCtx;
+  /** Where a path-shaped link opens. A screen that shows files answers this;
+   * one that does not leaves such links inert (see the `path` case of
+   * `renderNode`). */
+  pathLinker?: MarkdownPathLinker;
   /** Collapsible `##`-and-deeper sections. A turn in a timeline is a message,
    * not a document — its headings are a few lines apart and a caret per heading
    * would be noise — so only a view of a document asks for them. */
@@ -1366,7 +1431,7 @@ export function MarkdownView({
   const sectionFold = foldSections && !restricted;
   const sectionStore = useMemo(() => new FoldOpen(), [source, sectionFold]);
   return useMemo(() => {
-    if (restricted) return renderRestrictedMarkdown(source);
+    if (restricted) return renderRestrictedMarkdown(source, pathLinker);
     const parsed = parseMarkdownDocument(source);
     const headings = tableOfContents ? extractMarkdownHeadings(parsed) : [];
     const root = sectionFold
@@ -1374,6 +1439,7 @@ export function MarkdownView({
       : parsed;
     const markdown = renderMarkdownAst(root, tableOfContents ? headings : undefined, {
       taskList,
+      pathLinker,
       sections: sectionFold,
     });
     const withFold = sectionFold ? (
@@ -1419,5 +1485,5 @@ export function MarkdownView({
         {withFold}
       </div>
     );
-  }, [source, tableOfContents, restricted, taskList, sectionFold, sectionStore]);
+  }, [source, tableOfContents, restricted, taskList, pathLinker, sectionFold, sectionStore]);
 }

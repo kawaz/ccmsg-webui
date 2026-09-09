@@ -1,5 +1,8 @@
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { createContext } from "preact";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import type { Sid } from "@ccmsg/protocol";
+import { filesRouteFor } from "../files/path-link.ts";
+import { routePath } from "../route.ts";
 import { foldGroupKey } from "../timeline/fold-tree.ts";
 import { foldGroupShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
 import type { TimelineAutoOpenSettings } from "../timeline/timeline-auto-open.ts";
@@ -16,12 +19,13 @@ import {
   navigate,
   notifications,
   peers,
+  sessionPaths,
   timelineAutoOpen,
   timelineFolds,
   toggleTimelineAutoOpenSetting,
   transcript,
 } from "../state.ts";
-import { MarkdownView } from "../markdown/markdown-view.tsx";
+import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
 import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 
@@ -35,6 +39,36 @@ import { Fold } from "./Fold.tsx";
 /** How close to an edge counts as being at it. A few pixels, since a wheel
  * rarely lands exactly on the end and a fractional device pixel never does. */
 const EDGE_PX = 24;
+
+/** Where a path written in this transcript opens.
+ *
+ * Carried in a context rather than handed down: every level between the
+ * timeline and the text that contains a path would otherwise take a prop it
+ * does nothing with, and the value has to keep its identity across renders
+ * anyway (MarkdownView re-renders its document when it changes). */
+const PathLinkerContext = createContext<MarkdownPathLinker | undefined>(undefined);
+
+/** A relative path in a message body is read against the session's working
+ * directory — the directory the session itself would have read it in. */
+function useTimelinePathLinker(sid: Sid): MarkdownPathLinker | undefined {
+  const session = sessionPaths(sid);
+  const { cwd, root } = session;
+  return useMemo(() => {
+    const from = { ...(cwd === undefined ? {} : { cwd }), ...(root === undefined ? {} : { root }) };
+    return (ref) => {
+      const to = filesRouteFor(sid, ref, from);
+      if (to === undefined) return undefined;
+      return {
+        href: routePath(to),
+        onClick(event: MouseEvent) {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+          event.preventDefault();
+          navigate(to);
+        },
+      };
+    };
+  }, [sid, cwd, root]);
+}
 /** How far from the top an older page is asked for — before the top, so the
  * page is usually there by the time it is reached. */
 const REACH_PX = 400;
@@ -103,51 +137,54 @@ function TimelineBody({ view }: { view: TranscriptView }) {
     if (element.scrollTop <= REACH_PX) void view.readOlder();
   };
 
+  const pathLinker = useTimelinePathLinker(view.sid);
   return (
-    <section class="section timeline">
-      <h2>
-        transcript — {held.lines.length} 行 / {held.start}–{held.end} バイト
-      </h2>
-      <AutoOpenBar />
-      {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
-      <div class="tl-scroll" ref={scroller} onScroll={onScroll}>
-        <p class="empty tl-edge">
-          {view.atBeginning.value
-            ? "— 先頭 —"
-            : view.loading.value
-              ? "読み込み中…"
-              : "上にスクロールすると遡ります"}
-        </p>
-        {groups.map((group, index) => (
-          <GroupView key={groupKey(group, index)} group={group} />
-        ))}
-        {groups.length === 0 && !view.loading.value && (
-          <p class="empty">まだ transcript がありません。</p>
-        )}
-        {notifications.value
-          .filter((held) => held.notification.sid === view.sid)
-          .map((held) => (
-            <div key={held.key} class="tl-bubble notice">
-              <span class="tl-who">通知</span>
-              <div class="tl-body">
-                <MarkdownView source={held.notification.text} />
-                <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
-              </div>
-            </div>
+    <PathLinkerContext.Provider value={pathLinker}>
+      <section class="section timeline">
+        <h2>
+          transcript — {held.lines.length} 行 / {held.start}–{held.end} バイト
+        </h2>
+        <AutoOpenBar />
+        {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
+        <div class="tl-scroll" ref={scroller} onScroll={onScroll}>
+          <p class="empty tl-edge">
+            {view.atBeginning.value
+              ? "— 先頭 —"
+              : view.loading.value
+                ? "読み込み中…"
+                : "上にスクロールすると遡ります"}
+          </p>
+          {groups.map((group, index) => (
+            <GroupView key={groupKey(group, index)} group={group} />
           ))}
-      </div>
-      <Composer sid={view.sid} {...sendability(view.sid)} />
-      <p class="footer">
-        <button
-          type="button"
-          onClick={() => {
-            navigate({ at: "sessions" });
-          }}
-        >
-          一覧に戻る
-        </button>
-      </p>
-    </section>
+          {groups.length === 0 && !view.loading.value && (
+            <p class="empty">まだ transcript がありません。</p>
+          )}
+          {notifications.value
+            .filter((held) => held.notification.sid === view.sid)
+            .map((held) => (
+              <div key={held.key} class="tl-bubble notice">
+                <span class="tl-who">通知</span>
+                <div class="tl-body">
+                  <MarkdownView source={held.notification.text} pathLinker={pathLinker} />
+                  <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+                </div>
+              </div>
+            ))}
+        </div>
+        <Composer sid={view.sid} {...sendability(view.sid)} />
+        <p class="footer">
+          <button
+            type="button"
+            onClick={() => {
+              navigate({ at: "sessions" });
+            }}
+          >
+            一覧に戻る
+          </button>
+        </p>
+      </section>
+    </PathLinkerContext.Provider>
   );
 }
 
@@ -213,6 +250,7 @@ function GroupView({ group }: { group: TimelineGroup }) {
 }
 
 function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
+  const pathLinker = useContext(PathLinkerContext);
   if (line.kind === "broken") {
     return (
       <div class="tl-line broken">
@@ -240,7 +278,7 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
           <div key={index} class="tl-bubble incoming">
             <span class="tl-who">{message.fromLabel}</span>
             <div class="tl-body">
-              <MarkdownView source={message.text} restricted />
+              <MarkdownView source={message.text} restricted pathLinker={pathLinker} />
             </div>
           </div>
         ))}
@@ -281,11 +319,12 @@ function SegmentView({
   segmentKey: string;
   restricted: boolean;
 }) {
+  const pathLinker = useContext(PathLinkerContext);
   switch (segment.kind) {
     case "text":
       return (
         <div class="tl-text">
-          <MarkdownView source={segment.text} restricted={restricted} />
+          <MarkdownView source={segment.text} restricted={restricted} pathLinker={pathLinker} />
         </div>
       );
     case "thinking":
@@ -298,7 +337,7 @@ function SegmentView({
           summary={`思考 (${segment.text.length} 文字)`}
         >
           <div class="tl-text">
-            <MarkdownView source={segment.text} />
+            <MarkdownView source={segment.text} pathLinker={pathLinker} />
           </div>
         </Fold>
       );
@@ -323,7 +362,7 @@ function SegmentView({
           <div class="tl-bubble reply">
             <span class="tl-who">{reply.to === undefined ? "→ 人" : `→ ${reply.to}`}</span>
             <div class="tl-body">
-              <MarkdownView source={reply.text} />
+              <MarkdownView source={reply.text} pathLinker={pathLinker} />
             </div>
           </div>
         );
