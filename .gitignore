@@ -2,3 +2,5 @@ node_modules/
 dist/
 # lock は bun.lock。npm publish 系コマンドが副産物として作るものは捨てる
 package-lock.json
+# playwright-cli が実機検証中に吐く snapshot / console ログ
+.playwright-cli/

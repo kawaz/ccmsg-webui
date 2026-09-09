@@ -1109,3 +1109,52 @@ select {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+/* 認証の画面: 人が「今なにを許そうとしているか」を読んでから 1 つ押す所。
+   一覧のような密度ではなく、行を離して読ませる。 */
+.auth {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth label input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.auth-claims {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.auth-claims dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-claims dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}

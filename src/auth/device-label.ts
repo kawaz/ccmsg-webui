@@ -30,7 +30,9 @@ export function defaultDeviceLabel(userAgent: string): string {
           ? "Opera"
           : /\bFirefox\//.test(userAgent)
             ? "Firefox"
-            : /\bChrome\//.test(userAgent)
+            : // Not anchored at a word boundary: the Chromium builds that
+              // spell it "HeadlessChrome/" are the same browser to a person.
+              /Chrome\//.test(userAgent)
               ? "Chrome"
               : /\bSafari\//.test(userAgent)
                 ? "Safari"

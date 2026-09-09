@@ -66,7 +66,7 @@ export function Register() {
         />
       </label>
       {authProblem.value !== undefined && <p class="banner">{authProblem.value}</p>}
-      <p class="row">
+      <p class="auth-actions">
         <button
           type="button"
           disabled={!ready}

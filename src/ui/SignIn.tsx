@@ -17,7 +17,7 @@ export function SignIn() {
         <code>{endpoint.value}</code> に繋ぐには passkey が要ります。
       </p>
       {authProblem.value !== undefined && <p class="banner">{authProblem.value}</p>}
-      <p class="row">
+      <p class="auth-actions">
         <button
           type="button"
           disabled={working.value}
