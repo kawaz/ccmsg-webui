@@ -8,7 +8,7 @@
 
 daemon はこのページを配信しない。ページは自分の origin を持つ静的サイトで、daemon が提供するのは WS の API だけになる。この非対称が設計の起点で、次の 3 つがそこから出る。
 
-- **接続先を推測できない**。ページの出所は daemon と無関係なので、endpoint も entry token も人が与える (`src/settings.ts`)
+- **接続先を推測できない**。ページの出所は daemon と無関係なので、endpoint は人が与える (`src/settings.ts`)。誰が来たかに答えるのは passkey (下記「人の認証」)
 - **入口の許可は daemon の設定**。origin の許可集合に入っていなければ handshake は 403 で、ブラウザにはその番号が見えない (下記「観測できないもの」)
 - **世代が違えば話さない**。互換経路は持たず、リロードを促す (契約「版と互換」)
 
@@ -134,11 +134,30 @@ composer が有効なのは、instance が今つながっていると言って�
 
 `topic-fold.ts` に `element` の畳み方は足していない。畳む相手が無いのが 1 つ、契約の `InboxMessage` に削除を表す印が無いのがもう 1 つ — `element` 粒度は「削除は印付きの要素で来る」と定めているが、`inbox` の payload にその印を書く場所が無い。畳み方だけ先に用意しても、何を消すかを書けない。
 
+## 人の認証 (passkey)
+
+正本は daemon の DR-0001。ここに書くのは **ページが何をどこに持つか**だけ。
+
+| もの | 置き場 | 理由 |
+|---|---|---|
+| access token | **ページのメモリだけ** (`src/auth/session.ts`) | WS を開ける秘密。store に置けば、この origin で走る全ての script が読める |
+| refresh token | **httpOnly cookie** (ページからは読めない) | 読み書きするのは instance で、ページは「送られること」しか関与しない |
+| endpoint URL | localStorage (`ccmsg.entry.url`) | 住所であって秘密ではない |
+| passkey の rp_id | localStorage (`ccmsg.auth.rp:<url>`) | 登録が決めたドメイン。ページの出所から推測すると、別サブドメインに置いた時に「そこでは作っていない passkey」を求めることになる |
+
+流れは 3 つに分かれ、入口は全て endpoint の `/auth/*` (`src/auth/client.ts`)。ルートはパスの末尾で照合されるので、socket の URL から `/ws` を落として `/auth/<name>` を継ぐだけで引ける (`src/auth/endpoint.ts`)。
+
+- **登録**: `#register=<token>` を持って来た時だけ (`src/auth/register-link.ts`)。claims は表示のためだけに読む (署名を検証できるのは発行 instance だけ)。**6 桁のコードは URL に無い** ので入力させる — URL とコードが別経路で届くことが、URL が漏れても登録にならない根拠。端末ラベルは UA から埋めて人が書き換える (`src/auth/device-label.ts`)
+- **認証**: access が無ければまず refresh cookie を試し、それも無ければ passkey の画面を出す。credential は名指ししない (resident な passkey が user handle で答え、誰かを引くのは instance の仕事)
+- **期限の延長**: `hello` の `auth_expires_at` が接続の期限。残り 10% で `/auth/refresh` → 同じ接続の上で `auth_refresh`。**繋ぎ直さない** — 数時間ごとに画面が瞬く理由が無い
+
+再接続のたびに token を「取りに行く」形にしてある (`Connection` は値ではなく `TokenSource` を持つ)。切れた接続の向こう側で token が期限切れになっていても、その 1 箇所が refresh に落ちるだけで、他はそれを知らない。取れなければ認証の画面が出て、そこからしか戻れない。
+
 ## localStorage のキー規律
 
 ブラウザの store はサイトに 1 つで、1 人が複数の instance に届く。だから **instance に属するものは instance を名前に含める**。
 
-- entry: endpoint 自体は `ccmsg.entry.url`、token は `ccmsg.entry.token:<url>`。token は instance の入口資格そのものなので、素の名前で持つと最後に設定した endpoint の値を別の instance に渡しうる
+- entry: endpoint 自体は `ccmsg.entry.url`。instance に属するものは `ccmsg.auth.rp:<url>` のように url を鍵に含める (素の名前で持つと、最後に設定した endpoint の値を別の instance に渡しうる)。**秘密はここに置かない** (上記「人の認証」)
 - session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない。Timeline の「自動で開く」設定 (`ccmsg.tl.autoOpen:...`) 、書きかけの本文 (`ccmsg.draft:<instance>:<sid>`)、Files タブが覚えている選択 (`ccmsg.files:<instance>:<sid>`) がこれ
 
 ## 契約の検証は契約の検証器で
@@ -153,7 +172,7 @@ status 自体は消えているわけではなく、**ブラウザの console �
 
 ## 契約に無いもの
 
-entry token を運ぶ subprotocol の接頭辞 (`ccmsg.token.`) は契約ではなく daemon の入口ポリシー (daemon §3.1) にある。`@ccmsg/protocol` は export しないので `src/connection.ts` に定数として置いてある。
+access token を運ぶ subprotocol の接頭辞 (`ccmsg.token.`) と `/auth/*` のパスは、契約ではなく daemon の入口ポリシー (daemon §3.1、DR-0001 §2.7) にある。`@ccmsg/protocol` は export しないので `src/connection.ts` と `src/auth/endpoint.ts` に置いてある。
 
 ## ビルド
 
