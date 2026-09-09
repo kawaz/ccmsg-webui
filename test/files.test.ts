@@ -132,6 +132,17 @@ describe("URL の path / lines", () => {
     });
   });
 
+  test("絶対パスは先頭の / を保ったまま読める", () => {
+    const pathOf = (route: ReturnType<typeof parseRoute>): string | undefined =>
+      route.at === "session" ? route.path : undefined;
+    // 相対
+    expect(pathOf(parseRoute(`/s/${SID}/files`, "?path=foo.ts"))).toBe("foo.ts");
+    // 絶対 (生の / のまま)
+    expect(pathOf(parseRoute(`/s/${SID}/files`, "?path=/tmp/foo.ts"))).toBe("/tmp/foo.ts");
+    // 絶対 (% エンコード済みの %2F)
+    expect(pathOf(parseRoute(`/s/${SID}/files`, "?path=%2Ftmp%2Ffoo.ts"))).toBe("/tmp/foo.ts");
+  });
+
   test("routePath は往復する", () => {
     const route = parseRoute(`/s/${SID}/files`, "?path=a%20b/c.md&lines=4");
     expect(route).toEqual({
