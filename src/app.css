@@ -1059,3 +1059,53 @@ select {
     color: #17161a;
   }
 }
+
+/* この画面から送って、まだ渡っていない 1 通たち。届いていない事実そのものは
+ * 異常ではない (契約では inbox で待っている成功) ので、警告の赤ではなく
+ * 待ちの色で出す。 */
+.held {
+  margin: 0 0 var(--gap);
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--waiting);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.held-head {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.held-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.held-who {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.held-text {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.held-why {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.held-badge {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--waiting);
+  color: var(--bg);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

@@ -15,10 +15,15 @@ const REASONS: Readonly<Record<UndeliveredReason, string>> = {
   inbox_full: "inbox が一杯だったので、いちばん古い 1 通を落として積みました。",
 };
 
+/** 渡っていない理由だけを言う。一覧に並べる 1 行はこちらを使う (送った直後の
+ * 文と違い、代わりの送り先は既に選び終わっているため)。 */
+export function describeUndelivered(reason: UndeliveredReason | undefined): string {
+  return reason === undefined ? "inbox に積みました。" : REASONS[reason];
+}
+
 export function describeSendOutcome(result: MessageSendResult): string {
   if (result.delivered) return "届きました。";
-  const reason = result.reason;
-  const head = reason === undefined ? "inbox に積みました。" : REASONS[reason];
+  const head = describeUndelivered(result.reason);
   const candidates = result.candidates ?? [];
   if (candidates.length === 0) return head;
   const names = candidates.map((one) => one.ws ?? one.sid).join(" / ");

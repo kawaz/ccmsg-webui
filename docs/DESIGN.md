@@ -124,6 +124,16 @@ A send that goes through has two successes to tell apart: handed over now, or he
 
 Neither is a message too large to send. The contract's `MAX_FRAME_BYTES` is a ceiling **the sender keeps to**: a line over it is answered `bad_request` and the connection stays up, and all that refusal can say is that it was too big. So the line about to be sent is measured in bytes and stopped here instead (`src/frame-limit.ts`). What to do about it — split it, write it to a file — is the sender's decision, so the page suggests and does not choose.
 
+## A person cannot see an inbox
+
+The contract's `TOPIC_ATTRIBUTES` opens `inbox` to `["session", "user"]`, so a connection made as a person may subscribe. **The subscribe succeeds and no frame ever arrives** (measured against v0.0.29: `topic_subscribe` answers ok, and neither a snapshot nor a delta follows). The daemon's reason is plain — the topic carries what was said to a session, and a person is not one: the snapshot is looked up by the connection's sid, and a delivery is pushed only to connections holding the addressee's.
+
+Nor does a `peers` row carry a count of what is waiting. In this generation of the contract there is **no way for a person to learn how much an instance's inbox is holding**.
+
+What can be shown is what this page sent and has not seen handed over. The reply to `message_send` (`delivered: false` and its reason) is the only primary source there is, so it is written down at that moment and shown as a badge in the session list and a list above the timeline (`conversation/held-messages.ts`). It lives in the page's memory and goes with the connection: with no way to confirm delivery, persisting it would only manufacture stale notes about messages that have long since arrived. "Dismiss" on the list is a person deciding to stop caring, not evidence that it landed.
+
+No `element` fold was added to `topic-fold.ts`. There is nothing to fold, and the contract's `InboxMessage` carries no removal mark — `element` granularity states that a removal arrives as a marked element, and the `inbox` payload has nowhere to write that mark. A fold with no way to say what was removed is a fold written ahead of its topic.
+
 ## localStorage keys name what they belong to
 
 A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.

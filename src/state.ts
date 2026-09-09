@@ -22,6 +22,7 @@ import {
   formatFilesRecord,
   parseFilesRecord,
 } from "./files/files-store.ts";
+import { type HeldMessage, heldFromSend } from "./conversation/held-messages.ts";
 import { oversizeReason } from "./frame-limit.ts";
 import { parseRoute, type Route, routePath } from "./route.ts";
 import { type Entry, completeEntry, loadEntry, localStore, saveEntry } from "./settings.ts";
@@ -191,6 +192,9 @@ export const connection = new Connection({
       // 時点で古い。畳まずに捨てる。
       notifications.value = [];
       toast.value = undefined;
+      // 待っている 1 通は「この接続で送った」という控えなので、話し相手が
+      // 居なくなったら根拠ごと消える。
+      heldMessages.value = [];
       // 木もファイル本文も「聞いた時点の写し」なので、話し相手が居なくなったら
       // 次に繋がった時に取り直す (捨てはしない — 読んでいた画面が空になるより、
       // 古いと分かる形で残る方がよい)。
@@ -398,7 +402,23 @@ export function messageSendRefusal(sid: Sid, text: string): string | undefined {
 
 export async function sendMessage(sid: Sid, text: string): Promise<MessageSendResult> {
   const reply = await connection.request("message_send", { to: sid, text });
-  return reply as unknown as MessageSendResult;
+  const result = reply as unknown as MessageSendResult;
+  const waiting = heldFromSend(sid, text, result);
+  if (waiting !== undefined) heldMessages.value = [...heldMessages.value, waiting];
+  return result;
+}
+
+/** この画面から送って、相手にまだ渡っていない 1 通たち。
+ *
+ * ページのメモリにだけ置く。instance に問い合わせて確かめる術が無い以上
+ * (`held-messages.ts` を読む)、書き留めて残せば「もう届いているのに残って
+ * いる古い控え」を作ることになる。読み込み直したら消える方が正直。 */
+export const heldMessages = signal<readonly HeldMessage[]>([]);
+
+/** 1 通を一覧から下ろす。渡ったかどうかは分からないので、下ろすのは人の
+ * 判断 (「もう気にしなくてよい」) であって、届いた証拠ではない。 */
+export function dropHeld(key: number): void {
+  heldMessages.value = heldMessages.value.filter((one) => one.key !== key);
 }
 
 /** Drop one entry from the instance's record of sessions that were running.

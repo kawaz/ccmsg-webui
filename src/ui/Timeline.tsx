@@ -17,7 +17,11 @@ import {
 } from "../timeline/transcript-model.ts";
 import type { ParsedLine, Segment, TimelineGroup } from "../timeline/transcript-model.ts";
 import type { TranscriptView } from "../timeline/transcript-view.ts";
+import { heldFor } from "../conversation/held-messages.ts";
+import { describeUndelivered } from "../conversation/send-outcome.ts";
 import {
+  dropHeld,
+  heldMessages,
   lastLive,
   navigate,
   notifications,
@@ -184,6 +188,7 @@ function TimelineBody({ view }: { view: TranscriptView }) {
           </h2>
           <AutoOpenBar />
           <SearchBar search={search} matched={matched} onReveal={reveal} />
+          <HeldList sid={view.sid} />
           {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
           <div class="tl-scroll" ref={scroller} onScroll={onScroll} onClick={onClickIn}>
             <p class="empty tl-edge">
@@ -229,6 +234,36 @@ function TimelineBody({ view }: { view: TranscriptView }) {
         </section>
       </SearchWordsContext.Provider>
     </PathLinkerContext.Provider>
+  );
+}
+
+/** この画面から送って、まだ相手に渡っていない 1 通たち。
+ *
+ * 出せるのはここから送った分だけ。人としてつないだ接続には `inbox` の frame が
+ * 来ないので (`held-messages.ts`)、他の誰かが送った分や、渡った瞬間はここには
+ * 出ない。「消す」は届いた印ではなく、人が気にしないと決めたということ。 */
+function HeldList({ sid }: { sid: Sid }) {
+  const waiting = heldFor(heldMessages.value, sid);
+  if (waiting.length === 0) return null;
+  return (
+    <div class="held">
+      <p class="held-head">この画面から送って、まだ渡っていない {waiting.length} 通</p>
+      {waiting.map((one) => (
+        <div key={one.key} class="held-row">
+          <span class="held-who">人</span>
+          <span class="held-text">{one.text}</span>
+          <span class="held-why">{describeUndelivered(one.reason)}</span>
+          <button
+            type="button"
+            onClick={() => {
+              dropHeld(one.key);
+            }}
+          >
+            消す
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 

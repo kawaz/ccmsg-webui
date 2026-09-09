@@ -1,8 +1,10 @@
 import type { Sid } from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
+import { heldCounts } from "../conversation/held-messages.ts";
 import { sessionLabel, SORT_KEYS, SORT_LABELS, isSortKey } from "../sessions.ts";
 import {
   agents,
+  heldMessages,
   lastLive,
   navigate,
   peers,
@@ -26,6 +28,9 @@ function when(at: number | undefined): string {
 export function SessionList() {
   const errors = sessionErrors.value;
   const connected = status.value === "open";
+  // この画面から送って、まだ渡っていない数。instance の inbox の件数ではない
+  // (人には `inbox` の frame が来ない — `held-messages.ts`)。
+  const waiting = heldCounts(heldMessages.value);
 
   return (
     <>
@@ -67,6 +72,11 @@ export function SessionList() {
                 }}
               >
                 <span class="name">{sessionLabel(peer)}</span>
+                {(waiting.get(peer.sid) ?? 0) > 0 && (
+                  <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
+                    {waiting.get(peer.sid)}
+                  </span>
+                )}
                 {failure !== undefined && (
                   // The error may run to several lines; the row shows the first
                   // and the whole of it is on the title.
@@ -116,6 +126,11 @@ export function SessionList() {
           {lastLive.value.map((row) => (
             <div class="row" key={row.sid}>
               <span class="name">{sessionLabel(row)}</span>
+              {(waiting.get(row.sid) ?? 0) > 0 && (
+                <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
+                  {waiting.get(row.sid)}
+                </span>
+              )}
               {row.state !== undefined && <span class="state">{row.state}</span>}
               <span class="meta">{when(row.last_seen_at)}</span>
               <button
