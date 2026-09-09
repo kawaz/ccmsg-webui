@@ -155,7 +155,15 @@ export class TranscriptView {
   }
 
   /** Start over: a fresh fold, nothing held, and the subscription taken out and
-   * put back so the instance states again where the file ends. */
+   * put back so the instance states again where the file ends.
+   *
+   * The fold is new rather than emptied, which is what leaves the window
+   * sitting nowhere: whatever arrives next places it, so the same gap cannot be
+   * refused twice. What this costs is not paid here — an instance drops a
+   * transcript's tail when the last subscriber leaves and reads the file from
+   * scratch when one returns — so a limit on how often this may run belongs
+   * with what the instance is being asked to do, not with what the screen
+   * looks like. */
   #restart(reason: string): void {
     this.failure.value = reason;
     this.#fold = new AppendFold(this.#topic);
