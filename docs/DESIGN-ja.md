@@ -73,12 +73,33 @@ fold の開閉状態は fold を描く component の**外**に置く (`src/timel
 
 **閉じた fold の中身は描かない。ただし一度開いたら描き続ける**。transcript の大半は fold の中にいるので、閉じた中身まで描くと数行読むためにセッション全体を描いて (ハイライトして) しまう。逆に一度開いた中身を捨てると、閉じる操作が「開いた仕事を捨てる」意味になる。
 
+## 会話は Timeline の上にある
+
+人がセッションに話しかけ、返事を読む画面は別に作らない。**会話の正本はセッションの transcript** で、それを読む画面は既にあるため。往復の 2 方向は transcript の中で違う形をしている。
+
+- **人 → セッション**: `message_send { to: sid, text }`。宛先は sid ひとつで room は無い。届いた 1 通は、セッション側の user turn に `<cross-session-message>` の封筒として現れる
+- **セッション → 人**: セッションが走らせる `ccmsg reply <mid> <text>`。`--to` が無い返事は人宛で、instance がそれを通知に変えて届ける
+
+封筒の読み戻しは契約の `parseDirectDelivery` がやる。webui 側に正規表現を書くと、同じ文法の写しが 2 つになり、契約が変わっても画面は古い綴りを読み続ける。`src/timeline/transcript-model.ts` が持つのは「行の中から封筒を切り出す」ところまでで、切り出しは**次の封筒の手前で最後の閉じタグ**を採る — 契約は本文に閉じタグが literal で入っていても往復すると決めているので、最初の閉じタグで切ると本文を黙って落とす。
+
+返事の側は Bash コマンドの文字列を読む。読むのは語分割と `--name value` の並びだけで、変数展開や置換は解釈しない: 展開の結果まで読もうとすると、読めなかったものを読めたふりをすることになる。
+
+## 通知は残さない
+
+`notify` topic の frame は event 粒度で、契約は 1 通も保持しない。webui もページのメモリにしか置かず、切断で捨てる。Timeline の末尾に出る通知の吹き出しは **transcript が追いつくまでの仮の姿**で、同じ返事が transcript に現れたらそちらが正 (吹き出しは破線で、確定した行と同じ重さにしない)。どのセッションを見ていても気づけるように、topbar にも直近の 1 件をトーストで出す。
+
+## 送れない相手には送らせない
+
+composer が有効なのは、instance が今つながっていると言っているセッションだけ。止まったセッション宛の `message_send` は instance が断るので、断られてから理由を読ませるのではなく、送れないことと理由 (終了した / 居なくなった / 未接続) を先に書く。
+
+送れた場合の応答は 2 つの成功に分かれる: 今届いたか、inbox に積まれたか。積まれた方も失敗ではないので、文言は「待つ / 別のセッションに送り直す / 諦める」のどれなのかを言う (`src/conversation/send-outcome.ts`)。
+
 ## localStorage のキー規律
 
 ブラウザの store はサイトに 1 つで、1 人が複数の instance に届く。だから **instance に属するものは instance を名前に含める**。
 
 - entry: endpoint 自体は `ccmsg.entry.url`、token は `ccmsg.entry.token:<url>`。token は instance の入口資格そのものなので、素の名前で持つと最後に設定した endpoint の値を別の instance に渡しうる
-- session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない。Timeline の「自動で開く」設定 (`ccmsg.tl.autoOpen:...`) がこれ
+- session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない。Timeline の「自動で開く」設定 (`ccmsg.tl.autoOpen:...`) と、書きかけの本文 (`ccmsg.draft:<instance>:<sid>`) がこれ
 
 ## 契約の検証は契約の検証器で
 

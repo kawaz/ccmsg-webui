@@ -73,12 +73,33 @@ Whether a fold is open is held **outside** the component drawing it (`src/timeli
 
 **A closed fold's body is not drawn, but a body once drawn stays.** Most of a transcript lives inside a fold, so drawing every closed body would mean rendering — and highlighting — a whole session to show the few lines anyone is reading. Discarding a body on close would instead make closing a fold mean throwing away the work of having opened it.
 
+## The conversation lives on the Timeline
+
+There is no separate screen for talking to a session. **The session's own transcript is the record of the conversation**, and the screen that reads it already exists. The two directions look different in there.
+
+- **person to session**: `message_send { to: sid, text }`. One sid is the whole address; there is no room. What arrives shows up in the session's own user turn, wrapped in a `<cross-session-message>` envelope
+- **session to person**: the `ccmsg reply <mid> <text>` the session runs. A reply with no `--to` is for the person, and the instance turns it into a notification
+
+Reading the envelope back is the contract's `parseDirectDelivery`. A regular expression written here would be a second copy of the same grammar, and the screen would keep reading the old spelling after the contract moved. What `src/timeline/transcript-model.ts` holds is cutting an envelope out of a line, and the cut takes **the last closing tag before the next envelope** — the contract states that a body containing a closing tag round-trips, so cutting at the first one would silently drop part of what was said.
+
+The reply side reads a Bash command string. It reads word splitting and `--name value` and nothing else: interpreting expansions would mean claiming to have read what it did not.
+
+## Nothing is kept for a notification
+
+A `notify` frame is an event, and the contract keeps none of them. Neither does this page: they live in memory and go when the connection does. The bubble at the end of the Timeline is **the moment before the transcript catches up** — once the same answer is written there, that is the record (which is why the bubble is dashed rather than as solid as a settled line). The topbar shows the latest one as a toast, so a notification is noticed whichever session is open.
+
+## A session that cannot be reached offers no composer
+
+The composer is enabled for sessions the instance currently reports as connected. A `message_send` to a stopped session is refused, so the page says that it cannot be sent and why (ended / gone / not connected) rather than letting the person find out from a refusal.
+
+A send that goes through has two successes to tell apart: handed over now, or held in the inbox. Being held is not a failure, so the wording says which of "wait", "send to another session" or "give up" this is (`src/conversation/send-outcome.ts`).
+
 ## localStorage keys name what they belong to
 
 A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.
 
 - entry: the endpoint under `ccmsg.entry.url`, its token under `ccmsg.entry.token:<url>`. A token is an instance's whole entry credential, and one kept under a bare name would be handed to whichever endpoint was configured last
-- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) are this
+- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) and an unsent draft (`ccmsg.draft:<instance>:<sid>`) are this
 
 ## The contract validates its own frames
 
