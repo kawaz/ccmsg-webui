@@ -1,0 +1,76 @@
+import { signal } from "@preact/signals";
+import type { AuthSession, Subject, Timestamp } from "@ccmsg/protocol";
+import { AuthError } from "./client.ts";
+
+/** What this page holds of a person's session, and nothing else holds.
+ *
+ * The access token is in memory alone. It is what opens a connection, so it is
+ * a secret with a few hours' life, and the store this page could write it to is
+ * readable by every script that ever runs on this origin (DR-0001 §2.4). What
+ * survives a reload is the refresh cookie, which this page cannot read and does
+ * not have to: the instance reads it back. */
+
+export const access = signal<AuthSession["access"] | undefined>(undefined);
+export const subject = signal<Subject | undefined>(undefined);
+
+/** When the *connection* stops being authorized, as `hello` and `auth_refresh`
+ * state it. Not the same as the token's own expiry: a connection opened with a
+ * token keeps that deadline until it is moved on the connection itself. */
+export const connectionExpiresAt = signal<Timestamp | undefined>(undefined);
+
+/** Set when there is nothing left to connect with and a passkey is what is
+ * needed. The screen this raises is the only way back. */
+export const needsSignIn = signal(false);
+
+/** What went wrong the last time this page tried to authenticate, in words for
+ * the person. Cleared when they try again. */
+export const authProblem = signal<string | undefined>(undefined);
+
+export function holdSession(session: AuthSession): void {
+  access.value = session.access;
+  subject.value = session.sub;
+  needsSignIn.value = false;
+  authProblem.value = undefined;
+}
+
+export function forgetSession(): void {
+  access.value = undefined;
+  subject.value = undefined;
+  connectionExpiresAt.value = undefined;
+}
+
+/** Whether a token is still worth presenting. The margin is what covers the
+ * handshake it is about to be used for. */
+const EXPIRY_MARGIN_MS = 5_000;
+
+export function tokenIsLive(at = Date.now()): boolean {
+  const held = access.value;
+  return held !== undefined && held.expires_at - EXPIRY_MARGIN_MS > at;
+}
+
+/** What to tell the person about a refusal.
+ *
+ * The instance's own message says what happened to it; these say what the
+ * person can do, which is the part an error code does not carry. */
+export function describeAuthError(cause: unknown): string {
+  if (!(cause instanceof AuthError)) return String(cause);
+  switch (cause.code) {
+    case "auth_expired":
+      return "この登録 URL は期限切れです。CLI で発行し直してください。";
+    case "auth_unknown_issuer":
+      return "この URL を発行した instance に届きませんでした。発行し直してください。";
+    case "auth_invalid":
+      return "コードか URL が無効です。";
+    case "invalid_args":
+    case "bad_request":
+      return `要求の形が違います: ${cause.message}`;
+    case "aborted":
+      return cause.message;
+    case "unreachable":
+      return cause.message;
+    default:
+      return cause.status === 429
+        ? "試行が多すぎます。少し待ってからやり直してください。"
+        : `${cause.code}: ${cause.message}`;
+  }
+}
