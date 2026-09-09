@@ -110,6 +110,8 @@ The composer is enabled for sessions the instance currently reports as connected
 
 A send that goes through has two successes to tell apart: handed over now, or held in the inbox. Being held is not a failure, so the wording says which of "wait", "send to another session" or "give up" this is (`src/conversation/send-outcome.ts`).
 
+Neither is a message too large to send. The contract's `MAX_FRAME_BYTES` is a ceiling **the sender keeps to**: a line over it is answered `bad_request` and the connection stays up, and all that refusal can say is that it was too big. So the line about to be sent is measured in bytes and stopped here instead (`src/frame-limit.ts`). What to do about it — split it, write it to a file — is the sender's decision, so the page suggests and does not choose.
+
 ## localStorage keys name what they belong to
 
 A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.

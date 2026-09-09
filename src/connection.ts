@@ -8,6 +8,7 @@ import {
   type TopicName,
   topicKind,
 } from "@ccmsg/protocol";
+import { frameByteLength } from "./frame-limit.ts";
 import type { Entry } from "./settings.ts";
 
 /** The subprotocol value the entry token travels in.
@@ -101,6 +102,14 @@ export class Connection {
     this.request("topic_unsubscribe", { topic }).catch(() => {
       // A subscription on a connection that is gone is gone with it.
     });
+  }
+
+  /** これから `request` が送る 1 行の byte 長。
+   *
+   * 番号まで含めて実際に送る形で測る。数えるだけで番号は消費しないので、
+   * 測ってから送るまでの間に行が変わることはない。 */
+  frameBytes(op: string, args: Record<string, unknown> = {}): number {
+    return frameByteLength({ op, request_id: String(this.#counter + 1), ...args });
   }
 
   /** Call an op and wait for the reply that names this request. */

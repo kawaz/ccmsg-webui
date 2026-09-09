@@ -22,6 +22,7 @@ import {
   formatFilesRecord,
   parseFilesRecord,
 } from "./files/files-store.ts";
+import { oversizeReason } from "./frame-limit.ts";
 import { parseRoute, type Route, routePath } from "./route.ts";
 import { type Entry, completeEntry, loadEntry, localStore, saveEntry } from "./settings.ts";
 import {
@@ -387,6 +388,14 @@ export function adoptLocation(): void {
  *
  * 宛先は sid ひとつ。返ってくるのは「今届いたか、inbox に積まれたか」で、
  * どちらも成功なので、呼ぶ側は結果を読んで人に見せる (`describeSendOutcome`)。 */
+/** この 1 通を送れない理由。送れるなら undefined。
+ *
+ * 契約の上限は送る側が守るものなので、断られてから読ませるのではなく、
+ * これから送る行そのものを測って先に言う。 */
+export function messageSendRefusal(sid: Sid, text: string): string | undefined {
+  return oversizeReason(connection.frameBytes("message_send", { to: sid, text }));
+}
+
 export async function sendMessage(sid: Sid, text: string): Promise<MessageSendResult> {
   const reply = await connection.request("message_send", { to: sid, text });
   return reply as unknown as MessageSendResult;

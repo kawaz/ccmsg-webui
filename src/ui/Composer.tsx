@@ -5,7 +5,7 @@ import { composerAction } from "../conversation/composer-keydown.ts";
 import { draftKey } from "../conversation/draft.ts";
 import { describeSendOutcome } from "../conversation/send-outcome.ts";
 import { localStore } from "../settings.ts";
-import { hello, sendMessage } from "../state.ts";
+import { hello, messageSendRefusal, sendMessage } from "../state.ts";
 
 /** ここから人がセッションに話しかける。
  *
@@ -36,6 +36,11 @@ export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: str
   const send = () => {
     const body = text.value.trim();
     if (body === "" || sending.value) return;
+    const refusal = messageSendRefusal(sid, body);
+    if (refusal !== undefined) {
+      outcome.value = refusal;
+      return;
+    }
     sending.value = true;
     outcome.value = undefined;
     sendMessage(sid, body)
