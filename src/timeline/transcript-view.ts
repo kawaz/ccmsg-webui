@@ -81,8 +81,14 @@ export class TranscriptView {
    * connection settles, because any of the three can be the first moment there
    * is something to ask over: the screen is opened before the greeting on a
    * reload, and an instance that is not following this session's transcript
-   * sends no snapshot at all. Asking is idempotent, so the three cost one read.
-   */
+   * sends no snapshot at all. Asking is idempotent — a read is skipped while
+   * one is in flight or a page is already held — so the three cost one read.
+   *
+   * Reading backwards stays necessary whatever an instance sends: it is how a
+   * transcript is paged from its end. Only the *first* of these three moments
+   * is there because a snapshot may never arrive, so an instance that comes to
+   * state one for every subscription costs nothing here beyond a moment that
+   * finds the page already held. */
   open(): void {
     this.#port.subscribe(this.#topic);
     this.ensureFirstPage();

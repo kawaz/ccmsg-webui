@@ -154,3 +154,32 @@ describe("append: where the window sits", () => {
     expect(fold.begin(4)).toEqual({ start: 4, end: 4, lines: [] });
   });
 });
+
+describe("append: 重なりと、穴からの復帰", () => {
+  const TOPIC = "transcript:00000000-0000-0000-0000-000000000000";
+
+  test("窓の端に 1 行だけ重なる read は、その 1 行を二重に持たない", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(4);
+    // 窓: "bb" "cc" (4..10)
+    fold.append({ lines: ["bb", "cc"], start: 4, end: 10 });
+    // read が 1 行ぶん先まで答える (生で受け取った "bb" と重なる)
+    const after = fold.prepend({ lines: ["aa", "bb"], start: 0, end: 7 });
+    expect(after).toEqual({ start: 0, end: 10, lines: ["aa", "bb", "cc"] });
+  });
+
+  test("穴の後に窓を置き直せば、次の append はどこから来ても取れる", () => {
+    // 穴を踏んだ側は新しい fold を作って読み直す (TranscriptView の restart)。
+    // 置き直した fold は「まだどこにも無い」ので、次に来たものがどこであれ
+    // そこに窓を据える — 同じ穴で throw し続けるループにはならない。
+    const fold = new AppendFold(TOPIC);
+    fold.begin(0);
+    expect(() => fold.append({ lines: ["x"], start: 900, end: 902 })).toThrow(/gap/);
+    const fresh = new AppendFold(TOPIC);
+    expect(fresh.append({ lines: ["x"], start: 900, end: 902 }, 902)).toEqual({
+      start: 900,
+      end: 902,
+      lines: ["x"],
+    });
+  });
+});
