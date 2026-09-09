@@ -40,7 +40,9 @@ Every topic frame is checked against `TOPIC_SCHEMAS` with the contract's `isVali
 
 ## What cannot be observed
 
-**A browser cannot read the HTTP status of a refused handshake.** A 401 (wrong token) and a 403 (origin not allowed) both arrive through the WebSocket API as an `error` event with nothing in it. The page can therefore only say that it was refused or did not arrive; which of the two is read from the daemon's log or the browser's network panel. Probing over HTTP first would not settle it either, since a cross-origin request shows just as little.
+**The page cannot read the HTTP status of a refused handshake.** A 401 (wrong token) and a 403 (origin not allowed) both arrive through the WebSocket API as an `error` event with nothing in it, so the page can only say that the connection was refused or did not arrive.
+
+The status is not lost, only out of the page's reach: the **browser's console and network panel do show it** (Chrome writes `Unexpected response code: 403`). What cannot read it is the script, not the person, so the two are told apart there and in the daemon's log. Probing over HTTP first would not settle it either, since a cross-origin request shows just as little.
 
 ## What the contract does not carry
 

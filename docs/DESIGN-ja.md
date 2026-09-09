@@ -40,7 +40,9 @@ instance との接続が切れたら、その instance が言ったことは捨�
 
 ## 観測できないもの
 
-**ブラウザは拒否された handshake の HTTP status を読めない。** 401 (token 不一致) も 403 (origin 不許可) も、WebSocket API 上はどちらも詳細のない `error` イベントとして届く。ページはそのため「拒否されたか、届きませんでした」としか言えず、どちらだったかは daemon のログか、ブラウザの network パネルで見る。この曖昧さを埋めるために HTTP を先に叩くことはしない (別 origin なので CORS で同じだけ見えない)。
+**ページは拒否された handshake の HTTP status を読めない。** 401 (token 不一致) も 403 (origin 不許可) も、WebSocket API 上はどちらも詳細のない `error` イベントとして届く。ページはそのため「接続を拒否されたか、届きませんでした」としか言えない。
+
+status 自体は消えているわけではなく、**ブラウザの console と network パネルには出る** (Chrome は `Unexpected response code: 403` と書く)。読めないのは JS であって人ではないので、切り分けはそこと daemon のログで行う。この曖昧さを埋めるために HTTP を先に叩くことはしない (別 origin なので CORS で同じだけ見えない)。
 
 ## 契約に無いもの
 
