@@ -14,6 +14,13 @@
 // unseen type degrades to the same one-line + raw-JSON-expand rendering with
 // no special-case needed — "safe fallback for unknown types" and "compact
 // display for the other known types" are the same code path, not two.
+//
+// 例外は会話の抽出 (`extractIncomingMessages` / `extractSessionReplies`)。人と
+// セッションの往復は transcript の中では harness の封筒として現れ、その封筒の
+// 文法は契約が定義して契約が読み戻す。ここで正規表現を書き直すと、同じ文法の
+// 写しが 2 つになる。
+
+import { DIRECT_DELIVERY_TAG, parseDirectDelivery, USER_SENDER } from "@ccmsg/protocol";
 
 /**
  * What a file tool (Read/Write/Edit) actually got back, in the three shapes
@@ -964,13 +971,13 @@ export function truncateRawLine(
  * nav counter — kawaz: "システムメッセージも tool や thinking と同じで
  * folding しといて").
  */
-/** 👤 nav (n/N ジャンプ) の対象: 人間のユーザプロンプトに加えて、ccmsg 経由の
- * kawaz 発メッセージ (from:"u1") も「ユーザメッセージ」として数える
- * (kawaz r38 mid=51 — 1on1 運用では指示が ccmsg で届くため、prompt だけの
- * カウントでは実質のユーザ発話を辿れない)。 */
+/** 👤 nav (n/N ジャンプ) の対象: 端末に打たれたユーザプロンプトに加えて、
+ * ccmsg 経由で人から届いたメッセージも「ユーザ発話」として数える。人がこの
+ * 画面から話しかける経路では指示が transcript に封筒として現れるので、prompt
+ * だけを数えると実質のユーザ発話を辿れない。 */
 export function isUserNavTurn(line: ParsedLine): boolean {
   if (isUserTextTurn(line)) return true;
-  return extractCcmsgMessages(line).some((m) => m.from === "u1");
+  return extractIncomingMessages(line).some((m) => m.from === USER_SENDER);
 }
 
 export function isUserTextTurn(line: ParsedLine): boolean {
@@ -1150,94 +1157,19 @@ export type TimelineGroup =
 
 export type UserNavTarget =
   | { key: string; offset: number; kind: "user-prompt" }
-  | { key: string; offset: number; kind: "ccmsg"; messageIndex: number };
+  | { key: string; offset: number; kind: "incoming"; messageIndex: number };
 
-/** One ccmsg bubble the Timeline mounts, identified by the line it came from
- * (`offset`) and its index within that line's `extractCcmsgMessages` output.
- * `placement` says which renderer draws it: `"boundary"` = a u1 発 line that
- * `classifyBoundaryLine` kept standalone (Timeline() 直下の CcmsgBubble),
- * `"fold"` = a peer 発 line inside a fold group (LineView →
- * PeerCcmsgLineView). */
-export interface CcmsgRenderTarget {
-  key: string;
-  offset: number;
-  messageIndex: number;
-  message: CcmsgMessage;
-  placement: "boundary" | "fold";
+/** 1 通の着信バブルの鍵。届いた行 (`offset`) と、その行の中での通し番号で
+ * 決まる。1 つの行が複数の封筒を運ぶことがあるので番号が要る。 */
+export function incomingUnitKey(offset: number, messageIndex: number): string {
+  return `${offset}-incoming-${messageIndex}`;
 }
 
-/** Per-bubble key shared by everything that has to agree on "which ccmsg
- * bubbles exist": the render-visibility set, the in-view search unit list, and
- * the `searchKey` each `CcmsgBubble` registers. */
-export function ccmsgUnitKey(offset: number, messageIndex: number): string {
-  return `${offset}-ccmsg-${messageIndex}`;
-}
-
-/**
- * Every ccmsg bubble the Timeline mounts, in document order, with duplicates
- * (`ccmsgDedupKey`) already dropped — the single source of truth for the
- * dedup decision (kawaz r15 mid=21 の 2 重表示回避).
+/** 👤 nav が飛べる先: 端末に打たれたユーザプロンプトと、人から届いた着信。
  *
- * The decision has to live here, in a phase the caller can memoize on
- * `groups`, rather than in the renderer: the two render paths (boundary側と
- * fold group 側) are *different components*, so a `Set` threaded through
- * context and mutated while rendering only holds "first wins" as long as every
- * pass starts from an empty Set. `FoldGroup` の開閉 (子局所 `setOpen`) は
- * Timeline 本体を再実行しないので、その前提が破れて前 pass の残留 key で
- * バブルが消える (docs/issue/2026-07-29-fold-toggle-drops-peer-ccmsg-bubble)。
- *
- * Document order also settles which copy of a cross-path duplicate survives:
- * the first one in the transcript, regardless of the fact that Preact renders
- * every boundary bubble before it descends into any fold group.
- */
-export function ccmsgRenderTargets(groups: TimelineGroup[]): CcmsgRenderTarget[] {
-  const targets: CcmsgRenderTarget[] = [];
-  const seen = new Set<string>();
-  const push = (
-    offset: number,
-    messages: CcmsgMessage[],
-    placement: CcmsgRenderTarget["placement"],
-  ) => {
-    messages.forEach((message, messageIndex) => {
-      const dedupKey = ccmsgDedupKey(message);
-      if (seen.has(dedupKey)) return;
-      seen.add(dedupKey);
-      targets.push({
-        key: ccmsgUnitKey(offset, messageIndex),
-        offset,
-        messageIndex,
-        message,
-        placement,
-      });
-    });
-  };
-  for (const group of groups) {
-    if (group.kind === "fold") {
-      for (const entry of group.entries) {
-        if (entry.line.kind !== "turn") continue;
-        push(entry.offset, extractCcmsgMessages(entry.line), "fold");
-      }
-      continue;
-    }
-    if (group.line.kind !== "turn") continue;
-    const boundary = classifyBoundaryLine(group.line);
-    if (boundary?.kind !== "ccmsg") continue;
-    push(group.offset, boundary.messages, "boundary");
-  }
-  return targets;
-}
-
-/**
- * Returns the mounted green bubbles that the user-message navigation can jump
- * to. ccmsg messages reuse `ccmsgRenderTargets`' deduplication, so the counter
- * and the set of registered DOM targets stay equal.
- */
+ * 着信は 1 通が transcript に 1 度だけ現れる (封筒は harness が 1 回書く) ので、
+ * 重複除去は要らない。 */
 export function userNavTargets(groups: TimelineGroup[]): UserNavTarget[] {
-  const rendered = new Set(
-    ccmsgRenderTargets(groups)
-      .filter((target) => target.placement === "boundary" && target.message.from === "u1")
-      .map((target) => target.key),
-  );
   const targets: UserNavTarget[] = [];
   for (const group of groups) {
     if (group.kind !== "entry" || group.line.kind !== "turn") continue;
@@ -1246,13 +1178,13 @@ export function userNavTargets(groups: TimelineGroup[]): UserNavTarget[] {
       targets.push({ key: `user:${group.offset}`, offset: group.offset, kind: "user-prompt" });
       continue;
     }
-    if (boundary?.kind !== "ccmsg") continue;
-    boundary.messages.forEach((_message, messageIndex) => {
-      if (!rendered.has(ccmsgUnitKey(group.offset, messageIndex))) return;
+    if (boundary?.kind !== "incoming") continue;
+    boundary.messages.forEach((message, messageIndex) => {
+      if (message.from !== USER_SENDER) return;
       targets.push({
-        key: `ccmsg:${group.offset}:${messageIndex}`,
+        key: incomingUnitKey(group.offset, messageIndex),
         offset: group.offset,
-        kind: "ccmsg",
+        kind: "incoming",
         messageIndex,
       });
     });
@@ -1272,7 +1204,7 @@ export type BoundaryKind =
   | { kind: "api-error" }
   | { kind: "bash-command"; segment: Extract<Segment, { kind: "bash-command" }> }
   | { kind: "bash-command-output"; segment: Extract<Segment, { kind: "bash-command-output" }> }
-  | { kind: "ccmsg"; messages: CcmsgMessage[] };
+  | { kind: "incoming"; messages: IncomingMessage[] };
 
 /**
  * Classifies a boundary line (kawaz spec order, first match wins): a real
@@ -1320,14 +1252,13 @@ export function classifyBoundaryLine(line: ParsedLine): BoundaryKind | null {
     !isCacheKeepaliveReplyLine(line)
   )
     return { kind: "assistant-response" };
-  const ccmsgMessages = extractCcmsgMessages(line);
-  if (ccmsgMessages.length === 0) return null;
-  // r55 m14: peer 発 ccmsg のみの line は boundary にせず fold group へ流す。
-  // u1 発を 1 件でも含む line は boundary として standalone。
-  // "u1" は protocol の ADMIN_ID。この module は pure で外部 import なし
-  // (unit-test 容易性のため) — 文字列リテラルで揃える。
-  const hasU1 = ccmsgMessages.some((m) => m.from === "u1");
-  return hasU1 ? { kind: "ccmsg", messages: ccmsgMessages } : null;
+  const incoming = extractIncomingMessages(line);
+  if (incoming.length === 0) return null;
+  // 人から届いた行は本物のユーザ発話と同格なので boundary として単独で立てる。
+  // 他セッションからの着信は thinking や agent 通信と同じ配管なので fold group
+  // の中へ流す (中でも 1 件ずつバブルとして描かれる)。
+  const fromPerson = incoming.some((message) => message.from === USER_SENDER);
+  return fromPerson ? { kind: "incoming", messages: incoming } : null;
 }
 
 /** True for a line that should render on its own (never folded into a tools
@@ -1476,22 +1407,25 @@ export function agentCommunicationCount(entry: TimelineEntry): number {
   if (isPeerMessageLine(line)) {
     const relays = peerRelaysOfEntry(entry);
     if (relays.length === 0) return 1;
-    return relays.filter((relay) => relay.category !== "idle").length;
+    // ccmsg の着信は harness から見ると同じ cross-session の封筒なので、
+    // relay としても数えると 1 通が「会話」と「agent 通信」の両方で名指される。
+    // 会話として数えた分をここから引く。
+    const conversational = extractIncomingMessages(line).length;
+    const relayed = relays.filter((relay) => relay.category !== "idle").length;
+    return Math.max(relayed - conversational, 0);
   }
   if (isSpawnPromptLine(line)) return 1;
   return line.segments.filter(isAgentCommunicationSegment).length;
 }
 
-/** Number of ccmsg room messages carried by this entry (0 if none). ccmsg
- * boundary lines are normally emitted as their own top-level bubbles rather
- * than folded, but the count is exposed here so the fold-group summary and
- * `isDirectFoldEntry` can treat them symmetrically with thinking / agent
- * communication if a future grouping change places one inside a fold group
- * (kawaz r55 m11: 「Nthinking+Nccmsg+Nagentmessages+Nitems」)。 */
+/** この entry が運ぶ会話の通数 (着信 + このセッションが返した返事)。人からの
+ * 着信は通常 boundary として fold の外に出るが、他セッションからの着信は fold
+ * group の中に入るので、閉じた summary が thinking / agent 通信と同じ粒度で
+ * 数えられるようにここで公開する。 */
 export function ccmsgMessageCount(entry: TimelineEntry): number {
   const { line } = entry;
   if (line.kind !== "turn") return 0;
-  return extractCcmsgMessages(line).length;
+  return extractIncomingMessages(line).length + extractSessionReplies(line).length;
 }
 
 /** Entries the fold summary names by their own category (thinking, ccmsg,
@@ -1831,274 +1765,155 @@ export function classifyAssistantMessage(entry: Record<string, unknown>): Assist
   return entry.isApiErrorMessage === true ? "api-error" : "assistant-response";
 }
 
-/** One ccmsg room message recovered from inside a `teammate-message`/
- * `task-notification` system line (webui Timeline chat-bubble task, kawaz
- * spec) — a trimmed-down `MsgEvent` (`@ccmsg/protocol`): `room` is that
- * event's `r` field (room id), renamed here since this module has no
- * dependency on `@ccmsg/protocol`'s wire types and `extractCcmsgMessages`
- * only needs the fields the bubble UI renders. */
-export interface CcmsgMessage {
+/** 人 (webui) または他セッションから、このセッションに届いた 1 通。
+ *
+ * transcript にはセッションの user turn の中に封筒 (`<cross-session-message>`)
+ * として埋まっている。中身は契約の `DirectDelivery` そのもので、読み戻しも
+ * 契約の `parseDirectDelivery` がやる — ここが持つのは「1 行の中から封筒を
+ * 切り出す」ところまで。 */
+export interface IncomingMessage {
+  mid: string;
+  /** 送り主。人なら契約の `USER_SENDER`、セッションなら その sid。 */
   from: string;
-  to?: string[];
-  room: string;
-  msg: string;
-  ts: string;
-  /** DR-0027 §2: canonical (room, mid) pair to look the daemon-stored full
-   * message up with (webui's `ws.read(room, [mid])` — CcmsgBubble does this
-   * lazily on mount). Present for every wire-format ccmsg extraction the
-   * daemon actually emitted a mid for (subscribe teammate-message relay,
-   * task-notification `<event>` body, tool_result `{ok:true,room,mid}` post/
-   * reply response — even the truncated-fragment recovery when the fragment
-   * still carries `"mid":N` before the truncation point). Absent only when
-   * the fragment lost the mid to truncation before we could parse it — those
-   * still render with the recovered body (救済 parse), just without the
-   * canonical read-fallback path. */
-  mid?: number;
+  fromLabel: string;
+  replyTo?: string;
+  /** 送り主が書いた本文。封筒が足した返信案内は落ちている。 */
+  text: string;
 }
 
-/** Dedup key for a `CcmsgMessage` (kawaz r15 mid=21: the same room event can
- * be extracted twice from one transcript — a `queue-operation` enqueue line
- * and its `task-notification` Monitor tool_result echo both carry it,
- * DR-0027 §2.2 extends this to also cover the sender-side echo: an AI post/
- * reply's tool_result `{ok:true,room,mid}` response, and the same message
- * arriving back through the subscribe teammate-message relay, are the same
- * canonical `(room, mid)`). Shared by Timeline.tsx's bubble-list render and
- * its in-view search unit list so the two dedup identically — a message the
- * render side drops as a duplicate must never still count toward the search
- * "[N/M]" total (a ghost match with no bubble to highlight/scroll to).
- *
- * When `mid` is present the key is `${room}|m${mid}` — canonical per daemon
- * (rooms/*.jsonl mid is unique per room), so two extractions of the same
- * message from different transcript wrappers collapse regardless of whether
- * their transcript body copies still match verbatim (truncation, XML entity
- * escaping differences, DR-0027 §2 lazy-read replacement). Falls back to the
- * old `${room}|${ts}|${from}|${msg}` form for pre-DR-0027 extractions and
- * for fragments that lost their mid to truncation. */
-export function ccmsgDedupKey(m: CcmsgMessage): string {
-  if (m.mid !== undefined) return `${m.room}|m${m.mid}`;
-  return `${m.room}|${m.ts}|${m.from}|${m.msg}`;
-}
-
-/** Matches Claude Code's Task-tool teammate relay wrapper (see
- * `classifyUserMessage`'s "Another Claude session sent a message:" prefix,
- * `peer-message` kind) — one tag per relayed teammate turn, body is normally
- * one JSON object. Global so a single line carrying several relays (observed
- * in practice: a session going idle twice in a row) yields one match per tag. */
-const TEAMMATE_MESSAGE_RE = /<teammate-message[^>]*>([\s\S]*?)<\/teammate-message>/g;
-
-/** Matches the `<event>...</event>` body Claude Code's Monitor-tool
- * `task-notification` wrapper carries (see `classifyUserMessage`'s
- * `task-notification` kind) — a ccmsg `subscribe` Monitor prints one JSON
- * event per stdout line, so this tag's body can itself be multi-line jsonl,
- * not a single JSON value like `teammate-message`'s. */
-const EVENT_TAG_RE = /<event>([\s\S]*?)<\/event>/g;
-
-/** Duck-types `obj` as a ccmsg `MsgEvent` delivered over `subscribe` (wire
- * shape: `{type:"msg", mid, from, to?, ts, msg|msg_via, r}` — `r` is the room
- * id DeliveredEvent flattening adds. `msg_via` is accepted only with a numeric
- * mid, producing a placeholder that the existing daemon read path hydrates.
- * False for any other event shape
- * this line might carry (`idle_notification`, `ev:"notify"`, member/leave/
- * title/... — anything whose `type`/`ev` isn't exactly `"msg"`), which is the
- * whole point: only a real room message becomes a chat bubble, everything
- * else stays inside the fold. */
-function isCcmsgMsgEventLike(obj: unknown): obj is {
-  type: "msg";
-  mid?: number;
-  from: string;
-  to?: string[];
-  r: string;
-  msg?: string;
-  msg_via?: string;
-  ts: string;
-} {
-  if (!obj || typeof obj !== "object") return false;
-  const o = obj as Record<string, unknown>;
-  return (
-    o.type === "msg" &&
-    typeof o.from === "string" &&
-    typeof o.r === "string" &&
-    (typeof o.msg === "string" || (typeof o.msg_via === "string" && typeof o.mid === "number")) &&
-    typeof o.ts === "string" &&
-    (o.to === undefined || (Array.isArray(o.to) && o.to.every((t) => typeof t === "string"))) &&
-    // `mid` is now surfaced (DR-0027 §2 lazy-read key), still not required for
-    // shape validity — pre-DR-0027 fixtures without mid must keep flowing
-    // through (they degrade to no read-fallback, see CcmsgMessage.mid doc).
-    (o.mid === undefined || typeof o.mid === "number")
-  );
-}
-
-/** Reverses the entity escaping Claude Code's harness applies to text it
- * embeds in a tag body — a `<task-notification><event>` block (kawaz r26
- * mid=30: a literal ">" in a room message showed as "&gt;" in Timeline) and a
- * `<bash-stdout>`/`<bash-stderr>` body (kawaz r76 m84: `! <cmd>` output showed
- * "&lt;"). The daemon's stored jsonl carries the raw text — the escaping exists
- * only inside the transcript copy — so unescaping here restores the original.
- *
- * The escape set is `&`, `<`, `>` — the XML *text-content* minimum, not the
- * five predefined entities. Measured on CC 2.1.220 by feeding a known payload
- * through `! head payload.txt`: `<`/`>`/`&` came back as `&lt;`/`&gt;`/`&amp;`
- * while `"` and `'` came back verbatim, and 4472 real `<event>` bodies contain
- * zero `&quot;`/`&apos;`/numeric references. Decoding quotes would therefore
- * only ever corrupt output that genuinely printed "&quot;".
- *
- * Because `&` is escaped too, this is an exact inverse rather than a guess:
- * a literal "&lt;" in the source is stored as "&amp;lt;", and decoding &amp;
- * last restores it without the &lt; rule stealing it first. */
-function unescapeHarnessEntities(text: string): string {
-  if (!text.includes("&")) return text;
-  return text.replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
-}
-
-/** Parses one candidate fragment (a `teammate-message` tag body, or one line
- * of a `task-notification`'s `<event>` jsonl body) into a `CcmsgMessage`.
- * Returns null — never throws — for invalid JSON or a validly-parsed value
- * that isn't a ccmsg `type:"msg"` event (kawaz spec: "壊れた JSON は空で
- * fallback", and non-msg events like `idle_notification` must NOT become a
- * bubble). */
-function tryParseCcmsgMessage(fragment: string, fallbackRoom?: string): CcmsgMessage | null {
-  let obj: unknown;
-  try {
-    obj = JSON.parse(fragment.trim());
-  } catch {
-    return tryParseTruncatedCcmsgMessage(fragment.trim(), fallbackRoom);
-  }
-  if (!isCcmsgMsgEventLike(obj)) return null;
-  return {
-    from: obj.from,
-    to: obj.to,
-    room: obj.r,
-    msg: obj.msg !== undefined ? unescapeHarnessEntities(obj.msg) : "",
-    ts: obj.ts,
-    ...(obj.mid !== undefined ? { mid: obj.mid } : {}),
-  };
-}
-
-/** Monitor 通知の <event> は長い msg を「...(truncated)」で切り詰めることが
- * あり (harness 側の通知サイズ上限)、その行は JSON として壊れて上の parse が
- * 落ちる — 従来はそのまま null → CcmsgBubble にならず生 JSON の fold 表示に
- * なっていた (kawaz r17 mid=43 の実観測)。切れていても field 順は固定
- * (daemon の subscribe wire order:
- * `type,mid,from,ts,to?,r,seq,reply_via?,msg` — msg が必ず最後、
- * docs/issue/2026-07-17-subscribe-jsonl-msg-last-column.md) なので、msg の
- * 途中までを regex で抜けば「途中まで + 切り詰め注記」の bubble にできる。
- * 読める形が生 JSON より常に良い、が判断 (全文は webui の room 表示か read
- * で見られる)。
- *
- * room (`r`) は msg より前の field なので、truncation が msg 本文側で起きる
- * 限り通常は失われない — ただし単独 msg 通知で `r` 自体が何らかの理由で
- * 欠けた場合の保険として、呼び出し側 (extractCcmsgMessages) が同じ <event>
- * ブロック内の parse できた行から補完した `fallbackRoom` を渡す (subscribe
- * の 1 通知は room event のバッチで、実観測の形は kind/title/member 行が
- * 同居する)。それも無い単独 msg 通知では `?` を room 表示に使い、復元できた
- * 本文を bubble として保持する。 */
-function tryParseTruncatedCcmsgMessage(
-  fragment: string,
-  fallbackRoom?: string,
-): CcmsgMessage | null {
-  if (!fragment.endsWith("(truncated)")) return null;
-  if (!fragment.startsWith('{"type":"msg"')) return null;
-  const from = fragment.match(/"from":"((?:[^"\\]|\\.)*)"/)?.[1];
-  const ts = fragment.match(/"ts":"((?:[^"\\]|\\.)*)"/)?.[1];
-  const knownRoom = fragment.match(/"r":"((?:[^"\\]|\\.)*)"/)?.[1] ?? fallbackRoom;
-  const room = knownRoom ?? "?";
-  // mid は subscribe wire order (docs/issue/2026-07-17-subscribe-jsonl-msg-last-column.md
-  // 済) では msg より前 (`type,mid,from,ts,to?,r,seq,reply_via?,msg`) なので
-  // truncation 前に必ず来る — 拾えれば DR-0027 §2 の read-fallback パスに乗る。
-  // ただし canonical lookup key は (r, mid) の**組**: room が復元できなかった
-  // fragment (`room === "?"`) に mid だけ付けると、`ws.read("?", [mid])` の
-  // 無意味な発火と、別 room の同 mid truncated fragment との dedup 偽衝突
-  // (`?|m99` が room を跨いで同キー化) を起こす。room 不明時は mid を捨てて
-  // 救済 parse 本文だけの最終フォールバックに落とす (DR-0027 §2.1)。
-  const midMatch = knownRoom !== undefined ? fragment.match(/"mid":(\d+)/)?.[1] : undefined;
-  const mid = midMatch !== undefined ? Number(midMatch) : undefined;
-  const msgMatch = fragment.match(/"msg":"((?:[^"\\]|\\.)*)/)?.[1];
-  if (!from || !ts || msgMatch === undefined) return null;
-  let msg: string;
-  try {
-    // 抜き出した半端な JSON string 断片を JSON.parse でデコード (escape 解決)。
-    // 断片が escape の途中で切れていたら最後の \ を落として再試行。
-    msg = JSON.parse(`"${msgMatch.replace(/\\$/, "")}"`) as string;
-  } catch {
-    return null;
-  }
-  return {
-    from,
-    room,
-    msg: `${unescapeHarnessEntities(msg)}…(切り詰め — 全文は room で)`,
-    ts,
-    ...(mid !== undefined ? { mid } : {}),
-  };
-}
+const DELIVERY_OPENING = `<${DIRECT_DELIVERY_TAG} `;
+const DELIVERY_CLOSING = `\n</${DIRECT_DELIVERY_TAG}>`;
 
 /**
- * Recovers every ccmsg room message (`type:"msg"` events) embedded in a
- * `role:"user"` line's text, regardless of which system-injection wrapper
- * carries it — a `teammate-message` relay (Task-tool teammate turn) or a
- * `task-notification`'s `<event>` body (a ccmsg `subscribe` Monitor's stdout,
- * which is itself jsonl and can hold several events per notification). Both
- * patterns are scanned unconditionally rather than gating on
- * `classifyUserMessage`'s verdict first: a tag that doesn't match either
- * regex contributes nothing, so the result is the same either way, and this
- * keeps the function self-contained (works on a hand-built `ParsedLine` too,
- * not only ones that went through `parseTranscriptLine`/`classifyUserMessage`).
+ * 1 行が運ぶ着信をすべて取り出す。封筒でない user turn、assistant turn、
+ * turn でない行はすべて空 — 呼ぶ側 (Timeline の描画と `isBoundaryLine`) は
+ * 空を「ふつうに描け」と読む。
  *
- * Non-turn lines, assistant turns, and any fragment that isn't a `type:"msg"`
- * event (an `idle_notification` teammate-message body, a `task-notification`
- * `<event>` with no ccmsg activity at all, ...) all yield `[]` — the caller
- * (Timeline.tsx's chat-bubble rendering, and `isBoundaryLine` above) treats
- * an empty result as "render this line the ordinary way", not as an error.
- *
- * Known false-negative (accepted, not fixed here — same category as
- * `classifyUserMessage`'s documented false-negative above): `TEAMMATE_MESSAGE_RE`/
- * `EVENT_TAG_RE` are non-greedy, so if a `msg` field's *value* itself contains
- * the literal closing-tag text (e.g. someone pastes `</event>` into a ccmsg
- * message), the regex closes early at that literal occurrence instead of the
- * wrapper's real closing tag. The truncated fragment fails `JSON.parse`
- * (`tryParseCcmsgMessage` returns `null`, never throws), so that one message
- * silently falls back to the ordinary fold-line rendering instead of becoming
- * a chat bubble — degrades safely, doesn't crash or corrupt other messages in
- * the same line. No JSON-escaping trick can hide the literal (the value is
- * substring-matched against the raw wrapper text, not the JSON-decoded
- * string), so fixing this for real would need tag-aware scanning (e.g.
- * last-closing-tag-wins) rather than a regex tweak.
- */
-export function extractCcmsgMessages(line: ParsedLine): CcmsgMessage[] {
+ * 封筒の切り出しは、次の封筒が始まる手前で**最後の**閉じタグを採る。契約は
+ * 「本文に閉じタグが literal で入っていても往復する」と決めていて、最初の
+ * 閉じタグで切ると本文を黙って途中で落とすことになる。 */
+export function extractIncomingMessages(line: ParsedLine): IncomingMessage[] {
   if (line.kind !== "turn" || line.role !== "user") return [];
   const text = line.segments
     .filter((s): s is Extract<Segment, { kind: "text" }> => s.kind === "text")
     .map((s) => s.text)
     .join("\n");
-  if (!text) return [];
-  // 早期 return: どちらのタグも含まない (大半の user 行、システム注入行は
-  // 本文が巨大になりがち) なら matchAll を 2 本走らせるまでもない — join
-  // コスト自体は避けられないが、この関数は classifyBoundaryLine 経由で
-  // groups が変わるたび (load older / tail 追記 / refresh, Timeline.tsx)
-  // に呼ばれるので、軽いほど再分類コストが下がる。
-  if (!text.includes("<teammate-message") && !text.includes("<event>")) return [];
-  const results: CcmsgMessage[] = [];
-  for (const m of text.matchAll(TEAMMATE_MESSAGE_RE)) {
-    const parsed = tryParseCcmsgMessage(m[1]!);
-    if (parsed) results.push(parsed);
+  if (!text.includes(DELIVERY_OPENING)) return [];
+  const openings: number[] = [];
+  for (
+    let at = text.indexOf(DELIVERY_OPENING);
+    at >= 0;
+    at = text.indexOf(DELIVERY_OPENING, at + 1)
+  ) {
+    openings.push(at);
   }
-  for (const m of text.matchAll(EVENT_TAG_RE)) {
-    // truncated 行の room 補完用: 同じ <event> ブロック内で parse できた
-    // event の r (subscribe の 1 通知は同一 room のバッチが普通)。
-    let blockRoom: string | undefined;
-    for (const eventLine of m[1]!.split("\n")) {
-      const trimmed = eventLine.trim();
-      if (!trimmed) continue;
-      try {
-        const o = JSON.parse(trimmed) as { r?: unknown };
-        if (typeof o.r === "string") blockRoom = o.r;
-      } catch {
-        // truncated 等の壊れ行 — blockRoom はそのまま
-      }
-      const parsed = tryParseCcmsgMessage(trimmed, blockRoom);
-      if (parsed) results.push(parsed);
+  const found: IncomingMessage[] = [];
+  openings.forEach((start, index) => {
+    const limit = openings[index + 1] ?? text.length;
+    const end = text.lastIndexOf(DELIVERY_CLOSING, limit - DELIVERY_CLOSING.length);
+    if (end < start) return;
+    const parsed = parseDirectDelivery(text.slice(start, end + DELIVERY_CLOSING.length));
+    if (parsed === undefined) return;
+    found.push({
+      mid: parsed.mid,
+      from: parsed.from,
+      fromLabel: parsed.from_label,
+      ...(parsed.reply_to !== undefined ? { replyTo: parsed.reply_to } : {}),
+      text: parsed.text,
+    });
+  });
+  return found;
+}
+
+/** このセッションが返した返事 1 通 — transcript には `ccmsg reply` の Bash
+ * 実行として現れる。`to` があれば相手セッション宛、無ければ人宛 (instance が
+ * 通知に変えて届ける)。 */
+export interface SessionReply {
+  /** 答えている frame の mid。 */
+  mid: string;
+  /** 宛先の sid。人宛の返事では無い。 */
+  to?: string;
+  text: string;
+}
+
+/** シェルの語分割。引用の中の空白は語を割らず、引用と `\` は外して返す。
+ * 変数展開や置換は解釈しない — 展開の結果まで読もうとすると、読めなかった
+ * ものを読めたふりをすることになる。 */
+function shellWords(command: string): string[] {
+  const words: string[] = [];
+  let word = "";
+  let started = false;
+  let quote: '"' | "'" | undefined;
+  for (let at = 0; at < command.length; at += 1) {
+    const char = command[at] as string;
+    if (quote === undefined && /\s/.test(char)) {
+      if (started) words.push(word);
+      word = "";
+      started = false;
+      continue;
     }
+    started = true;
+    if (char === "\\" && quote !== "'" && at + 1 < command.length) {
+      at += 1;
+      word += command[at] as string;
+      continue;
+    }
+    if (quote === undefined && (char === '"' || char === "'")) {
+      quote = char;
+      continue;
+    }
+    if (char === quote) {
+      quote = undefined;
+      continue;
+    }
+    word += char;
   }
-  return results;
+  if (started) words.push(word);
+  return words;
+}
+
+/** `ccmsg reply <mid> <text> [--to <sid>]` を読む。それ以外のコマンド
+ * (`ccmsg post`、`--` の後ろに本文が来る形を含めた解釈できない並び) は
+ * `undefined`。オプションの綴りは CLI と同じ `--name value` の形。 */
+export function parseCcmsgReplyCommand(command: string): SessionReply | undefined {
+  const words = shellWords(command);
+  const start = words.findIndex(
+    (word, index) => word.endsWith("ccmsg") && words[index + 1] === "reply",
+  );
+  if (start < 0) return undefined;
+  const named = new Map<string, string>();
+  const rest: string[] = [];
+  for (let at = start + 2; at < words.length; at += 1) {
+    const word = words[at] as string;
+    if (word === "--") {
+      rest.push(...words.slice(at + 1));
+      break;
+    }
+    if (word.startsWith("--")) {
+      const value = words[at + 1];
+      if (value === undefined) return undefined;
+      named.set(word.slice(2), value);
+      at += 1;
+      continue;
+    }
+    rest.push(word);
+  }
+  const [mid, text] = rest;
+  if (mid === undefined || text === undefined) return undefined;
+  const to = named.get("to");
+  return { mid, ...(to === undefined ? {} : { to }), text };
+}
+
+/** 1 行が運ぶ返事をすべて取り出す。 */
+export function extractSessionReplies(line: ParsedLine): SessionReply[] {
+  if (line.kind !== "turn") return [];
+  const replies: SessionReply[] = [];
+  for (const segment of line.segments) {
+    if (segment.kind !== "bash-use") continue;
+    const reply = parseCcmsgReplyCommand(segment.command);
+    if (reply !== undefined) replies.push(reply);
+  }
+  return replies;
 }
 
 // --- rich|raw タブの rich 側パース (U2 kawaz spec: 「分類済みシステム
@@ -2296,6 +2111,23 @@ function parsePersistedOutput(stdout: string): BashCommandOutput["persisted"] | 
  * and preview hold raw bytes (measured on CC 2.1.220 with a 78KB payload —
  * the preview came back as `line 0 <tag> & amp "q"`, unescaped). Decoding it
  * would corrupt any preview that genuinely printed "&lt;". */
+/** Reverses the entity escaping Claude Code's harness applies to text it
+ * embeds in a tag body (`<bash-stdout>` / `<bash-stderr>`).
+ *
+ * The escape set is `&`, `<`, `>` — the XML *text-content* minimum, not the
+ * five predefined entities. Measured on CC 2.1.220 by feeding a known payload
+ * through `! head payload.txt`: `<`/`>`/`&` came back as `&lt;`/`&gt;`/`&amp;`
+ * while `"` and `'` came back verbatim. Decoding quotes would therefore only
+ * ever corrupt output that genuinely printed "&quot;".
+ *
+ * Because `&` is escaped too, this is an exact inverse rather than a guess:
+ * a literal "&lt;" in the source is stored as "&amp;lt;", and decoding &amp;
+ * last restores it without the &lt; rule stealing it first. */
+function unescapeHarnessEntities(text: string): string {
+  if (!text.includes("&")) return text;
+  return text.replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
+}
+
 function decodeBashBody(body: string): string {
   if (body.trimStart().startsWith("<persisted-output>")) return body;
   return stripAnsiEscapes(unescapeHarnessEntities(body));
@@ -2411,7 +2243,7 @@ function parsePeerRelay(tagName: string, attrString: string, rawTagBody: string)
  * 展開時の本文に rich | raw のタブ切替、デフォルト rich). Given the line's
  * `userMessageKind` (Timeline.tsx's `sysKind` — any classified kind other
  * than `"user-prompt"`) and the line's raw text (joined text segments, same
- * input `extractCcmsgMessages` reads), returns one of the three
+ * input `extractIncomingMessages` reads), returns one of the three
  * `SystemMessageRich` shapes. Never throws — any tag this doesn't recognize,
  * or a kind with no dedicated layout, degrades to `{display:"text", text:
  * rawText}` (see the module-level comment above this section).
@@ -2649,8 +2481,7 @@ function queuePairingKey(text: string): string {
  * already folded correctly. Rather than grow the prefix catalog (which
  * guesses at content and mislabels a human who writes the same sentence),
  * this pass keeps the copy that has the metadata and drops the one that
- * doesn't — the same "one event, one rendering" rule `ccmsgDedupKey` applies
- * to doubly-extracted room messages.
+ * doesn't — one event gets one rendering.
  *
  * Only the queued copy is dropped, and only when a matching delivered row
  * actually follows it: a message the user queued and then cancelled (no

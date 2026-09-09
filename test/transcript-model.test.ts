@@ -6,16 +6,17 @@
 // only these shapes exist, hence the explicit unknown-type/unknown-segment
 // coverage.
 import { describe, expect, test } from "bun:test";
+import { type InboxMessage, renderDirectDelivery, USER_SENDER } from "@ccmsg/protocol";
 import {
   attachmentDetail,
   parseNumberedSnippet,
-  ccmsgDedupKey,
   ccmsgMessageCount,
-  ccmsgRenderTargets,
   classifyAssistantMessage,
+  extractIncomingMessages,
+  extractSessionReplies,
+  parseCcmsgReplyCommand,
   classifyBoundaryLine,
   classifyUserMessage,
-  extractCcmsgMessages,
   foldGroupLabel,
   foldGroupNeedsOuterFold,
   groupTimelineLines,
@@ -45,7 +46,6 @@ import {
   segmentSearchText,
   userNavTargets,
   stripAnsiEscapes,
-  type CcmsgMessage,
   type ParsedLine,
   type Segment,
   type TimelineEntry,
@@ -1506,26 +1506,6 @@ describe("isSearchableSegment", () => {
     const seg: Segment = { kind: "thinking-hidden", reason: "omitted" };
     expect(isSearchableSegment(seg, ALL_ON)).toBe(false);
     expect(segmentSearchText(seg)).toBe("");
-  });
-});
-
-// ccmsgDedupKey (kawaz r15 mid=21 dedup, extended by r26 mid=97 search unit
-// list): must be shared verbatim between render-side dedup and search-side
-// dedup so the two never disagree about which ccmsg messages exist.
-describe("ccmsgDedupKey", () => {
-  test("built from room|ts|from|msg", () => {
-    const m: CcmsgMessage = {
-      from: "u1",
-      room: "general",
-      msg: "hello",
-      ts: "2026-07-17T00:00:00Z",
-    };
-    expect(ccmsgDedupKey(m)).toBe("general|2026-07-17T00:00:00Z|u1|hello");
-  });
-
-  test("two messages differing only in msg get distinct keys", () => {
-    const base = { from: "u1", room: "general", ts: "2026-07-17T00:00:00Z" };
-    expect(ccmsgDedupKey({ ...base, msg: "a" })).not.toBe(ccmsgDedupKey({ ...base, msg: "b" }));
   });
 });
 
@@ -3144,39 +3124,32 @@ describe("isDirectFoldEntry / foldGroupLabel", () => {
     expect(foldGroupNeedsOuterFold(entries)).toBe(true);
   });
 
-  // 何を保証するか (kawaz r76 m49 の実データ形状): subscribe 通知で届く
-  // peer 発のルームメッセージ (`<task-notification>` に `<event>` の jsonl が
-  // 載る形) は summary で ccmsg として名指される — thinking と同じ扱い。
-  // classifyBoundaryLine 側は r55 m14 どおり null (u1 発を含まないので
-  // トップレベルの主役バブルにはしない) のままであることも同時に固定する。
-  test("a peer-sent ccmsg room message is named as ccmsg, not counted as an item", () => {
-    const event = {
-      type: "msg",
-      mid: 2,
-      from: "a2",
-      ts: "2026-07-28T12:00:00.000Z",
-      to: ["a1"],
-      r: "r90",
-      seq: 7,
-      msg: "届いています",
-    };
-    const peerCcmsg: TimelineEntry = {
+  // 他セッションからの着信は summary で ccmsg として名指される (thinking と
+  // 同じ扱い)。boundary にはしない — トップレベルの主役バブルは人の発話だけ。
+  test("他セッションからの着信は ccmsg として名指され、items には数えない", () => {
+    const peerIncoming: TimelineEntry = {
       offset: 2,
       line: parseTranscriptLine(
         JSON.stringify({
           type: "user",
           message: {
             role: "user",
-            content: `<task-notification>\n<event>${JSON.stringify(event)}</event>\n</task-notification>`,
+            content: renderDirectDelivery({
+              mid: "ws://127.0.0.1:39847/2",
+              from: "11111111-2222-3333-4444-555555555555",
+              from_label: "peer",
+              text: "届いています",
+              sent_at: 1_757_376_000_000,
+            }),
           },
         }),
       ),
     };
-    const entries = [toolEntry(1), peerCcmsg, toolEntry(3)];
+    const entries = [toolEntry(1), peerIncoming, toolEntry(3)];
 
-    expect(ccmsgMessageCount(peerCcmsg)).toBe(1);
-    expect(isDirectFoldEntry(peerCcmsg)).toBe(true);
-    expect(classifyBoundaryLine(peerCcmsg.line)).toBeNull();
+    expect(ccmsgMessageCount(peerIncoming)).toBe(1);
+    expect(isDirectFoldEntry(peerIncoming)).toBe(true);
+    expect(classifyBoundaryLine(peerIncoming.line)).toBeNull();
     expect(foldGroupLabel(entries)).toBe("1 ccmsg + 2 items");
   });
 
@@ -3290,744 +3263,228 @@ describe("foldGroupNeedsOuterFold", () => {
   });
 });
 
-// extractCcmsgMessages (webui Timeline chat-bubble task, kawaz spec):
-// recovers ccmsg room messages (`type:"msg"` events) embedded inside a
-// system-injected "type:user" line, regardless of which wrapper carries them
-// — a Task-tool `teammate-message` relay, or a Monitor-tool
-// `task-notification`'s `<event>` jsonl body. Fixtures below use
-// parseTranscriptLine (not hand-built ParsedLine) so the text actually goes
-// through parseSegments/classifyUserMessage the same way a live transcript
-// line would.
-describe("extractCcmsgMessages", () => {
-  // 何を保証するか (実データ回帰): Claude Code が mid=99 の Monitor event を
-  // `"seq":102...(truncated)` で切り、その後に返信指示行を続けた実 transcript
-  // でも、復元可能な u1 本文を room 不明の ccmsg bubble として残す。fixture の
-  // message.content は報告対象 jsonl 行からそのまま採取した。
-  test("the actual mid=99 truncated task-notification yields a u1 ccmsg bubble", () => {
-    const actualMid99TranscriptLine = JSON.stringify({
-      type: "user",
-      message: {
-        role: "user",
-        content:
-          '<task-notification>\n<task-id>baxep3rq2</task-id>\n<summary>Monitor event: "ccmsg 新着メッセージ監視"</summary>\n<event>{"type":"msg","mid":99,"from":"u1","ts":"2026-07-17T04:33:44.888Z","msg":"あるセッションが、Read/Write/Editしたcwd外のファイルを見たい。\\n自由にプロジェクト外のパスをブラウズしたいわけではない。\\nRead/Write/Editツールで触ったファイルリストからcwd内のものを除外したフルパスリストを表示するセクションがFileツリーに欲しいということです。\\n\\n現在、おきにいり、プロジェクトという2つのセクションがあるが、ここにプロジェクト外というセクションを設けて、セッションが触ったプロジェクト外ファイルのフルパスリストを表示して選択できるようにしたい。\\n当然横幅が足りなくなると思うが、横スクロールバーを付けてくれたら良い。そもそも現在も深いディレクトリや長いファイル名の際に右側が隠れる問題は存在する。スプリッタを右にずらせば広くはできるが限界はあるのでシンプルにセクション内のリストごとに横スクロールができればよいと思う。\\nお気に入り追加も可能となるようにしたい。","seq":102...(truncated)</event>\nIf this event is something the user would act on now, send a PushNotification. Routine or benign output doesn\'t need one.\n</task-notification>',
-      },
-      timestamp: "2026-07-17T04:33:45.105Z",
-      origin: { kind: "task-notification" },
-    });
-
-    const msgs = extractCcmsgMessages(parseTranscriptLine(actualMid99TranscriptLine));
-    expect(msgs.length).toBe(1);
-    expect(msgs[0]!.from).toBe("u1");
-    expect(msgs[0]!.room).toBe("?");
-    expect(msgs[0]!.msg).toContain(
-      "あるセッションが、Read/Write/Editしたcwd外のファイルを見たい。",
-    );
-    expect(msgs[0]!.msg).toContain("切り詰め");
-  });
-
-  // Monitor 通知の <event> は長い msg を「...(truncated)」で切ることがあり、
-  // その行は JSON として壊れる (kawaz r17 mid=43 の実観測 — bubble にならず
-  // 生 JSON の fold 表示になっていた)。field 順は daemon の stringify 順で
-  // 固定なので、切れていても from/ts/r/msg 冒頭を復元して「途中まで +
-  // 切り詰め注記」の bubble にする。
-  test("a truncated <event> msg line still yields a bubble with the partial text", () => {
-    const truncated =
-      '{"type":"msg","mid":43,"from":"u1","ts":"2026-07-15T04:02:43.478Z","msg":"[FILE1:スクショ.png](/tmp/x.png)\\nさっき間違えてemeradacoのセッションで1on1送信して...(truncated)';
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `[SYSTEM NOTIFICATION - NOT USER INPUT]\n<task-notification>\n<event>${"{"}"type":"kind","kind":"1on1","ts":"t","seq":1,"r":"r20"}\n${truncated}</event>\n</task-notification>`,
-        },
-        timestamp: "2026-07-15T04:02:44.000Z",
-      }),
-    );
-    const msgs = extractCcmsgMessages(line);
-    expect(msgs.length).toBe(1);
-    expect(msgs[0]!.from).toBe("u1");
-    expect(msgs[0]!.room).toBe("r20");
-    expect(msgs[0]!.msg).toContain("さっき間違えて");
-    expect(msgs[0]!.msg).toContain("切り詰め");
-  });
-
-  // docs/issue/2026-07-17-subscribe-jsonl-msg-last-column.md: daemon の
-  // subscribe wire order を `type,mid,from,ts,to?,r,seq,reply_via?,msg`
-  // (msg が必ず最後) に変更したことで、`r` が msg より前に来るようになった。
-  // 同居 event の無い単独 msg 通知が切れても、fallbackRoom に頼らず断片自身の
-  // `r` から room を復元できることを固定する (旧順では `r` が msg の後ろに
-  // あり truncation でほぼ確実に失われていた — 上のテストの fallbackRoom
-  // 依存はその名残)。
-  test("new wire order: a truncated standalone msg notification recovers room from its own `r` (no fallback needed)", () => {
-    const truncated =
-      '{"type":"msg","mid":110,"from":"a1","ts":"2026-07-17T04:33:44.888Z","r":"r30","seq":42,"reply_via":"Use `ccmsg reply r30m109 <msg>`","msg":"a very long message body that keeps going and going...(truncated)';
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `<task-notification>\n<event>${truncated}</event>\n</task-notification>`,
-        },
-        timestamp: "2026-07-17T04:33:45.000Z",
-      }),
-    );
-    const msgs = extractCcmsgMessages(line);
-    expect(msgs.length).toBe(1);
-    expect(msgs[0]!.from).toBe("a1");
-    expect(msgs[0]!.room).toBe("r30");
-    expect(msgs[0]!.msg).toContain("a very long message body");
-    expect(msgs[0]!.msg).toContain("切り詰め");
-  });
-
-  // 対極 (誤爆防止): truncated marker があっても msg event でない行や、
-  // from/ts/msg のいずれかを復元できない断片は bubble にしない。
-  test("a truncated non-msg or msg missing identity fields stays out of bubbles", () => {
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content:
-            '<task-notification>\n<event>{"type":"member","id":"a1","sid":"x...(truncated)\n{"type":"msg","from":"u1","msg":"no timestamp...(truncated)</event>\n</task-notification>',
-        },
-        timestamp: "2026-07-15T04:02:44.000Z",
-      }),
-    );
-    expect(extractCcmsgMessages(line)).toEqual([]);
-  });
-
-  function userLine(content: string): ParsedLine {
+// 会話の抽出 (新契約): 人 / 他セッションからの着信は user turn に
+// `<cross-session-message>` の封筒として埋まり、このセッションの返事は
+// `ccmsg reply` の Bash 実行として現れる。fixture は本文を手で組まず契約の
+// `renderDirectDelivery` に書かせる — 封筒の文法の正本は契約側で、写しを
+// テストに持つと契約が変わっても緑のままになる。
+describe("extractIncomingMessages", () => {
+  function deliveryLine(...messages: InboxMessage[]): ParsedLine {
     return parseTranscriptLine(
-      JSON.stringify({ type: "user", message: { role: "user", content } }),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: messages.map(renderDirectDelivery).join("\n\n") },
+      }),
     );
   }
 
-  test("msg_via frame becomes a lazy-read placeholder keyed by room and mid", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 38,
-      from: "a3",
-      r: "r35",
-      ts: "2026-07-19T01:00:00.000Z",
-      reply_via: "Use `ccmsg reply r35m38 <msg>`",
-      msg_via: "Use `ccmsg read r35m38`",
-    };
-    const line = userLine(
-      `<task-notification>\n<event>${JSON.stringify(msgEvent)}</event>\n</task-notification>`,
-    );
-    expect(extractCcmsgMessages(line)).toEqual([
-      {
-        from: "a3",
-        to: undefined,
-        room: "r35",
-        msg: "",
-        ts: "2026-07-19T01:00:00.000Z",
-        mid: 38,
-      },
+  const fromPerson: InboxMessage = {
+    mid: "ws://127.0.0.1:39847/7",
+    from: USER_SENDER,
+    from_label: "kawaz",
+    text: "進捗どう?",
+    sent_at: 1_757_376_000_000,
+  };
+  const fromPeer: InboxMessage = {
+    mid: "ws://127.0.0.1:39847/8",
+    from: "11111111-2222-3333-4444-555555555555",
+    from_label: "peer",
+    text: "こちらは終わった",
+    sent_at: 1_757_376_060_000,
+  };
+
+  test("人からの 1 通を、封筒が足した返信案内を落として返す", () => {
+    expect(extractIncomingMessages(deliveryLine(fromPerson))).toEqual([
+      { mid: "ws://127.0.0.1:39847/7", from: USER_SENDER, fromLabel: "kawaz", text: "進捗どう?" },
     ]);
   });
 
-  // DR-0003 §5 Addendum: 自分の post は本文なしの軽量エコー (msg_via + echo:true、
-  // reply_via なし) として自分の subscribe stream に返る。TL の自 post バブルは
-  // これを拾って描画し、本文は CcmsgBubble が (room, mid) で lazy read する
-  // (2026-07-29-self-ccmsg-post-bubbles-missing)。msg_via 経路と同じ placeholder
-  // を作れば足りるので、echo フィールド自体は抽出側では読まない。
-  test("self-post echo frame (msg_via + echo, no reply_via) becomes a lazy-read placeholder", () => {
-    const echoEvent = {
-      type: "msg",
-      r: "r40",
-      mid: 5,
-      from: "a2",
-      seq: 11,
-      msg_via: "Use `ccmsg read r40m5`",
-      echo: true,
-      ts: "2026-07-29T01:00:00.000Z",
-    };
-    const line = userLine(
-      `<task-notification>\n<event>${JSON.stringify(echoEvent)}</event>\n</task-notification>`,
-    );
-    expect(extractCcmsgMessages(line)).toEqual([
-      {
-        from: "a2",
-        to: undefined,
-        room: "r40",
-        msg: "",
-        ts: "2026-07-29T01:00:00.000Z",
-        mid: 5,
-      },
+  test("1 行に複数の封筒が載っていれば順に返す", () => {
+    expect(extractIncomingMessages(deliveryLine(fromPerson, fromPeer)).map((m) => m.mid)).toEqual([
+      "ws://127.0.0.1:39847/7",
+      "ws://127.0.0.1:39847/8",
     ]);
   });
 
-  test("teammate-message body is a ccmsg type:msg event -> one CcmsgMessage", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 12,
-      from: "a3",
-      r: "r7",
-      ts: "2026-07-12T01:00:00.000Z",
-      msg: "レビュー終わりました",
-    };
-    const line = userLine(
-      `Another Claude session sent a message:\n<teammate-message teammate_id="reviewer" color="blue">\n${JSON.stringify(msgEvent)}\n</teammate-message>\n\nThis came from another Claude session...`,
+  test("reply_to を持つ着信はそれを保つ", () => {
+    const answered: InboxMessage = { ...fromPeer, reply_to: "ws://127.0.0.1:39847/7" };
+    expect(extractIncomingMessages(deliveryLine(answered))[0]?.replyTo).toBe(
+      "ws://127.0.0.1:39847/7",
     );
-    expect(extractCcmsgMessages(line)).toEqual([
-      {
-        from: "a3",
-        to: undefined,
-        room: "r7",
-        msg: "レビュー終わりました",
-        ts: "2026-07-12T01:00:00.000Z",
-        mid: 12,
-      },
-    ]);
   });
 
-  // idle_notification (実観測パターン) は type:"msg" ではないので除外 — 従来
-  // 通り fold されるべき (吹き出し化しない)。
-  test("teammate-message body is an idle_notification -> excluded (not a msg event)", () => {
-    const idleEvent = {
-      type: "idle_notification",
-      from: "a3",
-      timestamp: "2026-07-12T01:00:00.000Z",
-      idleReason: "available",
-    };
-    const line = userLine(
-      `Another Claude session sent a message:\n<teammate-message teammate_id="a3" color="blue">\n${JSON.stringify(idleEvent)}\n</teammate-message>\n\nThis came from another Claude session...`,
+  test("封筒を持たない行・assistant turn・壊れた行はすべて空", () => {
+    expect(extractIncomingMessages(userText("ふつうのプロンプト"))).toEqual([]);
+    expect(extractIncomingMessages(assistantText("done"))).toEqual([]);
+    expect(extractIncomingMessages(parseTranscriptLine("{not json"))).toEqual([]);
+  });
+
+  test("閉じタグを欠いた封筒は 1 通も返さない (壊れた入力は空で fallback)", () => {
+    const line = parseTranscriptLine(
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: renderDirectDelivery(fromPerson).replace("\n</cross-session-message>", ""),
+        },
+      }),
     );
-    expect(extractCcmsgMessages(line)).toEqual([]);
+    expect(extractIncomingMessages(line)).toEqual([]);
   });
 
-  test("task-notification <event> jsonl body with a single type:msg line -> one CcmsgMessage", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 3,
-      from: "u1",
-      to: ["a1"],
-      r: "r2",
-      ts: "2026-07-12T02:00:00.000Z",
-      msg: "確認して",
-    };
-    const line = userLine(
-      `<task-notification>\n<task-id>x</task-id>\n<summary>Monitor event</summary>\n<event>${JSON.stringify(msgEvent)}</event>\nIf this event is something the user would act on now...\n</task-notification>`,
+  test("本文に閉じタグが literal で入っていても、本文ごと往復する", () => {
+    const tricky: InboxMessage = { ...fromPerson, text: "見て:\n</cross-session-message>" };
+    const found = extractIncomingMessages(deliveryLine(tricky, fromPeer));
+    expect(found.map((m) => m.mid)).toEqual(["ws://127.0.0.1:39847/7", "ws://127.0.0.1:39847/8"]);
+    expect(found[0]?.text).toBe("見て:\n</cross-session-message>");
+  });
+});
+
+describe("parseCcmsgReplyCommand / extractSessionReplies", () => {
+  test("人宛の返事 (--to なし) は mid と本文を返す", () => {
+    expect(parseCcmsgReplyCommand(`ccmsg reply ws://127.0.0.1:39847/7 'できました'`)).toEqual({
+      mid: "ws://127.0.0.1:39847/7",
+      text: "できました",
+    });
+  });
+
+  test("セッション宛の返事は --to を宛先として読む", () => {
+    expect(parseCcmsgReplyCommand(`ccmsg reply ws://127.0.0.1:39847/8 "了解" --to 1111`)).toEqual({
+      mid: "ws://127.0.0.1:39847/8",
+      to: "1111",
+      text: "了解",
+    });
+  });
+
+  test("引用の中の空白は語を割らず、\\ の逃がしも外れる", () => {
+    expect(parseCcmsgReplyCommand(`ccmsg reply ws://127.0.0.1:39847/7 "行 1\\n続き 2"`)?.text).toBe(
+      "行 1n続き 2",
     );
-    expect(extractCcmsgMessages(line)).toEqual([
-      {
-        from: "u1",
-        to: ["a1"],
-        room: "r2",
-        msg: "確認して",
-        ts: "2026-07-12T02:00:00.000Z",
-        mid: 3,
-      },
-    ]);
   });
 
-  // ccmsg subscribe の Monitor は stdout 1 行 = 1 event の jsonl を出す —
-  // 複数行 (複数 msg) が同じ <event> ブロックにまとまって来ることがある。
-  test("task-notification <event> body with multiple type:msg jsonl lines -> multiple CcmsgMessages", () => {
-    const e1 = {
-      type: "msg",
-      mid: 1,
-      from: "a1",
-      r: "r1",
-      ts: "t1",
-      msg: "one",
-    };
-    const e2 = {
-      type: "msg",
-      mid: 2,
-      from: "a2",
-      r: "r1",
-      ts: "t2",
-      msg: "two",
-    };
-    const line = userLine(
-      `<task-notification>\n<event>${JSON.stringify(e1)}\n${JSON.stringify(e2)}</event>\n</task-notification>`,
-    );
-    expect(extractCcmsgMessages(line)).toEqual([
-      { from: "a1", to: undefined, room: "r1", msg: "one", ts: "t1", mid: 1 },
-      { from: "a2", to: undefined, room: "r1", msg: "two", ts: "t2", mid: 2 },
-    ]);
+  test("reply 以外の ccmsg サブコマンドと、本文を欠いた並びは undefined", () => {
+    expect(parseCcmsgReplyCommand("ccmsg post 1111 やあ")).toBeUndefined();
+    expect(parseCcmsgReplyCommand("ccmsg reply ws://127.0.0.1:39847/7")).toBeUndefined();
+    expect(parseCcmsgReplyCommand("ccmsg notify done")).toBeUndefined();
+    expect(parseCcmsgReplyCommand("echo ccmsg")).toBeUndefined();
   });
 
-  // ccmsg と無関係な task-notification (通常の Monitor イベント文言、JSON
-  // ですらない) は空 — 従来通り fold される。
-  test("a task-notification unrelated to ccmsg (plain event text) -> empty", () => {
-    const line = userLine(
-      "<task-notification>\n<task-id>x</task-id>\n<event>[run:change] workflow:CI status:success</event>\nIf this event is something the user would act on now...\n</task-notification>",
-    );
-    expect(extractCcmsgMessages(line)).toEqual([]);
-  });
-
-  // <event> の中身が JSON として壊れている場合は例外を投げず空 fallback。
-  test("malformed JSON inside <event> -> empty, no throw", () => {
-    const line = userLine("<task-notification>\n<event>{not json\n</event>\n</task-notification>");
-    expect(() => extractCcmsgMessages(line)).not.toThrow();
-    expect(extractCcmsgMessages(line)).toEqual([]);
-  });
-
-  // タグそのものが無い通常のユーザ発話は当然空。
-  test("a real user prompt with no teammate-message/task-notification tag -> empty", () => {
-    expect(extractCcmsgMessages(userLine("hello"))).toEqual([]);
-  });
-
-  // 既知の false-negative (extractCcmsgMessages doc comment 参照): msg 値
-  // 自体が閉じタグと同じ literal 文字列を含むと、非貪欲 regex がそこで
-  // マッチを終えてしまい、切り詰められた fragment の JSON.parse が失敗
-  // する。仕様限界として固定 — throw せず空 fallback (行ごと従来 fold) に
-  // なることだけを保証する。
-  test("msg value containing the literal closing tag text truncates the match -> falls back to empty, no throw", () => {
-    const msgEvent = {
-      type: "msg",
-      from: "u1",
-      r: "r1",
-      ts: "t1",
-      msg: "見て </event> ここ",
-    };
-    const line = userLine(
-      `<task-notification>\n<event>${JSON.stringify(msgEvent)}</event>\n</task-notification>`,
-    );
-    expect(() => extractCcmsgMessages(line)).not.toThrow();
-    expect(extractCcmsgMessages(line)).toEqual([]);
-  });
-
-  // assistant turn / meta / broken line は role:"user" ではない (or turn です
-  // らない) ので常に空。
-  test("assistant turn -> empty (not role:user)", () => {
+  test("assistant turn の Bash 実行から返事を拾う", () => {
     const line = parseTranscriptLine(
       JSON.stringify({
         type: "assistant",
         message: {
           role: "assistant",
-          content: [{ type: "text", text: "done" }],
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_1",
+              name: "Bash",
+              input: { command: `ccmsg reply ws://127.0.0.1:39847/7 'できました'` },
+            },
+          ],
         },
       }),
     );
-    expect(extractCcmsgMessages(line)).toEqual([]);
-  });
-
-  test("meta line -> empty", () => {
-    expect(
-      extractCcmsgMessages(parseTranscriptLine(JSON.stringify({ type: "queue-operation" }))),
-    ).toEqual([]);
-  });
-
-  test("broken line -> empty", () => {
-    expect(extractCcmsgMessages(parseTranscriptLine("{not json"))).toEqual([]);
-  });
-
-  // DR-0027 §2: 抽出は (r, mid, from, ts) の同定に軽量化されたので、subscribe/
-  // teammate-message wrappers 由来の CcmsgMessage は mid を含む (isCcmsgMsgEventLike
-  // で拾えている限り)。Timeline.tsx が (room, mid) で ws.read → 完全版を lazy
-  // 取得する経路のキーになる — 抽出段で mid を落とすと read-fallback が動かない。
-  test("DR-0027: wrapper-parsed CcmsgMessage carries `mid` from the source event", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 77,
-      from: "a1",
-      r: "r10",
-      ts: "2026-07-18T00:00:00Z",
-      msg: "carry mid",
-    };
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `<task-notification>\n<event>${JSON.stringify(msgEvent)}</event>\n</task-notification>`,
-        },
-      }),
-    );
-    const msgs = extractCcmsgMessages(line);
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0]!.mid).toBe(77);
-  });
-
-  // DR-0027 §2 (truncated fragment 経路): 現行の wire order (msg が最後) では
-  // mid は truncation の手前に必ずあるので、切れた fragment からでも拾えて
-  // 完全版 read の canonical key を確保できる — 切り詰め本文の bubble も後で
-  // daemon 一次情報で置き換わる。
-  test("DR-0027: truncated fragment recovers `mid` before the truncation point", () => {
-    const truncated =
-      '{"type":"msg","mid":110,"from":"a1","ts":"2026-07-17T04:33:44.888Z","r":"r30","seq":42,"reply_via":"Use `ccmsg reply r30m109 <msg>`","msg":"a long body...(truncated)';
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `<task-notification>\n<event>${truncated}</event>\n</task-notification>`,
-        },
-      }),
-    );
-    const msgs = extractCcmsgMessages(line);
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0]!.mid).toBe(110);
-  });
-
-  // 対極 (DR-0027 §2.1): canonical lookup key は (r, mid) の組。旧 wire order
-  // (`type,mid,from,ts,msg,...` — msg が中程で r が末尾側) の truncated
-  // fragment では r が truncation で失われ room="?" になる。この場合 mid を
-  // 付けると (a) ws.read("?", [mid]) の無意味な発火 (実 daemon 実測で確認)、
-  // (b) dedup key "?|mN" が room を跨いで同 mid の別メッセージと偽衝突する。
-  // room 不明の fragment は mid なし = 救済 parse 本文だけの最終フォールバック。
-  test("DR-0027: room-less truncated fragment (old wire order) drops `mid` — no canonical key without a room", () => {
-    const truncated =
-      '{"type":"msg","mid":99,"from":"u1","ts":"2026-07-17T04:33:44.888Z","msg":"a long body cut before the r field...(truncated)';
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `<task-notification>\n<event>${truncated}</event>\n</task-notification>`,
-        },
-      }),
-    );
-    const msgs = extractCcmsgMessages(line);
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0]!.room).toBe("?");
-    expect(msgs[0]!.mid).toBeUndefined();
-    // 本文の救済 parse は従来通り生きている (最終フォールバック)。
-    expect(msgs[0]!.msg).toContain("a long body cut before the r field");
-  });
-});
-
-// ccmsgDedupKey が (room, mid) canonical キーを返すので、同じ msg が別経路で
-// 2 度抽出されても (自 post の軽量エコーと、同じ行に載った完全 event 等)
-// 1 件に collapse される (kawaz r15 mid=21 dedup の拡張、DR-0027 §2.2)。
-describe("DR-0027 dedup: (room, mid) canonical key collapses duplicate extractions", () => {
-  test("ccmsgDedupKey uses `${room}|m${mid}` when mid is present", () => {
-    const m: CcmsgMessage = {
-      from: "a1",
-      room: "r5",
-      msg: "",
-      ts: "",
-      mid: 42,
-    };
-    expect(ccmsgDedupKey(m)).toBe("r5|m42");
-  });
-
-  test("ccmsgDedupKey falls back to the ts|from|msg form when mid is absent (pre-DR-0027 shape)", () => {
-    const m: CcmsgMessage = { from: "u1", room: "r5", msg: "hi", ts: "t" };
-    expect(ccmsgDedupKey(m)).toBe("r5|t|u1|hi");
-  });
-
-  test("bodyless echo placeholder and wrapper-parsed message with same (room, mid) collapse", () => {
-    const placeholder: CcmsgMessage = {
-      from: "a1",
-      room: "r5",
-      msg: "",
-      ts: "ts1",
-      mid: 42,
-    };
-    const wrapperParsed: CcmsgMessage = {
-      from: "a1",
-      room: "r5",
-      msg: "hello",
-      ts: "ts2",
-      mid: 42,
-    };
-    expect(ccmsgDedupKey(placeholder)).toBe(ccmsgDedupKey(wrapperParsed));
-  });
-});
-
-// classifyBoundaryLine (webui Timeline chat-bubble task, kawaz spec): the
-// single source of truth both `isBoundaryLine` (fold/no-fold split) and
-// Timeline.tsx (which bubble to render) key off of. Only the "ccmsg" branch
-// is new here — "user-prompt"/"assistant-response" are already covered by
-// the isUserTextTurn/groupTimelineLines describe blocks above via
-// isBoundaryLine's behavior.
-// ccmsgRenderTargets: 「どの ccmsg バブルを描画するか」の唯一の決定点。
-// dedup を render の副作用から追い出したのがこの関数の存在理由なので、
-// 「同じ groups なら何度呼んでも同じ答え」を明示的に固定する — 旧実装は
-// render 中に共有 Set を mutate していたため、fold group の開閉 (子局所
-// re-render) で 2 回目以降の判定が変わり、peer 発バブルが消えていた
-// (docs/issue/2026-07-29-fold-toggle-drops-peer-ccmsg-bubble)。
-describe("ccmsgRenderTargets", () => {
-  // 1 行が複数の <teammate-message> を運ぶ形 (実観測: 相手が続けて idle に
-  // なった等) も扱えるよう、events を可変長で受ける。
-  function ccmsgLine(...events: (CcmsgMessage & { mid: number })[]): ParsedLine {
-    const tags = events
-      .map((message) => {
-        const event = {
-          type: "msg",
-          mid: message.mid,
-          from: message.from,
-          r: message.room,
-          ts: message.ts,
-          msg: message.msg,
-        };
-        return `<teammate-message teammate_id="${message.from}">\n${JSON.stringify(event)}\n</teammate-message>`;
-      })
-      .join("\n");
-    return parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `Another Claude session sent a message:\n${tags}`,
-        },
-      }),
-    );
-  }
-
-  test("peer 発は fold placement、u1 発は boundary placement で document 順に並ぶ", () => {
-    const peer = {
-      from: "a1",
-      room: "r1",
-      ts: "t1",
-      msg: "peer message",
-      mid: 1,
-    };
-    const user = {
-      from: "u1",
-      room: "r1",
-      ts: "t2",
-      msg: "user message",
-      mid: 2,
-    };
-    const groups = groupTimelineLines(
-      [ccmsgLine(peer), ccmsgLine(user), assistantText("done")],
-      [10, 20, 30],
-    );
-
-    expect(
-      ccmsgRenderTargets(groups).map(({ key, offset, messageIndex, placement }) => ({
-        key,
-        offset,
-        messageIndex,
-        placement,
-      })),
-    ).toEqual([
-      { key: "10-ccmsg-0", offset: 10, messageIndex: 0, placement: "fold" },
-      { key: "20-ccmsg-0", offset: 20, messageIndex: 0, placement: "boundary" },
+    expect(extractSessionReplies(line)).toEqual([
+      { mid: "ws://127.0.0.1:39847/7", text: "できました" },
     ]);
-  });
-
-  // 同じ (room, mid) が fold group 内と boundary の両方から抽出される場面:
-  // peer 発 event が単独行にも、後続の u1 発 event と同じ行にも載っている
-  // (task-notification の echo)。残るのは transcript で先に現れた fold 側で、
-  // Preact が boundary を先に render することには引きずられない (render 順
-  // ではなく document 順が正 — in-view search の unit 列と同じ規則)。
-  // boundary 側で index 0 が落ちても index 1 の key は 1 のまま = messageIndex
-  // は「その行の message 配列上の位置」であって描画順の連番ではない。
-  test("経路をまたぐ重複は document 順で先の 1 件だけが残る", () => {
-    const peer = {
-      from: "a1",
-      room: "r1",
-      ts: "t1",
-      msg: "peer message",
-      mid: 7,
-    };
-    const user = {
-      from: "u1",
-      room: "r1",
-      ts: "t2",
-      msg: "user message",
-      mid: 8,
-    };
-    const groups = groupTimelineLines([ccmsgLine(peer), ccmsgLine(peer, user)], [10, 20]);
-
-    expect(
-      ccmsgRenderTargets(groups).map(({ key, messageIndex, placement }) => ({
-        key,
-        messageIndex,
-        placement,
-      })),
-    ).toEqual([
-      { key: "10-ccmsg-0", messageIndex: 0, placement: "fold" },
-      { key: "20-ccmsg-1", messageIndex: 1, placement: "boundary" },
-    ]);
-  });
-
-  // 本命の回帰: fold の開閉は Timeline 本体を再実行しないので、判定関数は
-  // 同じ入力に対して何度でも同じ答えを返さなければならない。
-  test("同じ groups で繰り返し呼んでも結果が変わらない (fold 開閉で消えない)", () => {
-    const peer = {
-      from: "a1",
-      room: "r1",
-      ts: "t1",
-      msg: "peer message",
-      mid: 1,
-    };
-    const user = {
-      from: "u1",
-      room: "r1",
-      ts: "t2",
-      msg: "user message",
-      mid: 2,
-    };
-    const groups = groupTimelineLines(
-      [userText("prompt"), ccmsgLine(peer), ccmsgLine(user)],
-      [10, 20, 30],
-    );
-
-    const first = ccmsgRenderTargets(groups).map((target) => target.key);
-    expect(first).toEqual(["20-ccmsg-0", "30-ccmsg-0"]);
-    expect(ccmsgRenderTargets(groups).map((target) => target.key)).toEqual(first);
-    expect(ccmsgRenderTargets(groups).map((target) => target.key)).toEqual(first);
   });
 });
 
 describe("userNavTargets", () => {
-  function ccmsgLine(message: CcmsgMessage): ParsedLine {
-    const event = {
-      type: "msg",
-      mid: 1,
-      from: message.from,
-      r: message.room,
-      ts: message.ts,
-      msg: message.msg,
-    };
+  function deliveryLine(from: string, text: string): ParsedLine {
     return parseTranscriptLine(
       JSON.stringify({
         type: "user",
         message: {
           role: "user",
-          content: `Another Claude session sent a message:\n<teammate-message teammate_id="${message.from}">\n${JSON.stringify(event)}\n</teammate-message>`,
+          content: renderDirectDelivery({
+            mid: `ws://127.0.0.1:39847/${text.length}`,
+            from,
+            from_label: from,
+            text,
+            sent_at: 1_757_376_000_000,
+          }),
         },
       }),
     );
   }
 
-  test("returns one target for every rendered green bubble in document order", () => {
-    const userCcmsg = { from: "u1", room: "r1", ts: "t1", msg: "via ccmsg" };
-    const lines = [userText("prompt"), ccmsgLine(userCcmsg), assistantText("done")];
+  test("端末のプロンプトと人からの着信を、transcript の順に返す", () => {
+    const lines = [
+      userText("prompt"),
+      deliveryLine(USER_SENDER, "ccmsg 経由"),
+      assistantText("done"),
+    ];
     const groups = groupTimelineLines(lines, [10, 20, 30]);
 
     expect(userNavTargets(groups)).toEqual([
       { key: "user:10", offset: 10, kind: "user-prompt" },
-      { key: "ccmsg:20:0", offset: 20, kind: "ccmsg", messageIndex: 0 },
+      { key: "20-incoming-0", offset: 20, kind: "incoming", messageIndex: 0 },
     ]);
   });
 
-  test("excludes duplicate and non-user ccmsg bubbles exactly as rendering does", () => {
-    const userCcmsg = { from: "u1", room: "r1", ts: "t1", msg: "same message" };
-    const agentCcmsg = {
-      from: "a1",
-      room: "r1",
-      ts: "t2",
-      msg: "agent message",
-    };
-    const lines = [
-      ccmsgLine(userCcmsg),
-      ccmsgLine(agentCcmsg),
-      ccmsgLine(userCcmsg),
-      userText("prompt"),
-    ];
-    const groups = groupTimelineLines(lines, [10, 20, 30, 40]);
+  test("他セッションからの着信は 👤 nav の対象ではない", () => {
+    const lines = [deliveryLine("1111", "peer から"), userText("prompt")];
+    const groups = groupTimelineLines(lines, [10, 20]);
 
-    expect(userNavTargets(groups)).toEqual([
-      { key: "ccmsg:10:0", offset: 10, kind: "ccmsg", messageIndex: 0 },
-      { key: "user:40", offset: 40, kind: "user-prompt" },
-    ]);
+    expect(userNavTargets(groups)).toEqual([{ key: "user:20", offset: 20, kind: "user-prompt" }]);
   });
 });
 
 describe("classifyBoundaryLine", () => {
-  // u1 (ADMIN) 発 ccmsg は本物のユーザ発話と同格に扱う (r55 m14) — boundary。
-  test("a system-origin line carrying a u1-sent ccmsg -> {kind:'ccmsg', messages:[...]}", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 1,
-      from: "u1",
-      r: "r1",
-      ts: "t1",
-      msg: "hi",
-    };
-    const line = parseTranscriptLine(
+  function deliveryLine(from: string): ParsedLine {
+    return parseTranscriptLine(
       JSON.stringify({
         type: "user",
         message: {
           role: "user",
-          content: `Another Claude session sent a message:\n<teammate-message teammate_id="u1">\n${JSON.stringify(msgEvent)}\n</teammate-message>`,
+          content: renderDirectDelivery({
+            mid: "ws://127.0.0.1:39847/7",
+            from,
+            from_label: from,
+            text: "hi",
+            sent_at: 1_757_376_000_000,
+          }),
         },
       }),
     );
-    expect(classifyBoundaryLine(line)).toEqual({
-      kind: "ccmsg",
-      messages: [{ from: "u1", to: undefined, room: "r1", msg: "hi", ts: "t1", mid: 1 }],
+  }
+
+  // 人からの着信は本物のユーザ発話と同格なので boundary。
+  test("人からの着信を運ぶ行 -> {kind:'incoming', messages:[...]}", () => {
+    expect(classifyBoundaryLine(deliveryLine(USER_SENDER))).toEqual({
+      kind: "incoming",
+      messages: [
+        { mid: "ws://127.0.0.1:39847/7", from: USER_SENDER, fromLabel: USER_SENDER, text: "hi" },
+      ],
     });
   });
 
-  // r55 m14: peer 発 (u1 以外) ccmsg は boundary にせず fold group 内で
-  // thinking/agent と同格の direct 要素として描画する。
-  test("a system-origin line carrying a peer-sent ccmsg -> null (folds)", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 1,
-      from: "a1",
-      r: "r1",
-      ts: "t1",
-      msg: "hi",
-    };
-    const line = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `Another Claude session sent a message:\n<teammate-message teammate_id="a1">\n${JSON.stringify(msgEvent)}\n</teammate-message>`,
-        },
-      }),
-    );
-    expect(classifyBoundaryLine(line)).toBeNull();
+  test("他セッションからの着信を運ぶ行 -> null (fold へ)", () => {
+    expect(classifyBoundaryLine(deliveryLine("1111"))).toBeNull();
   });
 
-  // u1 ccmsg-carrying line は境界として standalone、peer ccmsg-carrying line
-  // は fold group に入る。
-  test("u1 ccmsg-carrying line stands alone as a boundary in groupTimelineLines", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 1,
-      from: "u1",
-      r: "r1",
-      ts: "t1",
-      msg: "hi",
-    };
-    const ccmsgLine = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `Another Claude session sent a message:\n<teammate-message teammate_id="u1">\n${JSON.stringify(msgEvent)}\n</teammate-message>`,
-        },
-      }),
-    );
-    const lines = [userText("go"), ccmsgLine, assistantText("done")];
-    const offsets = [0, 1, 2];
-    expect(groupTimelineLines(lines, offsets)).toEqual([
+  test("人からの着信は groupTimelineLines でも単独で立つ", () => {
+    const incoming = deliveryLine(USER_SENDER);
+    const lines = [userText("go"), incoming, assistantText("done")];
+    expect(groupTimelineLines(lines, [0, 1, 2])).toEqual([
       { kind: "entry", offset: 0, line: lines[0] },
-      { kind: "entry", offset: 1, line: ccmsgLine },
+      { kind: "entry", offset: 1, line: incoming },
       { kind: "entry", offset: 2, line: lines[2] },
     ]);
   });
 
-  test("peer ccmsg-carrying line folds into surrounding group, not boundary", () => {
-    const msgEvent = {
-      type: "msg",
-      mid: 1,
-      from: "a1",
-      r: "r1",
-      ts: "t1",
-      msg: "hi",
-    };
-    const ccmsgLine = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          role: "user",
-          content: `Another Claude session sent a message:\n<teammate-message teammate_id="a1">\n${JSON.stringify(msgEvent)}\n</teammate-message>`,
-        },
-      }),
-    );
-    const lines = [userText("go"), ccmsgLine, assistantText("done")];
-    const offsets = [0, 1, 2];
-    expect(groupTimelineLines(lines, offsets)).toEqual([
+  test("他セッションからの着信は周りの fold group に入る", () => {
+    const incoming = deliveryLine("1111");
+    const lines = [userText("go"), incoming, assistantText("done")];
+    expect(groupTimelineLines(lines, [0, 1, 2])).toEqual([
       { kind: "entry", offset: 0, line: lines[0] },
-      { kind: "fold", entries: [{ offset: 1, line: ccmsgLine }] },
+      { kind: "fold", entries: [{ offset: 1, line: incoming }] },
       { kind: "entry", offset: 2, line: lines[2] },
     ]);
   });
-
   test("a real user prompt -> {kind:'user-prompt'}", () => {
     const line = parseTranscriptLine(
       JSON.stringify({
