@@ -45,7 +45,7 @@ A transcript is fetched, read, and drawn, and those are three layers.
 |---|---|---|
 | fetch | `src/timeline/transcript-view.ts` | the `transcript:<sid>` subscription and the backwards `transcript_read`, gathered into one `AppendFold` |
 | model | `src/timeline/transcript-model.ts` and neighbours | jsonl line to `ParsedLine`, joining tool_use with tool_result and pairing queued turns, then `TimelineGroup`. Pure functions only |
-| draw | `src/ui/Timeline.tsx` | reading the groups, and what a scroll position means |
+| draw | `src/ui/Timeline.tsx`, `src/markdown/` | reading the groups, what a scroll position means, how Markdown is read, and how a fold looks |
 
 **Subscribe first, read second.** The other order loses whatever is appended between the end of the read and the start of the subscription. The snapshot says only where the file ends now, and that is where the first read of the tail begins.
 
@@ -53,12 +53,32 @@ The model layer splits into a pure **per-line** map (`incremental-line-map`) and
 
 The scroll position is what separates following from reading. At the bottom a person is watching it happen, so an append moves the view; anywhere else they are reading, so it does not. A page added above is cancelled out by adding the `scrollHeight` difference, which leaves the line being read where it was.
 
+## Drawing: Markdown and highlighting
+
+Text an agent wrote is **read as Markdown**. The mdast tree (`mdast-util-from-markdown` plus the GFM extensions) is walked into JSX by hand, with no HTML-string stage in between. Nothing uses `innerHTML` or `dangerouslySetInnerHTML`, so escaping a body that contains `<` or `&` is what Preact's text nodes already do.
+
+**Text a person typed is read by different rules** (restricted). `#3 の件` is not a heading and `<R G B>` is not an HTML tag. What people use on purpose is inline code, fenced code and quoted lines, so restricted reading interprets those three and shows everything else as the characters they typed. It tokenizes the source directly rather than walking the mdast tree and flattening it back, because the round trip loses the original characters (whether a `#` was eaten, the exact spacing inside `_foo_`).
+
+**A link target lands in one of three places.** http/https/mailto open a new tab; a `#fragment` and an absolute URL naming this same origin open in the same tab; everything else — a scheme like `javascript:`, and any filesystem path — emits **no `<a>` at all**. Turning a path into an origin-relative `href` navigates to the origin serving this page with no way back (a standalone PWA has no address bar to recover with). Images take the same decision and are never auto-fetched through `<img src>`: rendering alone would send the viewer's IP and UA to a third party, so the alt text and a link are offered instead and the person chooses.
+
+Code highlighting loads Shiki as a **lazy chunk**. The engine and every grammar are taken by `await import()` inside `getHighlighter`, so a session with no code fetches none of it. Only the language table and the size threshold are eager, and they are what lets a caller decide whether to highlight without paying for the highlighter. Each token carries both the light and the dark colour and CSS picks one, rather than tokenizing again per theme.
+
+## Fold state lives outside the folds
+
+Whether a fold is open is held **outside** the component drawing it (`src/timeline/fold-open.ts`). The window moves and components unmount, and a fold that came back closed for that reason reads as the app forgetting what the reader did.
+
+**One signal per key**, not one signal holding a map. A component reads the key it draws, so opening one fold leaves the rest of the timeline alone — which is the reason the state is out there at all.
+
+**Only folds the reader touched are recorded.** Absent means "still at the caller's default", which is how a change to the auto-open settings takes effect without the store knowing what any fold's default is: changing them drops the overrides.
+
+**A closed fold's body is not drawn, but a body once drawn stays.** Most of a transcript lives inside a fold, so drawing every closed body would mean rendering — and highlighting — a whole session to show the few lines anyone is reading. Discarding a body on close would instead make closing a fold mean throwing away the work of having opened it.
+
 ## localStorage keys name what they belong to
 
 A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.
 
 - entry: the endpoint under `ccmsg.entry.url`, its token under `ccmsg.entry.token:<url>`. A token is an instance's whole entry credential, and one kept under a bare name would be handed to whichever endpoint was configured last
-- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance
+- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) are this
 
 ## The contract validates its own frames
 

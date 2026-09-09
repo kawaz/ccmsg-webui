@@ -1,9 +1,20 @@
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import type { Sid } from "@ccmsg/protocol";
-import { foldGroupLabel } from "../timeline/transcript-model.ts";
+import { foldGroupKey } from "../timeline/fold-tree.ts";
+import { foldGroupShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
+import type { TimelineAutoOpenSettings } from "../timeline/timeline-auto-open.ts";
+import { foldGroupLabel, foldGroupNeedsOuterFold } from "../timeline/transcript-model.ts";
 import type { ParsedLine, Segment, TimelineGroup } from "../timeline/transcript-model.ts";
 import type { TranscriptView } from "../timeline/transcript-view.ts";
-import { navigate, transcript } from "../state.ts";
+import {
+  navigate,
+  timelineAutoOpen,
+  timelineFolds,
+  toggleTimelineAutoOpenSetting,
+  transcript,
+} from "../state.ts";
+import { MarkdownView } from "../markdown/markdown-view.tsx";
+import { Fold } from "./Fold.tsx";
 
 /** A session's transcript, read from its end.
  *
@@ -70,6 +81,7 @@ function TimelineBody({ view }: { view: TranscriptView }) {
       <h2>
         transcript — {held.lines.length} 行 / {held.start}–{held.end} バイト
       </h2>
+      <AutoOpenBar />
       {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
       <div class="tl-scroll" ref={scroller} onScroll={onScroll}>
         <p class="empty tl-edge">
@@ -107,21 +119,61 @@ function groupKey(group: TimelineGroup, index: number): string | number {
   return group.entries[0]?.offset ?? `fold-${index}`;
 }
 
-function GroupView({ group }: { group: TimelineGroup }) {
-  if (group.kind === "entry") return <LineView line={group.line} />;
+/** Which kinds of fold open by themselves. The four are the categories a fold
+ * can be about, so a reader who cares about one of them sets it once rather
+ * than opening the same kind of fold over and over. */
+const AUTO_OPEN_LABELS: Readonly<Record<keyof TimelineAutoOpenSettings, string>> = {
+  thinking: "思考",
+  ccmsg: "ccmsg",
+  agent: "agent 通信",
+  items: "その他",
+};
+
+function AutoOpenBar() {
+  const settings = timelineAutoOpen.value;
   return (
-    <details class="tl-fold">
-      <summary>
-        {foldGroupLabel(group.entries)} ({group.entries.length})
-      </summary>
-      {group.entries.map((entry) => (
-        <LineView key={entry.offset} line={entry.line} />
+    <p class="tl-autoopen">
+      <span class="tl-autoopen-label">自動で開く</span>
+      {(Object.keys(AUTO_OPEN_LABELS) as (keyof TimelineAutoOpenSettings)[]).map((key) => (
+        <label key={key}>
+          <input
+            type="checkbox"
+            checked={settings[key]}
+            onChange={() => {
+              toggleTimelineAutoOpenSetting(key);
+            }}
+          />
+          {AUTO_OPEN_LABELS[key]}
+        </label>
       ))}
-    </details>
+    </p>
   );
 }
 
-function LineView({ line }: { line: ParsedLine }) {
+function GroupView({ group }: { group: TimelineGroup }) {
+  if (group.kind === "entry") return <LineView line={group.line} offset={group.offset} />;
+  // A group that is one plain item has nothing worth folding: opening "1 item"
+  // to reach the item is a step that answers nothing.
+  if (!foldGroupNeedsOuterFold(group.entries)) {
+    const entry = group.entries[0]!;
+    return <LineView line={entry.line} offset={entry.offset} />;
+  }
+  return (
+    <Fold
+      class="tl-fold"
+      folds={timelineFolds.value}
+      foldKey={foldGroupKey(group.entries)}
+      fallback={foldGroupShouldAutoOpen(group.entries, timelineAutoOpen.value)}
+      summary={`${foldGroupLabel(group.entries)} (${group.entries.length})`}
+    >
+      {group.entries.map((entry) => (
+        <LineView key={entry.offset} line={entry.line} offset={entry.offset} />
+      ))}
+    </Fold>
+  );
+}
+
+function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
   if (line.kind === "broken") {
     return (
       <div class="tl-line broken">
@@ -138,31 +190,60 @@ function LineView({ line }: { line: ParsedLine }) {
       </div>
     );
   }
+  const restricted = line.role === "user";
   return (
     <div class={`tl-line ${line.role}`}>
       <span class="tl-who">{line.role}</span>
       <div class="tl-body">
         {line.segments.map((segment, index) => (
-          <SegmentView key={index} segment={segment} />
+          <SegmentView
+            key={index}
+            segment={segment}
+            segmentKey={`${offset}:${index}`}
+            restricted={restricted}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-/** One block of a turn. Text is shown as it was written — reading it as
- * Markdown is a later slice — and everything that is not the conversation
- * itself is shown as what it was, in as few words as say it. */
-function SegmentView({ segment }: { segment: Segment }) {
+/** One block of a turn.
+ *
+ * What a person or an agent wrote is read as Markdown; everything that is not
+ * the conversation itself is shown as what it was, in as few words as say it.
+ * The two are read by different rules: an agent writes Markdown on purpose,
+ * while a person typing `#3 の件` means a hash and a number, so their text goes
+ * through the restricted reading (see MarkdownView's `restricted`). */
+function SegmentView({
+  segment,
+  segmentKey,
+  restricted,
+}: {
+  segment: Segment;
+  segmentKey: string;
+  restricted: boolean;
+}) {
   switch (segment.kind) {
     case "text":
-      return <p class="tl-text">{segment.text}</p>;
+      return (
+        <div class="tl-text">
+          <MarkdownView source={segment.text} restricted={restricted} />
+        </div>
+      );
     case "thinking":
       return (
-        <details class="tl-aside">
-          <summary>思考 ({segment.text.length} 文字)</summary>
-          <p class="tl-text">{segment.text}</p>
-        </details>
+        <Fold
+          class="tl-aside"
+          folds={timelineFolds.value}
+          foldKey={`think:${segmentKey}`}
+          fallback={timelineAutoOpen.value.thinking}
+          summary={`思考 (${segment.text.length} 文字)`}
+        >
+          <div class="tl-text">
+            <MarkdownView source={segment.text} />
+          </div>
+        </Fold>
       );
     case "thinking-hidden":
       return <p class="tl-note">思考 (本文なし: {segment.reason})</p>;

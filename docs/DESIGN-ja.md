@@ -45,7 +45,7 @@ transcript は「取得」「モデル」「描画」の 3 層に分ける。
 |---|---|---|
 | 取得 | `src/timeline/transcript-view.ts` | `transcript:<sid>` の購読と `transcript_read` の遡り読みを 1 つの `AppendFold` に集める |
 | モデル | `src/timeline/transcript-model.ts` ほか | jsonl 行 → `ParsedLine` → tool_use/tool_result の結合・queue の対応付け → `TimelineGroup`。純関数のみ |
-| 描画 | `src/ui/Timeline.tsx` | groups を読むだけ。スクロール位置の意味付けもここ |
+| 描画 | `src/ui/Timeline.tsx`, `src/markdown/` | groups を読むだけ。スクロール位置の意味付け、Markdown の読み方、fold の見た目もここ |
 
 **購読が先、読み込みが後**。逆にすると、読み終わってから購読するまでに追記された分がどちらにも入らない。購読の snapshot は「今どこで終わっているか」しか言わないので、そこを起点に末尾 1 ページを読む。
 
@@ -53,12 +53,32 @@ transcript は「取得」「モデル」「描画」の 3 層に分ける。
 
 スクロール位置が「追う」と「読む」を分ける。末尾にいる人は起きていることを見ているので追記で view を動かし、それ以外の位置にいる人は読んでいるので動かさない。先頭に足された分は scrollHeight の差分を足して打ち消す (読んでいる行を動かさないため)。
 
+## 描画層: Markdown とハイライト
+
+agent が書いた text は **Markdown として読む**。mdast (`mdast-util-from-markdown` + GFM 拡張) の木を JSX へ手で歩き、HTML 文字列の段を一切通さない。`innerHTML` / `dangerouslySetInnerHTML` は使わないので、`<` や `&` を含む本文の逃がしは Preact のテキストノードがそのまま担う。
+
+**人が打った text は別の読み方をする** (restricted)。`#3 の件` は見出しではないし `<R G B>` は HTML タグでもない。人が意図して使うのは inline code・fenced code・引用行の 3 つだけなので、restricted はその 3 つだけを解釈し、残りは打たれた文字のまま出す。mdast を歩いてから plain へ戻すのではなく source を直接字句解析するのは、木を経由すると元の文字 (`#` の有無、`_foo_` の空白) が復元できなくなるため。
+
+**link の宛先は 3 通りにしか落ちない**。http/https/mailto は別タブ、`#fragment` と自分の origin を指す絶対 URL は同じタブ、それ以外 (`javascript:` 等の scheme、およびファイルパス形) は **`<a>` を出さない**。パス形を origin 相対の `href` にすると、このページを配っている origin へ遷移して戻る手段が無くなる (address bar の無い standalone PWA では復帰不能)。画像も同じ判定を通し、`<img src>` で自動取得はしない — 描画しただけで閲覧者の IP/UA が第三者に届くため、alt とリンクだけを出して人が選べるようにする。
+
+コードのハイライトは Shiki を**遅延 chunk** で読む。engine と grammar は `getHighlighter` の中の `await import()` で取るので、コードの無いセッションは 1 つも取得しない。言語表と大きさの閾値だけは先に載っていて、これが「ハイライトするか」を highlighter を払わずに決められる根拠になっている。token は light/dark を同時に持たされ、どちらを使うかは CSS が決める (theme ごとの再 tokenize をしない)。
+
+## fold の開閉
+
+fold の開閉状態は fold を描く component の**外**に置く (`src/timeline/fold-open.ts`)。窓が動けば component は unmount されるが、そこで開閉が戻るのは「アプリが忘れた」と読める。
+
+**key ごとに signal を 1 本**持ち、map を持つ signal 1 本にはしない。component は自分が描く key を読むので、1 つ開いても timeline の残りは再描画されない — 状態を外に出した理由そのもの。
+
+**触られた fold だけ**を記録する。無い = 呼び出し側の既定のまま、という意味で、これが「自動で開く」設定の変更を、store が各 fold の既定を知らないまま効かせる方法になる (設定変更 = override を捨てる)。
+
+**閉じた fold の中身は描かない。ただし一度開いたら描き続ける**。transcript の大半は fold の中にいるので、閉じた中身まで描くと数行読むためにセッション全体を描いて (ハイライトして) しまう。逆に一度開いた中身を捨てると、閉じる操作が「開いた仕事を捨てる」意味になる。
+
 ## localStorage のキー規律
 
 ブラウザの store はサイトに 1 つで、1 人が複数の instance に届く。だから **instance に属するものは instance を名前に含める**。
 
 - entry: endpoint 自体は `ccmsg.entry.url`、token は `ccmsg.entry.token:<url>`。token は instance の入口資格そのものなので、素の名前で持つと最後に設定した endpoint の値を別の instance に渡しうる
-- session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない
+- session 単位で残す値: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。sid は instance の上で 1 つのセッションを指す名前でしかない。Timeline の「自動で開く」設定 (`ccmsg.tl.autoOpen:...`) がこれ
 
 ## 契約の検証は契約の検証器で
 

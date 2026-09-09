@@ -23,6 +23,14 @@ import {
   sortLastLive,
   sortPeers,
 } from "./sessions.ts";
+import { FoldOpen } from "./timeline/fold-open.ts";
+import {
+  defaultTimelineAutoOpen,
+  parseTimelineAutoOpenSettings,
+  type TimelineAutoOpenSettings,
+  timelineAutoOpenStorageKey,
+  toggleTimelineAutoOpen,
+} from "./timeline/timeline-auto-open.ts";
 import { TranscriptView } from "./timeline/transcript-view.ts";
 import { type Slot, TopicFold, union } from "./topic-fold.ts";
 
@@ -75,6 +83,40 @@ export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
  * no session. One at a time: a screen shows one timeline, and a subscription
  * kept for a session nobody is looking at is a file being tailed for nobody. */
 export const transcript = signal<TranscriptView | undefined>(undefined);
+
+/** Which kinds of fold open by themselves, and the open/closed state of each
+ * individual fold in the timeline being read.
+ *
+ * The settings are the *default* every fold falls back to, so changing them
+ * takes effect by dropping what the reader had overridden rather than by
+ * rewriting each fold — which is also what lets a fold nobody has touched
+ * follow the settings without the store knowing what its default is. */
+export const timelineAutoOpen = signal<TimelineAutoOpenSettings>(defaultTimelineAutoOpen(false));
+export const timelineFolds = signal(new FoldOpen());
+
+/** Where one session's auto-open settings are kept.
+ *
+ * A session id names a session on one instance, and a browser reaches several
+ * instances from the one store, so what is kept per session is keyed by both.
+ * Nothing is stored until an instance has answered — before that there is no
+ * name to key on, and the defaults are what a first look at a session gets. */
+function autoOpenKey(): string | undefined {
+  const instance = hello.value?.instance;
+  const at = route.value;
+  if (instance === undefined || at.at !== "session") return undefined;
+  return timelineAutoOpenStorageKey(instance, at.sid, undefined);
+}
+
+export function toggleTimelineAutoOpenSetting(key: keyof TimelineAutoOpenSettings): void {
+  const next = toggleTimelineAutoOpen(timelineAutoOpen.value, key);
+  timelineAutoOpen.value = next;
+  // Every fold goes back to its own default, which is what the new settings
+  // just changed. What the reader opened by hand was an answer to the old
+  // defaults, so it is not carried over.
+  timelineFolds.value.reset();
+  const key_ = autoOpenKey();
+  if (key_ !== undefined) localStore.set(key_, JSON.stringify(next));
+}
 
 const folds = new Map<string, TopicFold<unknown>>();
 
@@ -154,8 +196,24 @@ effect(() => {
     return;
   }
   const view = new TranscriptView(connection, wanted);
+  // A fold's state is about the transcript being read, so moving to another
+  // session starts from that session's own settings and no held overrides.
+  timelineFolds.value = new FoldOpen();
   transcript.value = view;
   view.open();
+});
+
+// The settings a session was last read with, once there is an instance to key
+// them on. Read rather than written here: a look at a session neither creates
+// nor migrates a stored value.
+effect(() => {
+  const key = autoOpenKey();
+  const fallback = defaultTimelineAutoOpen(false);
+  timelineAutoOpen.value =
+    key === undefined
+      ? fallback
+      : parseTimelineAutoOpenSettings(localStore.get(key) ?? null, fallback);
+  timelineFolds.peek().reset();
 });
 
 /** Point at an instance, remember it, and subscribe to what the list needs. */
