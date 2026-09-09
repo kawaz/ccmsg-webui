@@ -1,4 +1,5 @@
 import { useSignal } from "@preact/signals";
+import { instanceLabel } from "../instance-label.ts";
 import { completeEntry } from "../settings.ts";
 import { connect, disconnect, entry, hello, status, statusDetail } from "../state.ts";
 
@@ -57,8 +58,8 @@ export function ConnectionBar() {
       {statusDetail.value !== undefined && <span class="meta">{statusDetail.value}</span>}
       {hello.value !== undefined && (
         <span class="footer">
-          {hello.value.instance} / daemon {hello.value.version} / 契約世代{" "}
-          {hello.value.protocol_version}
+          {instanceLabel(hello.value.instance, hello.value.endpoint)} / daemon {hello.value.version}{" "}
+          / 契約世代 {hello.value.protocol_version}
         </span>
       )}
     </div>

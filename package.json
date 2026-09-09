@@ -17,7 +17,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@ccmsg/protocol": "0.7.0",
+    "@ccmsg/protocol": "1.4.0",
     "@preact/signals": "^2.0.0",
     "@sinclair/typebox": "^0.34.33",
     "mdast-util-from-markdown": "^2.0.3",
