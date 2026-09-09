@@ -9,14 +9,21 @@ import {
   topicKind,
 } from "@ccmsg/protocol";
 import { frameByteLength } from "./frame-limit.ts";
-import type { Entry } from "./settings.ts";
 
-/** The subprotocol value the entry token travels in.
+/** The subprotocol value the access token travels in.
  *
  * Spelled here rather than imported: the contract covers what is said over a
  * connection, and how a connection is let in is the daemon's entry policy
  * (daemon §3.1), which this package does not depend on. */
 const TOKEN_PROTOCOL = "ccmsg.token.";
+
+/** Answers with the access token to open the next socket with, or with nothing
+ * when there is none to be had.
+ *
+ * Asked again for every attempt rather than given once, because a token has a
+ * few hours' life and a reconnection may be on the other side of it: the answer
+ * is where a refresh happens, and nothing here has to know that it did. */
+export type TokenSource = () => Promise<string | undefined>;
 
 /** The one place a connection to an instance is made and kept.
  *
@@ -57,7 +64,8 @@ export class Connection {
   readonly #events: ConnectionEvents;
   readonly #topics = new Set<TopicName>();
   readonly #pending = new Map<string, Pending>();
-  #entry: Entry | undefined;
+  #url: string | undefined;
+  #token: TokenSource | undefined;
   #socket: WebSocket | undefined;
   #buffer = "";
   #counter = 0;
@@ -71,11 +79,12 @@ export class Connection {
 
   /** Point at an instance and keep a connection to it. Called again with
    * another endpoint, it drops the old one first. */
-  connect(entry: Entry): void {
+  connect(url: string, token: TokenSource): void {
     this.#stopped = false;
-    this.#entry = entry;
+    this.#url = url;
+    this.#token = token;
     this.#retryMs = RETRY_MIN_MS;
-    this.#open();
+    void this.#open();
   }
 
   close(): void {
@@ -126,14 +135,23 @@ export class Connection {
     });
   }
 
-  #open(): void {
-    const entry = this.#entry;
-    if (entry === undefined || this.#stopped) return;
+  async #open(): Promise<void> {
+    const url = this.#url;
+    const source = this.#token;
+    if (url === undefined || source === undefined || this.#stopped) return;
     this.#events.status("connecting");
-    // A browser cannot put a header on a handshake, so the entry token travels
+    const token = await source();
+    if (this.#stopped) return;
+    // Nothing to present. Dialling anyway would be refused, and retrying that
+    // is a busy loop against a door that opens by authenticating instead.
+    if (token === undefined) {
+      this.#events.status("closed", "認証が必要です");
+      return;
+    }
+    // A browser cannot put a header on a handshake, so the access token travels
     // as a subprotocol value (daemon §3.1). The plain name beside it is what
     // the instance selects when it has a choice.
-    const socket = new WebSocket(entry.url, ["ccmsg.v1", `${TOKEN_PROTOCOL}${entry.token}`]);
+    const socket = new WebSocket(url, ["ccmsg.v1", `${TOKEN_PROTOCOL}${token}`]);
     this.#socket = socket;
     this.#buffer = "";
     socket.addEventListener("open", () => {
@@ -162,7 +180,7 @@ export class Connection {
     this.#events.status("closed", detail);
     if (this.#stopped) return;
     this.#retryTimer = setTimeout(() => {
-      this.#open();
+      void this.#open();
     }, this.#retryMs);
     this.#retryMs = Math.min(this.#retryMs * 2, RETRY_MAX_MS);
   }

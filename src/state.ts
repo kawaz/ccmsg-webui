@@ -14,6 +14,18 @@ import type {
   Sid,
   TopicName,
 } from "@ccmsg/protocol";
+import { AuthError, assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
+import { parseRegisterFragment, type Registration } from "./auth/register-link.ts";
+import {
+  access,
+  authProblem,
+  connectionExpiresAt,
+  describeAuthError,
+  forgetSession,
+  holdSession,
+  needsSignIn,
+  tokenIsLive,
+} from "./auth/session.ts";
 import { type ConnectionStatus, Connection } from "./connection.ts";
 import { type FilesMemory, FilesView } from "./files/files-view.ts";
 import {
@@ -25,7 +37,14 @@ import {
 import { type HeldMessage, heldFromSend } from "./conversation/held-messages.ts";
 import { oversizeReason } from "./frame-limit.ts";
 import { parseRoute, type Route, routePath } from "./route.ts";
-import { type Entry, completeEntry, loadEntry, localStore, saveEntry } from "./settings.ts";
+import {
+  isEntryUrl,
+  loadEndpoint,
+  loadRpId,
+  localStore,
+  saveEndpoint,
+  saveRpId,
+} from "./settings.ts";
 import {
   errorsBySid,
   isSortKey,
@@ -64,7 +83,14 @@ const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
  * notification is a line a session wrote for whoever is watching. */
 const TOPICS: readonly TopicName[] = ["peers", "agents", "session_errors", "notify"];
 
-export const entry = signal<Partial<Entry>>(loadEntry(localStore, location.hash));
+export const endpoint = signal<string | undefined>(loadEndpoint(localStore, location.hash));
+
+/** The registration a link carried, while it is being completed.
+ *
+ * Read once, from the fragment: it is the whole of what `passkey add` handed
+ * over, and the six digits that go with it arrive by the other route (the
+ * person's eyes, from a terminal). */
+export const registration = signal<Registration | undefined>(parseRegisterFragment(location.hash));
 export const status = signal<ConnectionStatus>("idle");
 export const statusDetail = signal<string | undefined>(undefined);
 export const hello = signal<HelloResult | undefined>(undefined);
@@ -188,6 +214,9 @@ export const connection = new Connection({
       agentSlots.value = [];
       errorSlots.value = [];
       hello.value = undefined;
+      // 期限は「この接続がいつまで許されているか」なので、接続と一緒に消える。
+      // access token 自体はまだ生きているかもしれないので手を付けない。
+      connectionExpiresAt.value = undefined;
       // 通知は「今それが起きた」という知らせなので、話し相手が居なくなった
       // 時点で古い。畳まずに捨てる。
       notifications.value = [];
@@ -203,6 +232,10 @@ export const connection = new Connection({
   },
   greeted(result) {
     hello.value = result;
+    // The connection's own deadline, which is what is renewed on it. Absent
+    // where reaching the instance is itself the permission, and then there is
+    // nothing to renew.
+    connectionExpiresAt.value = result.auth_expires_at;
   },
   topic(message) {
     const view = transcript.value;
@@ -343,12 +376,38 @@ effect(() => {
   timelineFolds.peek().reset();
 });
 
+/** The access token to open the next socket with.
+ *
+ * Asked for on every attempt, so a reconnection on the far side of a token's
+ * life renews rather than fails: what is held in memory is presented while it
+ * lasts, and the refresh cookie is what answers when it does not. Nothing to
+ * present raises the sign-in screen, which is the only way back. */
+async function accessToken(): Promise<string | undefined> {
+  if (tokenIsLive()) return access.peek()?.value;
+  const url = endpoint.peek();
+  if (url === undefined) return undefined;
+  try {
+    holdSession(await refreshSession(url));
+    return access.peek()?.value;
+  } catch (cause) {
+    forgetSession();
+    needsSignIn.value = true;
+    // A first visit has no cookie, and being told so reads as a failure of
+    // something the person did. Only a refusal that is not simply "no session
+    // here" is worth saying out loud.
+    if (!(cause instanceof AuthError) || (cause.code !== "auth_invalid" && cause.status !== 401)) {
+      authProblem.value = describeAuthError(cause);
+    }
+    return undefined;
+  }
+}
+
 /** Point at an instance, remember it, and subscribe to what the list needs. */
-export function connect(next: Entry): void {
-  saveEntry(localStore, next);
-  entry.value = next;
+export function connect(url: string): void {
+  saveEndpoint(localStore, url);
+  endpoint.value = url;
   generationWarning.value = undefined;
-  connection.connect(next);
+  connection.connect(url, accessToken);
   for (const topic of TOPICS) connection.subscribe(topic);
 }
 
@@ -358,9 +417,99 @@ export function disconnect(): void {
 
 /** Connect with what was already configured, which is what a reload does. */
 export function reconnectFromSettings(): void {
-  const ready = completeEntry(entry.value);
-  if (ready !== undefined) connect(ready);
+  const url = endpoint.value;
+  if (url !== undefined && isEntryUrl(url)) connect(url);
 }
+
+/** Prove a passkey and connect on what it minted.
+ *
+ * The relying party is the one the registration settled on rather than the
+ * page's own domain: a web UI served from a neighbouring subdomain would
+ * otherwise ask for a passkey that was never made there. */
+export async function signIn(): Promise<void> {
+  const url = endpoint.peek();
+  if (url === undefined) return;
+  authProblem.value = undefined;
+  try {
+    holdSession(await assertPasskey(url, loadRpId(localStore, url)));
+    connect(url);
+  } catch (cause) {
+    authProblem.value = describeAuthError(cause);
+  }
+}
+
+/** Finish what a registration link started: make the passkey, spend the link
+ * with the digits from the terminal, and connect on the session it answers. */
+export async function completeRegistration(code: string, deviceLabel: string): Promise<void> {
+  const held = registration.peek();
+  if (held === undefined) return;
+  authProblem.value = undefined;
+  try {
+    const session = await registerPasskey({
+      token: held.token,
+      claims: held.claims,
+      code,
+      deviceLabel,
+    });
+    saveRpId(localStore, held.claims.endpoint, held.claims.rp_id);
+    holdSession(session);
+    registration.value = undefined;
+    connect(held.claims.endpoint);
+  } catch (cause) {
+    authProblem.value = describeAuthError(cause);
+  }
+}
+
+/** Leave the registration screen without registering. What the link authorized
+ * is untouched — it is spent by registering and by nothing else. */
+export function dismissRegistration(): void {
+  registration.value = undefined;
+  authProblem.value = undefined;
+  reconnectFromSettings();
+}
+
+/** How much of a connection's remaining life to use before renewing it. The
+ * renewal is two round trips (a token, then the op that moves the deadline),
+ * and a tenth of a few hours is minutes of room for them. */
+const RENEW_AT_FRACTION = 0.9;
+const RENEW_FLOOR_MS = 5_000;
+
+let renewTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Move this connection's deadline before it arrives.
+ *
+ * Two steps because they answer different questions: `/auth/refresh` mints a
+ * token from the cookie, and `auth_refresh` on this very connection moves its
+ * deadline — a client that reconnected to use a fresh token would blink every
+ * few hours for no reason (DR-0001 §2.5). */
+async function renewConnection(): Promise<void> {
+  const url = endpoint.peek();
+  if (url === undefined || status.peek() !== "open") return;
+  try {
+    holdSession(await refreshSession(url));
+    const token = access.peek()?.value;
+    if (token === undefined) return;
+    const reply = await connection.request("auth_refresh", { access_token: token });
+    const next = (reply as { auth_expires_at?: number }).auth_expires_at;
+    if (typeof next === "number") connectionExpiresAt.value = next;
+  } catch {
+    // Nothing to do here: the instance closes the connection at its deadline,
+    // and the reconnection is where authenticating again is decided.
+  }
+}
+
+// The deadline is a thing the instance said, so renewing is scheduled off what
+// it said rather than off when this page last did anything.
+effect(() => {
+  const at = connectionExpiresAt.value;
+  if (renewTimer !== undefined) clearTimeout(renewTimer);
+  renewTimer = undefined;
+  if (at === undefined) return;
+  const wait = Math.max(RENEW_FLOOR_MS, (at - Date.now()) * RENEW_AT_FRACTION);
+  renewTimer = setTimeout(() => {
+    void renewConnection();
+  }, wait);
+});
 
 export function setSortKey(key: SortKey): void {
   sortKey.value = key;

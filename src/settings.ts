@@ -1,55 +1,28 @@
-/** Where this browser reaches a daemon instance, and with what.
+import { isEndpoint } from "./auth/endpoint.ts";
+
+/** Where this browser reaches a daemon instance.
  *
- * Both values are the person's to supply: the site is served from an origin the
- * daemon knows nothing about, so nothing about the endpoint can be inferred
- * from where the page came from.
+ * The endpoint is the person's to supply: the site is served from an origin the
+ * daemon knows nothing about, so nothing about where an instance is can be
+ * inferred from where the page came from.
  *
- * The token is an instance's whole entry credential, so the URL fragment is the
- * only part of a link that may carry it — a fragment is never sent to the
- * server that serves this page, while a query string is. */
+ * It is also the only thing kept here. What authorizes a connection is an
+ * access token this page holds in memory and a refresh cookie it cannot read
+ * (DR-0001 §2.4) — an address is not a secret, and a secret is not stored. */
 
 const URL_KEY = "ccmsg.entry.url";
 
-/** Where one endpoint's token is kept.
- *
- * A browser holds one store for the whole site while a person reaches several
- * instances from it, so anything that belongs to one instance is stored under a
- * key naming it. A token stored under a bare name would be handed to whichever
- * endpoint was configured last — the wrong instance, with another instance's
- * whole entry credential. */
-function tokenKey(url: string): string {
-  return `ccmsg.entry.token:${url}`;
-}
-
-export interface Entry {
-  /** The WebSocket endpoint, e.g. `ws://127.0.0.1:39847/ws`. */
-  readonly url: string;
-  readonly token: string;
-}
-
-export interface FragmentEntry {
-  readonly url?: string;
-  readonly token?: string;
-}
-
-/** Read `#url=…&token=…` out of a location fragment. Both are optional: a link
- * that carries only the token points at an endpoint already configured here. */
-export function parseFragment(hash: string): FragmentEntry {
+/** Read `#url=…` out of a location fragment. A fragment rather than a query
+ * because a fragment is never sent to the server that serves this page. */
+export function parseFragment(hash: string): string | undefined {
   const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
-  const url = params.get("url");
-  const token = params.get("token");
-  return { ...(url === null ? {} : { url }), ...(token === null ? {} : { token }) };
+  return params.get("url") ?? undefined;
 }
 
 /** Whether an endpoint is one a WebSocket can be opened on. Rejecting a wrong
  * scheme here names the mistake, where the browser would only fail to connect. */
 export function isEntryUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "ws:" || parsed.protocol === "wss:";
-  } catch {
-    return false;
-  }
+  return isEndpoint(url);
 }
 
 /** A storage that answers as empty rather than throwing, which is what a
@@ -76,38 +49,37 @@ export const localStore: Store = {
   },
 };
 
-/** What the page starts with: the fragment wins over what was stored, and what
- * the fragment carried is stored so a reload without it still connects.
- *
- * The endpoint settles first, because it is what the token is stored under. A
- * fragment carrying a token and no endpoint, with none configured either, has
- * nowhere to put it: the visit connects on it once nothing is remembered. */
-export function loadEntry(store: Store, hash: string): Partial<Entry> {
+/** Which endpoint this page starts on: the fragment wins over what was stored,
+ * and what the fragment carried is stored so a reload without it still
+ * connects. */
+export function loadEndpoint(store: Store, hash: string): string | undefined {
   const fragment = parseFragment(hash);
-  if (fragment.url !== undefined && isEntryUrl(fragment.url)) store.set(URL_KEY, fragment.url);
-  const url = store.get(URL_KEY);
-  if (fragment.token !== undefined && fragment.token !== "" && url !== undefined) {
-    store.set(tokenKey(url), fragment.token);
-  }
-  const token =
-    fragment.token !== undefined && fragment.token !== ""
-      ? fragment.token
-      : url === undefined
-        ? undefined
-        : store.get(tokenKey(url));
-  return { url, token };
+  if (fragment !== undefined && isEntryUrl(fragment)) store.set(URL_KEY, fragment);
+  const stored = store.get(URL_KEY);
+  if (stored !== undefined) return stored;
+  // A store that remembers nothing still connects on what the link said.
+  return fragment !== undefined && isEntryUrl(fragment) ? fragment : undefined;
 }
 
-export function saveEntry(store: Store, entry: Entry): void {
-  store.set(URL_KEY, entry.url);
-  store.set(tokenKey(entry.url), entry.token);
+export function saveEndpoint(store: Store, url: string): void {
+  store.set(URL_KEY, url);
 }
 
-/** Whether both halves are present and usable, which is what the connection
- * layer needs before it opens anything. */
-export function completeEntry(entry: Partial<Entry>): Entry | undefined {
-  const { url, token } = entry;
-  if (url === undefined || token === undefined || token === "" || !isEntryUrl(url))
-    return undefined;
-  return { url, token };
+/** Which relying party a passkey for one endpoint was made under.
+ *
+ * A passkey answers for the domain it was created under and no other, and that
+ * domain is the registration's to decide (it may be a registrable suffix of the
+ * endpoint's host, so that a web UI on another subdomain shares it). The
+ * browser would otherwise guess it from where this page is served, which is
+ * exactly the value the registration was allowed to differ from. */
+function rpKey(url: string): string {
+  return `ccmsg.auth.rp:${url}`;
+}
+
+export function loadRpId(store: Store, url: string): string | undefined {
+  return store.get(rpKey(url));
+}
+
+export function saveRpId(store: Store, url: string, rpId: string): void {
+  store.set(rpKey(url), rpId);
 }

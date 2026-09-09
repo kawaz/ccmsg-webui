@@ -1,9 +1,12 @@
 import type { Sid } from "@ccmsg/protocol";
+import { needsSignIn } from "../auth/session.ts";
 import { routePath, type Tab, TABS } from "../route.ts";
-import { dismissToast, generationWarning, navigate, route, toast } from "../state.ts";
+import { dismissToast, generationWarning, navigate, registration, route, toast } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { Files } from "./Files.tsx";
+import { Register } from "./Register.tsx";
 import { SessionList } from "./SessionList.tsx";
+import { SignIn } from "./SignIn.tsx";
 import { Timeline } from "./Timeline.tsx";
 
 /** What each tab is called on screen. The URL keeps the English name — a link
@@ -41,6 +44,24 @@ function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
  * banner that is not about a screen but about the contract itself. */
 export function App() {
   const at = route.value;
+  // A registration and a sign-in are about who is at this browser, not about
+  // what is on screen, so they stand in front of the app rather than beside it:
+  // nothing behind them can be read without them.
+  if (registration.value !== undefined) {
+    return (
+      <div class="app">
+        <Register />
+      </div>
+    );
+  }
+  if (needsSignIn.value) {
+    return (
+      <div class="app">
+        <ConnectionBar />
+        <SignIn />
+      </div>
+    );
+  }
   return (
     <div class="app">
       <ConnectionBar />
