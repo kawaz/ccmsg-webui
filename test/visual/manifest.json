@@ -1,9 +1,9 @@
 {
-  "webui_version": "0.2.10",
+  "webui_version": "0.3.0",
   "screens": {
     "conversation": {
       "darwin": "52c462122f44f6fa1e2bd37f992c907749337aa169302910d25c889dc0bb3ae4",
-      "linux": "87b94f01b3a58ab142436366ffb9c430690a33dc14ebc7ef1f0b7158db2fb958"
+      "linux": "6d9422087f43790ccfb8c0c283735c1e34ab1f0c97720c77f0850d608d5c75e8"
     },
     "files-code": {
       "darwin": "6ec6aec9d62feeafbc4e7b9cbc5fa96bfcb49a12498f2b96b1c0e69df8a97432",
@@ -15,7 +15,7 @@
     },
     "notification": {
       "darwin": "c16c1b69eb090c3a4b9c0d6d1aee149f84ee52c74893406537ee825335ca6d78",
-      "linux": "9c00f838ade048dcf769594e9a41ff34cbcc1e19ba9f3d9a14062dbecdd7d1af"
+      "linux": "1c2ba391886e52d47d56373fcaa9dff118cdcd504fa9cc7221620cebdc5697ce"
     },
     "register": {
       "darwin": "41e7fc7db742458ed72d4bf3e2143998ba4149162bbc8f78acbe37bcfead01ba",
@@ -35,18 +35,19 @@
     },
     "timeline": {
       "darwin": "d7a46d98e20603a0336a814ec8bd3dbf474431c2dd5f894e79e6fcc405218aa0",
-      "linux": "0d9e4afbed94729c0ef3a7b75b27f04139ebe7660909cf889ac9e0a00409ad60"
+      "linux": "9ba4e52623d80044dbf0e998561ae9c2f3dfe90a02f7f18e4998d1915a0a3ee1"
     },
     "timeline-fold-open": {
       "darwin": "a321bb919b85a3103924392419cee15198be000f2e951dc15934eac05d05d517",
-      "linux": "b4f7fb291730973c9d9b19fd30cccecf46eb7348b1730369a175eea4e87b3f6a"
+      "linux": "0c384e05e7dea16212959a9d21eeb816d4f218038276fa5223a80446cab3688b"
     },
     "timeline-raw-record": {
-      "darwin": "e7388260a4f0dc77c6b2d64c6582a6bd4b9adb5c7d479f6c579e148abae948df"
+      "darwin": "e7388260a4f0dc77c6b2d64c6582a6bd4b9adb5c7d479f6c579e148abae948df",
+      "linux": "c73e823a3458c0a895fc88eb669ee04f794c50e98873329fbbd6092b258e8c4b"
     },
     "timeline-search": {
       "darwin": "afbd1585c4e0d0ff310ff54b6dbf99c696f4d3d2bc0518972033b17f16ef94c6",
-      "linux": "c3cb10c3e8e3eb287c17067d6a1404c8504220097ac38d1f7d813164f4c8efe5"
+      "linux": "be5815ac03679baaedb6978af0ec8b023b7d34ff0eafe0006acbe545aab30312"
     }
   }
 }
