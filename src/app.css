@@ -801,12 +801,43 @@ select {
 
 .files-tree {
   overflow: auto;
-  flex: 0 0 clamp(180px, 30%, 320px);
+  flex: 0 0 var(--files-tree-w, clamp(180px, 30%, 320px));
   max-height: 70vh;
   padding: 4px 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+/* 木と本文の境目。掴む所は線より広くないと掴めないので、見えている線
+ * (::after) と掴める幅 (要素そのもの) を分けている。 */
+.files-split {
+  position: relative;
+  flex: 0 0 8px;
+  margin: 0 calc(var(--gap) / -2);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.files-split::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  border-radius: 1px;
+  margin-left: -1px;
+  background: transparent;
+  content: "";
+}
+
+.files-split:hover::after,
+.files-split:focus-visible::after {
+  background: var(--accent);
+}
+
+.files-split:focus-visible {
+  outline: none;
 }
 
 .files-section {
@@ -961,6 +992,11 @@ select {
   .files-tree {
     flex: none;
     max-height: 40vh;
+  }
+
+  /* 上下に積まれた 2 つの間に、左右の境目は無い。 */
+  .files-split {
+    display: none;
   }
 }
 

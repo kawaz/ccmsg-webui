@@ -88,6 +88,8 @@ The files screen answers three things: where things are (the tree), what is in o
 
 **What is outside the project is a trail, not a listing.** The `external` allowlist is the files this session's transcript named, and the contract has no op that enumerates it (only `file_stat_batch`, which answers about a path already in hand). What the tree shows is therefore the absolute paths this browser has actually opened for that session.
 
+**The line between the tree and the file can be moved.** It is dragged, and it also takes focus and moves with ← and → — WAI-ARIA's `separator` is a role that is expected to answer arrow keys, so being draggable is not the whole of it. The width is remembered per instance (`ccmsg.layout.split:<instance>`), for the same reason as the key discipline below: one store is reached by several instances. It is written only when the pointer is let go; the widths passed through while dragging are not worth keeping. A value that does not read cleanly, or one outside the range, is the same as none and the CSS default is used. On a narrow screen the two panes stack and there is no left-right line to move, so the handle is gone with it.
+
 **A markdown file's view mode is one last choice per session.** Kept per path it would be lost to opening a single `.ts` in between — `.ts` has no answer to "code or preview", so it must not overwrite one.
 
 ## Searching what is on screen
@@ -100,7 +102,7 @@ What is counted is what the page holds, not what is currently drawn. A match ins
 
 A counted match must be a match the reader can find, so the text searched is the text as shown: a tool call is drawn as one shortened line, and that shortened line is what the query runs against (`segment-text.ts`). Searching the full text held would produce "[3/12] with no third match to look at".
 
-Highlighting happens two ways. Prose is split at render time and `<mark>` put in (the `text` case in `markdown-view.tsx`). A highlighted code line is already a list of spans, so the same split is projected onto them and the spans are re-cut (`splitSpansForHighlight`). Code inside markdown is the one place nothing lights up: `CodeBlock` assembles it separately and there is no seam to re-cut.
+Highlighting happens two ways. Prose is split at render time and `<mark>` put in (the `text` case in `markdown-view.tsx`). A highlighted code line is already a list of spans, so the same split is projected onto them and the spans are re-cut (`splitSpansForHighlight`), which is what keeps a match that crosses a colour boundary from erasing the colour. Both ways emit the same `<mark>` (`ui/search-marks.tsx`), so a file and a code block inside markdown light up alike. Code still waiting for its colours is lit the first way and switches to the second when they arrive.
 
 ## The conversation lives on the Timeline
 
