@@ -725,7 +725,7 @@ function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode |
       return <br key={key} />;
 
     case "ccmsgDetails": {
-      // The sole structural HTML mapping (kawaz r55 m77, see foldDetailsBlocks).
+      // The sole structural HTML mapping (see foldDetailsBlocks).
       // Only `open` crosses from source into the DOM, and only as a boolean —
       // the tag's own text never becomes markup, so this stays inside the
       // "no raw HTML" guarantee the module doc comment describes.
@@ -847,8 +847,7 @@ function unusedPrivateUseMarker(source: string): string {
 // CommonMark's HTML-block rule is greedy: a line starting with a tag-shaped
 // token swallows every following line until a blank one into a single `html`
 // node, so `<確認項目> の **意味**` would lose its emphasis and render as raw
-// text (kawaz r55m83 is the same class of surprise, seen through a different
-// parser). Protecting pre-parse also lets the `<details>` fold below match on
+// text. Protecting pre-parse also lets the `<details>` fold below match on
 // `text` nodes, where inline and fenced code are already claimed by their own
 // node kinds.
 function protectTagLikeAngleBrackets(source: string): {
@@ -897,7 +896,7 @@ function restoreProtectedText(value: unknown, marker: string, replacement: strin
 }
 
 // ---------------------------------------------------------------------------
-// `<details>` folding (kawaz r55 m77)
+// `<details>` folding
 //
 // The one HTML construct this renderer understands structurally. Everything
 // else stays literal text — see the module doc comment; enabling arbitrary
@@ -1125,7 +1124,7 @@ function foldInsideContainer(node: AnyNode): AnyNode {
   return { ...node, children: foldDetailsBlocks(parent.children) } as AnyNode;
 }
 
-/** Group a flat block sequence into nested sections (kawaz r151 m41).
+/** Group a flat block sequence into nested sections.
  *
  * mdast is flat: `## A`, its paragraphs, and `### A.1` are siblings, which is
  * fine to *render* but leaves nothing to collapse — "close section A" has no
@@ -1221,7 +1220,7 @@ export function parseMarkdownDocument(source: string): Root {
   return { ...root, children: foldDetailsBlocks(root.children) as RootContent[] };
 }
 
-/** Restricted-mode renderer for user-authored messages (kawaz r55 m12).
+/** Restricted-mode renderer for user-authored messages.
  *
  * When a human types a message into the composer, they almost never intend
  * `#foo` to be an H1 heading, `**word**` to be bold, or `<R G B>` to be an

@@ -1,5 +1,4 @@
-/** GFM task-list toggling against the *source text* (kawaz r55, markdown
- * preview checkbox interaction).
+/** GFM task-list toggling against the *source text*.
  *
  * The preview renders from mdast, but a click has to write back to the file,
  * and the write reads that file fresh — so the tree the user clicked describes

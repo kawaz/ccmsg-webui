@@ -106,7 +106,7 @@ export function autoOpenCategoriesForLine(line: ParsedLine): ReadonlySet<Timelin
   }
   // ccmsg boundary は通常 fold group の外側 (boundary entry) に出るが、
   // fold group 側の auto-open 判定にも同じ粒度で参加させるため、line 単位で
-  // ccmsg 由来と判定できるようにしておく (kawaz r55 m11)。
+  // ccmsg 由来と判定できるようにしておく。
   if (ccmsgMessageCount({ offset: 0, line }) > 0) categories.add("C");
   if (agentCommunicationCount({ offset: 0, line }) > 0) categories.add("A");
   return categories;

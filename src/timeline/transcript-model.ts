@@ -27,7 +27,7 @@ import { DIRECT_DELIVERY_TAG, parseDirectDelivery, USER_SENDER } from "@ccmsg/pr
  * Claude Code writes for it. Measured over the local session corpus
  * (2026-07-30, 254 Read results): 235 text, 15 image, 4 error — no fourth
  * shape, and every one of those 19 non-text results used to leave the Read
- * card claiming "読み取り結果は現在の読み込み範囲外です" (kawaz r76 m90).
+ * card claiming "読み取り結果は現在の読み込み範囲外です".
  *
  * - `text`: `toolUseResult.file.content` — the file's decoded text.
  * - `image`: reading an image file. `toolUseResult` carries no `content`;
@@ -277,8 +277,8 @@ function parseSpecialTool(name: string, toolUseId: string, input: unknown): Segm
     // Agent tool の identity は explicit な `name` を最優先。
     // 無ければ `subagent_type` (worker preset 名) にフォールバックする。
     // `description` は「起動理由」であって identity ではないため、
-    // 名前欄には流し込まない (kawaz r44 mid=5: 🤖→ の後ろには
-    // spawn 先の名前を出すのが自然、description は従属表示)。
+    // 名前欄には流し込まない (🤖→ の後ろに出すのは spawn 先の名前で、
+    // description は従属表示)。
     const explicitName = stringField(obj, "name");
     const agentType = stringField(obj, "subagent_type");
     const model = stringField(obj, "model");
@@ -445,7 +445,7 @@ export interface AttachmentDetail {
    * whose payload the raw JSON already shows adequately. */
   fields: SystemMessageField[];
   /** File body carried by the attachment itself, for the types that embed one
-   * (kawaz r99 m35: read these like a Read card rather than as raw JSON).
+   * — these read like a Read card rather than as raw JSON.
    * Absent when the payload has no text body — an image `file` attachment, or
    * any type this module has no file shape for. */
   file?: AttachmentFile;
@@ -815,7 +815,7 @@ export interface RawTranscriptRow {
 /**
  * Pairs each cached raw jsonl line with its absolute byte offset and its
  * 1-based position in the cache — the model behind Timeline's raw view
- * (kawaz r55 m68: 「生の JSONL も切り替えて見られるように」). Deliberately
+ * (the raw jsonl is a view the reader can switch to). Deliberately
  * does no parsing, folding or de-duplication: the rich view's grouping can
  * collapse several lines into one fold, split one line into several ccmsg
  * bubbles, or demote a row to meta, whereas here every cached line appears
@@ -848,21 +848,22 @@ export function rawTranscriptRowsFrom(
 
 /**
  * For every line the timeline actually renders, the jsonl lines that item was
- * built from — the model behind the per-item raw toggle (kawaz r55 m89:
- * 「個別に raw モードトグルが欲しい。そのアイテムが raw jsonl 用ビュー
- * コンポーネントとトグルされるイメージ」). Keyed and valued by absolute byte
+ * built from — the model behind the per-item raw toggle, which swaps one
+ * rendered item for the raw jsonl view of the lines it came from. Keyed and
+ * valued by absolute byte
  * offset (`lineByteOffsets`), so a rendered item and its source lines line up
  * with the whole-transcript raw view's coordinates.
  *
  * Usually 1:1, with one exception: a line pair that `resolveToolResults`
  * merged into a single card renders as one item, so the owning line's entry
- * lists *both* offsets in file order (kawaz r55 m69: 「両方の行を見せる」).
+ * lists *both* offsets in file order: a merged card's raw view shows the two
+ * lines it was made of.
  * `groupTimelineLines` drops those consumed lines (`isConsumedToolResult`)
  * from the rendered groups entirely, so without this pairing their raw text
  * would be unreachable from the timeline. Both merge shapes go through here:
  * a tool_use/tool_result pair, correlated by `toolUseId`, and a `! <cmd>`
- * invocation/output pair, correlated by adjacency (kawaz r76 m87: bash カードの
- * jsonl が入力行しか出せていなかった).
+ * invocation/output pair, correlated by adjacency — without the pair, a bash
+ * card's raw view could only offer the input line.
  *
  * The reverse — one line rendering as several items (a ccmsg line carrying
  * several messages) — needs nothing special here: every bubble shares the
@@ -963,13 +964,10 @@ export function truncateRawLine(
  * matches) from counting as a real utterance.
  *
  * Shared by Timeline.tsx's chat-bubble styling, its "👤 N/M" user-turn nav
- * counter, and `isBoundaryLine` below — so a turn can't count toward one and
- * not the others: kawaz's U2 spec ties all three to the same "本物のユーザ
- * 発話 (tool_result・システム由来メッセージは除く)" definition (U2:
- * previously this only excluded tool_result-only turns, letting
- * system-origin messages both stand outside tools-folding *and* pollute the
- * nav counter — kawaz: "システムメッセージも tool や thinking と同じで
- * folding しといて").
+ * counter, and `isBoundaryLine` below, so a turn cannot count toward one and
+ * not the others: all three rest on the same definition of 本物のユーザ発話
+ * (tool_result・システム由来メッセージは除く)。システム由来のメッセージは
+ * tool や thinking と同じく fold に沈めるものなので、nav の数にも入れない。
  */
 /** 👤 nav (n/N ジャンプ) の対象: 端末に打たれたユーザプロンプトに加えて、
  * ccmsg 経由で人から届いたメッセージも「ユーザ発話」として数える。人がこの
@@ -1064,8 +1062,7 @@ export function segmentSearchText(segment: Segment): string {
   }
 }
 
-/** The three checkboxes SearchBar's TL-only target toggles expose (kawaz r26
- * mid=97 spec): whether a real human utterance, an assistant text/thinking
+/** The three checkboxes SearchBar's TL-only target toggles expose: whether a real human utterance, an assistant text/thinking
  * response, and a ccmsg room message respectively count as in-view search
  * units. */
 export interface SearchTargets {
@@ -1081,10 +1078,9 @@ export interface SearchTargets {
  * apply) counts as an in-view search unit given TL's target toggles.
  *
  * `tool-use`/`tool-result`/`unknown-segment` are excluded unconditionally,
- * regardless of `targets` — kawaz r26 mid=97 bug report: TL search was
- * matching a `Bash` tool_use's raw command JSON, which the spec says must
- * never be a search target (only 👤 human text / 🤖 assistant text+thinking /
- * 💬 ccmsg messages are). `thinking` has no `role` field (it's always an
+ * regardless of `targets`: what is searched is what was said — 👤 human text,
+ * 🤖 assistant text and thinking, 💬 ccmsg messages — and never a tool_use's
+ * raw command JSON, which a `Bash` invocation would otherwise match on. `thinking` has no `role` field (it's always an
  * assistant artifact) so it follows `targets.ai` alone; `text` splits on its
  * own `role` since a user-prompt turn's text segment and an assistant turn's
  * text segment share the same Segment variant.
@@ -1221,9 +1217,9 @@ export type BoundaryKind =
  * `"assistant-response"`, unless it is only a cache-keepalive reply
  * (`isCacheKeepaliveReplyLine`), which folds like the keepalive notify it
  * answers; a system-origin "type:user" line that itself
- * carries at least one **u1 (ADMIN)-発** ccmsg room message (kawaz r55 m14
- * 裁定: u1 発 ccmsg は本物のユーザ発話と同格の主役表示なので boundary
- * 維持、peer 発 ccmsg は thinking/agent と同様に fold group 内へ) is
+ * carries at least one **u1 (ADMIN)-発** ccmsg room message (u1 発の ccmsg は
+ * 本物のユーザ発話と同格の主役なので boundary を保ち、peer 発の ccmsg は
+ * thinking/agent と同様に fold group の中へ落とす) is
  * `"ccmsg"`. Anything else — including an assistant turn with only thinking/
  * tool_use segments (no text yet), and system-origin lines that carry only
  * peer-発 ccmsg (which fold into the surrounding fold group where CcmsgBubble
@@ -1233,7 +1229,7 @@ export type BoundaryKind =
 export function classifyBoundaryLine(line: ParsedLine): BoundaryKind | null {
   if (isUserTextTurn(line)) return { kind: "user-prompt" };
   if (isApiErrorLine(line)) return { kind: "api-error" };
-  // A TUI `! <cmd>` run (kawaz r76m20 裁定): unlike the other system-origin
+  // A TUI `! <cmd>` run: unlike the other system-origin
   // "type:user" shapes this module catalogs, this one *is* something the user
   // demonstrably typed, so it belongs on the user side of the conversation
   // rather than folded away with harness plumbing — just drawn as a terminal
@@ -1366,7 +1362,7 @@ export function isCacheKeepaliveReplyLine(line: ParsedLine): boolean {
   return !text.includes("\n") && CACHE_KEEPALIVE_REPLY.test(text);
 }
 
-/** Closed-summary label for a folded keepalive reply (kawaz r259 m60/m61)。
+/** Closed-summary label for a folded keepalive reply。
  * 他の fold item と同じ「▶ 時刻 ラベル」の 1 行に揃えるためのラベルで、
  * トークン本体は開いてから見る。
  *
@@ -1376,8 +1372,7 @@ export function isCacheKeepaliveReplyLine(line: ParsedLine): boolean {
 export const CACHE_KEEPALIVE_FOLD_LABEL = "assistant: llm-gateway keep-alive";
 
 /** Agent transcript 先頭の spawn prompt (親からの指示書) も agent 間
- * コミュニケーションの一種 (kawaz r55 m35: AUTO OPEN の A で開いておいて
- * ほしい対象)。 */
+ * コミュニケーションの一種で、AUTO OPEN の A で開く対象に入る。 */
 export function isSpawnPromptLine(line: ParsedLine): boolean {
   return line.kind === "turn" && line.userMessageKind === "spawn-prompt";
 }
@@ -1461,9 +1456,9 @@ export function foldGroupLabel(entries: TimelineEntry[]): string {
 }
 
 /** Whether a fold group renders its turn-level `<details>` at all. A group
- * that is a single plain item is hoisted to the timeline instead (kawaz r38
- * mid=44: 「1 items」を開く手間が無駄 — the entry carries its own tool card
- * fold already). Everything else folds, and its body lists every entry on its
+ * that is a single plain item is hoisted to the timeline instead: opening a
+ * fold to find one item is a step for nothing, and the entry carries its own
+ * tool card fold already. Everything else folds, and its body lists every entry on its
  * own line. */
 export function foldGroupNeedsOuterFold(entries: TimelineEntry[]): boolean {
   return entries.length > 1 || entries.some(isDirectFoldEntry);
@@ -1491,7 +1486,7 @@ export type UserMessageKind =
   | "system-caveat"
   | "slash-command-invocation"
   /** A slash command the user submitted with arguments — `/clear <次タスクの
-   * 本文>` のような形 (kawaz r244m18)。コマンド行の体裁は harness の配管だが、
+   * 本文>` のような形。コマンド行の体裁は harness の配管だが、
    * `<command-args>` の中身はユーザが書いた文章そのものなので、fold に沈める
    * 配管ではなく本物のユーザ発話として扱う (引数なしの裸コマンドは
    * `slash-command-invocation` のまま — セッションを動かすだけで何も喋って
@@ -1695,8 +1690,8 @@ export function classifyUserMessage(entry: Record<string, unknown>): UserMessage
   }
 
   // slash command の invocation/stdout は isMeta 付きが通常形だが、isMeta
-  // なしで届く transcript もある (kawaz r20、2026-07-15 実観測 — /reload-plugins
-  // 等が緑のユーザ発話バブルで表示された)。タグ prefix は人間の発話が取り得
+  // なしで届く transcript もある (2026-07-15 実観測 — /reload-plugins 等が
+  // 緑のユーザ発話バブルで表示された)。タグ prefix は人間の発話が取り得
   // ない形なので、meta フラグに依らず同じ分類に落とす。
   if (text.startsWith("<command-name>") || text.startsWith("<command-message>")) {
     return "slash-command-invocation";
@@ -1716,7 +1711,7 @@ export function classifyUserMessage(entry: Record<string, unknown>): UserMessage
   // TUI で workflow を pause → resume した際にハーネスが注入する定型再開命令。
   // 実 transcript では `promptSource:"typed"` / `origin:{kind:"human"}` / `isMeta`
   // なし、で通常のタイプ入力と wire 上区別できず、文字列 prefix で判定するしかない
-  // (kawaz r46 mid=14、本セッションの transcript で 2 件実観測)。
+  // (実 transcript で 2 件観測)。
   // 誤爆リスク: 人間が手打ちで `Resume the paused workflow by calling: Workflow({`
   // で始まる文章を送ると誤分類されるが、`{`まで含んだこの厳密 prefix を能動的に
   // 打つケースは実用上ゼロ (=`<task-notification>` prefix 判定と同種の accepted
@@ -2280,8 +2275,8 @@ export function parseSystemMessageFields(
       return parsePeerMessage(rawText) ?? { display: "text", text: rawText };
     case "cross-session-notice":
       // Same shape an idle relay takes, so the notice reuses the compact row
-      // idle notifications already get (operational noise, kawaz r46m6
-      // 「でしゃばらせるな」) instead of growing a second one-line layout.
+      // idle notifications already get — it is operational noise and should
+      // not take up more room — instead of growing a second one-line layout.
       return {
         display: "peer",
         relays: [
@@ -2296,9 +2291,8 @@ export function parseSystemMessageFields(
       };
     case "spawn-prompt":
       // spawn prompt は「親から渡された指示書」= 実質 agent message なので、
-      // agent message の見た目 (AgentCard) を当てる (kawaz r55m155/156:
-      // 「ただの json 展開しかできない item 扱いなのでエージェントメッセージの
-      // 見た目を当ててやりましょう」)。カテゴリ分け自体は維持する (同 m156)。
+      // agent message の見た目 (AgentCard) を当てる (そうしないと json を
+      // 展開しただけの item になる)。カテゴリ分け自体は維持する。
       //
       // team-lead 経由の spawn は本文が <teammate-message ...>...</...> で来る
       // ので parsePeerMessage が from/summary を拾えるが、通常の Agent tool
