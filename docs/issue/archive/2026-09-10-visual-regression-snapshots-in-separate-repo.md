@@ -1,6 +1,6 @@
 ---
 title: Visual regression テストの導入 (基準画像は別リポ管理)
-status: open
+status: resolved
 category: design
 created: 2026-09-10T12:41:06+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-10T22:50:46+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: webui v0.2.10 で test/visual/ (Playwright toHaveScreenshot、実 daemon + CDP virtual authenticator の実 passkey 登録 + fixture transcript、11 画面、platform ごとに基準画像、閾値 maxDiffPixelRatio 0.002、接続バーの期限と daemon version を mask)。基準画像は kawaz/ccmsg-webui-snapshots (public、darwin/ + linux/ 各 11 枚)、本体は manifest (画面 → platform → sha256 + version)。`just visual` / `just visual-accept`、CI は独立 visual job、workflow_dispatch の redraw_baselines で runner が linux 版を描く。CI run 34484983398 で visual 込み green (2026-09-10)。"]
 blocked_by:
 origin: kawaz 依頼
 ---

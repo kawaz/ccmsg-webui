@@ -4,7 +4,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
-| 2026-09-10 | design | open | [visual-regression-snapshots-in-separate-repo](./2026-09-10-visual-regression-snapshots-in-separate-repo.md) | 画面の見た目の変遷を version ごとに残し、UI の壊れを継続的に検知するビジュアルリグレッションテストを入… |
 
 <!--
 INDEX の列構成・canonical 順序・行形式の唯一の正本:
