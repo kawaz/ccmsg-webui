@@ -1,0 +1,195 @@
+import { type ChildProcess, spawn } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createInterface } from "node:readline";
+import { createServer, type ViteDevServer } from "vite";
+
+/** The daemon a screenshot run talks to, and the origin the page is served from.
+ *
+ * Everything here is disposable and nothing reaches the person's own instance:
+ * a config home under the system temp directory, a daemon bound to a port of
+ * this run's own, and a dev server standing where a reverse proxy stands in a
+ * real deployment.
+ *
+ * The paths and the ports are **fixed rather than assigned**, which is the
+ * whole reason this file names them. What a screenshot compares includes the
+ * endpoint on the sign-in screen and the instance id beside a session row, and
+ * both are derived from where this host sits: a temp directory with a random
+ * suffix would put a different string on screen every run, and no baseline
+ * could ever match. Two runs at once collide, and say so — a bound port and a
+ * held config home both refuse loudly. */
+const ROOT = join(tmpdir(), "ccmsg-webui-visual");
+const DAEMON_PORT = 45_871;
+const PAGE_PORT = 45_872;
+
+export interface Instance {
+  /** Where the page is published — origin plus base, as the build reads it. */
+  readonly endpoint: string;
+  /** The config home the daemon answers for. */
+  readonly home: string;
+  /** The state directory this instance keeps its socket under, for a fake
+   * session that greets it. */
+  readonly stateDir: string;
+  /** The working directory a fixture session says it is in. */
+  readonly cwd: string;
+  /** One registration: the URL that opens the register screen, and the six
+   * digits the terminal shows beside it. */
+  passkey(): Promise<{ url: string; code: string }>;
+  /** One line from a session to whoever is watching, which is what the page
+   * raises a toast for. */
+  notify(sid: string, text: string): Promise<void>;
+  stop(): Promise<void>;
+}
+
+/** The ccmsg source a daemon is run from. The sibling checkout by default,
+ * because that is where the two repositories sit beside each other; a run that
+ * keeps it elsewhere (CI checks it out under its own path) says so. */
+function cliPath(): string {
+  const named = process.env["CCMSG_CLI"];
+  if (named !== undefined && named !== "") return named;
+  return fileURLToPath(new URL("../../../../ccmsg/main/src/cli.ts", import.meta.url));
+}
+
+/** Wait for the daemon to say it is up, on the log it writes to stderr.
+ *
+ * The line is what the daemon itself reports, so what is waited for is the
+ * event rather than an interval somebody guessed. A process that leaves before
+ * saying it ends the wait too — the run would otherwise sit here until the
+ * whole suite timed out. */
+function started(child: ChildProcess): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const lines = createInterface({ input: child.stderr as NodeJS.ReadableStream });
+    const done = (act: () => void) => {
+      lines.close();
+      act();
+    };
+    lines.on("line", (line) => {
+      try {
+        if ((JSON.parse(line) as { message?: unknown }).message === "started") done(resolve);
+      } catch {}
+    });
+    child.once("exit", (code) => {
+      done(() => {
+        reject(new Error(`daemon が起動せずに終了しました (${String(code)})`));
+      });
+    });
+  });
+}
+
+/** Run one CLI command against this host and answer with the JSON it wrote. */
+function cli(env: NodeJS.ProcessEnv, args: readonly string[]): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const run = spawn("bun", [cliPath(), ...args], { env: { ...process.env, ...env } });
+    let out = "";
+    let err = "";
+    run.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
+    run.stderr.on("data", (chunk: Buffer) => (err += chunk.toString()));
+    run.once("exit", (code) => {
+      if (code === 0) resolve(JSON.parse(out) as unknown);
+      else reject(new Error(`ccmsg ${args.join(" ")} が失敗しました: ${err}`));
+    });
+  });
+}
+
+export async function startInstance(): Promise<Instance> {
+  rmSync(ROOT, { recursive: true, force: true });
+  const home = join(ROOT, "home");
+  const cwd = join(ROOT, "repo");
+  mkdirSync(join(home, "projects"), { recursive: true });
+  mkdirSync(cwd, { recursive: true });
+  // What makes the directory a config home rather than any directory somebody
+  // typed: the CLI refuses to run an instance for one without it.
+  writeFileSync(join(home, "settings.json"), "{}\n");
+
+  const configDir = join(ROOT, "config");
+  mkdirSync(configDir, { recursive: true });
+  writeFileSync(
+    join(configDir, "config.json"),
+    `${JSON.stringify(
+      {
+        defaults: {},
+        instances: [{ dir: home, entry: { host: "127.0.0.1", port: DAEMON_PORT } }],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  // The id an instance makes for itself is random, and it is on screen: the
+  // connection bar names it. Written before the daemon starts, because the
+  // daemon adopts an id it finds and only makes one when there is none — so
+  // the same instance is named the same thing in every run's baseline.
+  const stateDir = join(ROOT, "state");
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(join(stateDir, "instance.id"), "00112233445566778899aabbccddeeff\n");
+
+  const env: NodeJS.ProcessEnv = {
+    HOME: ROOT,
+    XDG_CONFIG_HOME: join(ROOT, "xdg-config"),
+    XDG_STATE_HOME: join(ROOT, "xdg-state"),
+    CCMSG_CONFIG_DIR: configDir,
+    CCMSG_STATE_DIR: stateDir,
+    CLAUDE_CONFIG_DIR: home,
+  };
+
+  const daemon = spawn("bun", [cliPath(), "daemon", "run", home], {
+    env: { ...process.env, ...env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let vite: ViteDevServer | undefined;
+  const stop = async (): Promise<void> => {
+    await vite?.close();
+    // By pid, and this run's own child: nothing else on the machine is asked to
+    // leave on a visual run's behalf.
+    const left = new Promise<void>((resolve) => daemon.once("exit", () => resolve()));
+    daemon.kill("SIGTERM");
+    await left;
+    rmSync(ROOT, { recursive: true, force: true });
+  };
+  try {
+    await started(daemon);
+    // The dev server carries what belongs to the instance to the daemon, so the
+    // page, the socket and `/auth/*` all answer on one origin — which is what a
+    // passkey and a refresh cookie rest on (DR-0001 §2.3). Where it forwards to
+    // is read from the environment while the config file loads, so it is said
+    // before the server is made.
+    process.env["CCMSG_DEV_DAEMON"] = `http://127.0.0.1:${String(DAEMON_PORT)}`;
+    vite = await createServer({
+      configFile: fileURLToPath(new URL("../../vite.config.ts", import.meta.url)),
+      server: { port: PAGE_PORT, strictPort: true },
+    });
+    await vite.listen();
+  } catch (cause) {
+    await stop();
+    throw cause;
+  }
+
+  const endpoint = `http://localhost:${String(PAGE_PORT)}/`;
+  return {
+    endpoint,
+    home,
+    cwd,
+    stateDir,
+    stop,
+    passkey: async () => {
+      const said = (await cli(env, [
+        "daemon",
+        "passkey",
+        "add",
+        home,
+        endpoint,
+        "--name",
+        "visual",
+      ])) as { url?: string; code?: string };
+      if (typeof said.url !== "string" || typeof said.code !== "string") {
+        throw new Error(`passkey add の答えが読めません: ${JSON.stringify(said)}`);
+      }
+      return { url: said.url, code: said.code };
+    },
+    notify: async (sid, text) => {
+      await cli(env, ["notify", text, "--sid", sid]);
+    },
+  };
+}

@@ -4,3 +4,6 @@ dist/
 package-lock.json
 # playwright-cli が実機検証中に吐く snapshot / console ログ
 .playwright-cli/
+# Playwright が失敗した run について残す trace / diff 画像
+test-results/
+playwright-report/

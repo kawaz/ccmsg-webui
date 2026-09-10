@@ -1,4 +1,4 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["docs", "dist", ".playwright-cli"]
+  "ignorePatterns": ["docs", "dist", ".playwright-cli", "test-results", "playwright-report"]
 }

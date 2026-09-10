@@ -1,0 +1,38 @@
+{
+  "webui_version": "0.2.9",
+  "screens": {
+    "conversation": {
+      "darwin": "58c2e4bf48bf241cb2b348825159a7a63535b2b9306f0106f95d99221c8812fb"
+    },
+    "files-code": {
+      "darwin": "6ec6aec9d62feeafbc4e7b9cbc5fa96bfcb49a12498f2b96b1c0e69df8a97432"
+    },
+    "files-markdown": {
+      "darwin": "a059dd0a672d88a88937d4278fcc7857ff8104bb388052e367fb13e7631ce4c3"
+    },
+    "notification": {
+      "darwin": "a1654d139f9a1687b2fbb3324744ac6b99fcc8ba5edbf797eb8ecfe05dc27b40"
+    },
+    "register": {
+      "darwin": "e01952fad21129923f88d8e18a30a3c8d61c6df95b07dd4cd60b73faa823a7d7"
+    },
+    "sessions": {
+      "darwin": "ec78f1817b095f5bd3c164f4c70bd5e17b4d6e7ae927be000b4bd6ede2d5d506"
+    },
+    "sign-in": {
+      "darwin": "4297b6863f22f12641fa55ce844e43dbdbe19ba008a1ce7f4c4b006c577aaa74"
+    },
+    "terminal": {
+      "darwin": "a6dad73a2886b297c7d6f44e86f15ed59681eb0108b2a81f2a00ac6bda87c461"
+    },
+    "timeline": {
+      "darwin": "6b83daaa27157ba5968a01d04b2893a5570e13becbd9fe2635b678768b0afa7a"
+    },
+    "timeline-fold-open": {
+      "darwin": "2c6b269814f12c3e849f62163be4ccec237d41eaf55907e072166268ba7af902"
+    },
+    "timeline-search": {
+      "darwin": "9acf5f14dc9c9e4f2a3267e2fbdf8e24f6a7380844cc3ce99aecf039b2eb3224"
+    }
+  }
+}
