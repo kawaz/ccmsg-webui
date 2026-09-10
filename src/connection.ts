@@ -22,8 +22,13 @@ const TOKEN_PROTOCOL = "ccmsg.token.";
  *
  * Asked again for every attempt rather than given once, because a token has a
  * few hours' life and a reconnection may be on the other side of it: the answer
- * is where a refresh happens, and nothing here has to know that it did. */
-export type TokenSource = () => Promise<string | undefined>;
+ * is where a refresh happens, and nothing here has to know that it did.
+ *
+ * `renew` says the token last answered was not accepted, so whatever the source
+ * thinks of its own copy's expiry, it is to go and get another one. Held tokens
+ * are the family's rather than this page's, so a page can be holding one that is
+ * unexpired and no longer standing, and its own clock cannot tell it so. */
+export type TokenSource = (renew: boolean) => Promise<string | undefined>;
 
 /** The one place a connection to an instance is made and kept.
  *
@@ -72,6 +77,7 @@ export class Connection {
   #retryMs = RETRY_MIN_MS;
   #retryTimer: ReturnType<typeof setTimeout> | undefined;
   #stopped = false;
+  #renewed = false;
 
   constructor(events: ConnectionEvents) {
     this.#events = events;
@@ -81,9 +87,17 @@ export class Connection {
    * another endpoint, it drops the old one first. */
   connect(url: string, token: TokenSource): void {
     this.#stopped = false;
+    if (this.#retryTimer !== undefined) clearTimeout(this.#retryTimer);
+    this.#retryTimer = undefined;
+    const previous = this.#socket;
+    // Let go of it before closing it: the close arrives on a later turn, and by
+    // then the socket this call is about to open is the one that is current.
+    this.#socket = undefined;
+    previous?.close();
     this.#url = url;
     this.#token = token;
     this.#retryMs = RETRY_MIN_MS;
+    this.#renewed = false;
     void this.#open();
   }
 
@@ -135,12 +149,12 @@ export class Connection {
     });
   }
 
-  async #open(): Promise<void> {
+  async #open(renew = false): Promise<void> {
     const url = this.#url;
     const source = this.#token;
     if (url === undefined || source === undefined || this.#stopped) return;
     this.#events.status("connecting");
-    const token = await source();
+    const token = await source(renew);
     if (this.#stopped) return;
     // Nothing to present. Dialling anyway would be refused, and retrying that
     // is a busy loop against a door that opens by authenticating instead.
@@ -154,8 +168,11 @@ export class Connection {
     const socket = new WebSocket(url, ["ccmsg.v1", `${TOKEN_PROTOCOL}${token}`]);
     this.#socket = socket;
     this.#buffer = "";
+    let admitted = false;
     socket.addEventListener("open", () => {
+      admitted = true;
       this.#retryMs = RETRY_MIN_MS;
+      this.#renewed = false;
       this.#events.status("greeting");
       void this.#greet();
     });
@@ -163,24 +180,41 @@ export class Connection {
       this.#take(String(event.data));
     });
     socket.addEventListener("close", () => {
-      this.#dropped("接続が閉じました");
+      if (this.#socket !== socket) return;
+      this.#dropped("接続が閉じました", !admitted);
     });
     socket.addEventListener("error", () => {
       // A browser reports no status for a refused handshake, so what a 401 or a
       // 403 looks like here is exactly this: an error with nothing in it.
-      this.#dropped("接続を拒否されたか、届きませんでした");
+      if (this.#socket !== socket) return;
+      this.#dropped("接続を拒否されたか、届きませんでした", !admitted);
     });
   }
 
-  #dropped(detail: string): void {
+  /** @param refused the socket never opened, so the token may be why. */
+  #dropped(detail: string, refused = false): void {
     if (this.#socket === undefined) return;
     this.#socket = undefined;
     for (const [, pending] of this.#pending) pending.reject(new Error(detail));
     this.#pending.clear();
     this.#events.status("closed", detail);
     if (this.#stopped) return;
+    // A handshake that was never admitted may have been refused over the token,
+    // so every such attempt asks for a renewed one: the token this page holds is
+    // the family's and can have been superseded while the page was open, which
+    // its own reading of the expiry cannot tell it. Dialling straight back is
+    // done once — after that the door is not opening for a reason a token
+    // answers, and a refusal that is a daemon being down is what the backoff is
+    // for. The renewal rides along on those attempts too, so a page that spent
+    // its immediate retry while the endpoint was unreachable still comes back
+    // when it returns.
+    if (refused && !this.#renewed) {
+      this.#renewed = true;
+      void this.#open(true);
+      return;
+    }
     this.#retryTimer = setTimeout(() => {
-      void this.#open();
+      void this.#open(refused);
     }, this.#retryMs);
     this.#retryMs = Math.min(this.#retryMs * 2, RETRY_MAX_MS);
   }

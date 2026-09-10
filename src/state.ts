@@ -384,22 +384,33 @@ effect(() => {
  * Asked for on every attempt, so a reconnection on the far side of a token's
  * life renews rather than fails: what is held in memory is presented while it
  * lasts, and the refresh cookie is what answers when it does not. Nothing to
- * present raises the sign-in screen, which is the only way back. */
-async function accessToken(): Promise<string | undefined> {
-  if (tokenIsLive()) return access.peek()?.value;
+ * present raises the sign-in screen, which is the only way back.
+ *
+ * `renew` is the handshake saying the token was refused: the expiry held here
+ * is then not the question, because the token belongs to the family and not to
+ * this page, and asking the cookie is the only way to learn what stands. */
+async function accessToken(renew = false): Promise<string | undefined> {
+  if (!renew && tokenIsLive()) return access.peek()?.value;
   if (endpoint === undefined) return undefined;
   try {
     holdSession(await refreshSession(endpoint));
     return access.peek()?.value;
   } catch (cause) {
+    const refused =
+      cause instanceof AuthError && (cause.code === "auth_invalid" || cause.status === 401);
+    // The endpoint being unreachable is not the session being over. Keeping
+    // what is held lets the socket's own retry ride a daemon restart out
+    // instead of turning it into a sign-in screen.
+    if (!refused && renew && tokenIsLive()) {
+      authProblem.value = describeAuthError(cause);
+      return access.peek()?.value;
+    }
     forgetSession();
     needsSignIn.value = true;
     // A first visit has no cookie, and being told so reads as a failure of
     // something the person did. Only a refusal that is not simply "no session
     // here" is worth saying out loud.
-    if (!(cause instanceof AuthError) || (cause.code !== "auth_invalid" && cause.status !== 401)) {
-      authProblem.value = describeAuthError(cause);
-    }
+    if (!refused) authProblem.value = describeAuthError(cause);
     return undefined;
   }
 }
