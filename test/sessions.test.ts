@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentInfo, PeerInfo } from "@ccmsg/protocol";
-import { sessionLabel, sortAgents, sortLastLive, sortPeers } from "../src/sessions.ts";
+import {
+  sessionLabel,
+  sortAgents,
+  sortLastLive,
+  sortPeers,
+  terminalIdsBySid,
+} from "../src/sessions.ts";
 
 const INSTANCE = "ws://a.example/ws";
 
@@ -66,6 +72,40 @@ describe("what belongs in which section", () => {
     };
     expect(sortAgents([agent], [peer(sid)])).toEqual([]);
     expect(sortAgents([agent], [])).toEqual([agent]);
+  });
+});
+
+describe("the terminal each session names", () => {
+  function agent(sid: string, fields: Partial<AgentInfo> = {}): AgentInfo {
+    return {
+      sid,
+      instance: INSTANCE,
+      pid: 1,
+      cwd: "/w",
+      kind: "interactive",
+      started_at: 1,
+      config_dir: "/c",
+      ...fields,
+    };
+  }
+
+  test("read from every row, including one the peer list already carries", () => {
+    const live = "00000000-0000-0000-0000-0000000000a1";
+    const other = "00000000-0000-0000-0000-0000000000a2";
+    const found = terminalIdsBySid([
+      agent(live, { terminal_id: "run-1-aaa" }),
+      agent(other, { terminal_id: "run-2-bbb" }),
+    ]);
+    expect(found.get(live)).toBe("run-1-aaa");
+    expect(found.get(other)).toBe("run-2-bbb");
+  });
+
+  test("a row that names no terminal is left out", () => {
+    const none = "00000000-0000-0000-0000-0000000000b1";
+    const empty = "00000000-0000-0000-0000-0000000000b2";
+    const found = terminalIdsBySid([agent(none), agent(empty, { terminal_id: "" })]);
+    expect(found.has(none)).toBe(false);
+    expect(found.has(empty)).toBe(false);
   });
 });
 

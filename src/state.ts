@@ -52,6 +52,7 @@ import {
   sortAgents,
   sortLastLive,
   sortPeers,
+  terminalIdsBySid,
 } from "./sessions.ts";
 import { FoldOpen } from "./timeline/fold-open.ts";
 import { forgetFoldsBefore } from "./timeline/fold-tree.ts";
@@ -120,6 +121,13 @@ export const lastLive = computed<readonly LastLiveSession[]>(() =>
 );
 export const agents = computed<readonly AgentInfo[]>(() =>
   sortAgents(union(agentSlots.value, "agents"), union(peerSlots.value, "peers")),
+);
+/** The gateway that fronts this instance's terminals, when it fronts any. */
+export const terminalGateway = computed<string | undefined>(() => hello.value?.terminal_gateway);
+/** The terminal each session runs in, over every row rather than the shown
+ * ones — `agents` above hides a session the peer list already carries. */
+export const terminalIds = computed<ReadonlyMap<Sid, string>>(() =>
+  terminalIdsBySid(union(agentSlots.value, "agents")),
 );
 export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
   errorsBySid(union(errorSlots.value, "errors")),

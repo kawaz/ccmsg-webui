@@ -2,6 +2,7 @@ import type { Sid } from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
 import { heldCounts } from "../conversation/held-messages.ts";
 import { sessionLabel, SORT_KEYS, SORT_LABELS, isSortKey } from "../sessions.ts";
+import { terminalUrl } from "../terminal-url.ts";
 import {
   agents,
   heldMessages,
@@ -13,6 +14,8 @@ import {
   setSortKey,
   sortKey,
   status,
+  terminalGateway,
+  terminalIds,
 } from "../state.ts";
 
 function open(sid: Sid): void {
@@ -21,6 +24,19 @@ function open(sid: Sid): void {
 
 function when(at: number | undefined): string {
   return at === undefined ? "" : new Date(at).toLocaleString();
+}
+
+/** 行から、そのセッションが動いている端末へ。gateway 側の画面をそのまま開く
+ * ので、この画面ではなく新しいタブに出す — 一覧を見失わずに端末を覗ける。
+ * 端末に届かない行には何も出さない。 */
+function TerminalLink({ sid }: { sid: Sid }) {
+  const url = terminalUrl(terminalGateway.value, terminalIds.value.get(sid));
+  if (url === null) return null;
+  return (
+    <a class="terminal-link" href={url} target="_blank" rel="noreferrer" title="端末を開く">
+      端末
+    </a>
+  );
 }
 
 /** The list a person starts from: what is running, what the harness itself
@@ -63,15 +79,16 @@ export function SessionList() {
           {peers.value.map((peer) => {
             const failure = errors.get(peer.sid);
             return (
-              <button
-                type="button"
-                class="row"
-                key={peer.sid}
-                onClick={() => {
-                  open(peer.sid);
-                }}
-              >
-                <span class="name">{sessionLabel(peer)}</span>
+              <div class="row" key={peer.sid}>
+                <button
+                  type="button"
+                  class="name open"
+                  onClick={() => {
+                    open(peer.sid);
+                  }}
+                >
+                  {sessionLabel(peer)}
+                </button>
                 {(waiting.get(peer.sid) ?? 0) > 0 && (
                   <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
                     {waiting.get(peer.sid)}
@@ -87,8 +104,9 @@ export function SessionList() {
                 {peer.state !== undefined && (
                   <span class={`state ${peer.state}`}>{peer.state}</span>
                 )}
+                <TerminalLink sid={peer.sid} />
                 <span class="meta mono">{peer.instance}</span>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -101,18 +119,20 @@ export function SessionList() {
             <p class="empty">ハーネス側の追加セッションはありません。</p>
           )}
           {agents.value.map((agent) => (
-            <button
-              type="button"
-              class="row"
-              key={agent.sid}
-              onClick={() => {
-                open(agent.sid);
-              }}
-            >
-              <span class="name">{sessionLabel({ ...agent, title: agent.name })}</span>
+            <div class="row" key={agent.sid}>
+              <button
+                type="button"
+                class="name open"
+                onClick={() => {
+                  open(agent.sid);
+                }}
+              >
+                {sessionLabel({ ...agent, title: agent.name })}
+              </button>
               <span class="state">{agent.kind}</span>
+              <TerminalLink sid={agent.sid} />
               <span class="meta mono">pid {agent.pid}</span>
-            </button>
+            </div>
           ))}
         </div>
       </section>
@@ -132,6 +152,7 @@ export function SessionList() {
                 </span>
               )}
               {row.state !== undefined && <span class="state">{row.state}</span>}
+              <TerminalLink sid={row.sid} />
               <span class="meta">{when(row.last_seen_at)}</span>
               <button
                 type="button"

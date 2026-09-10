@@ -180,6 +180,37 @@ select {
   flex: none;
 }
 
+/* 行を開く操作は名前そのもの。行の中に別のリンク (端末) が並ぶので、行全体を
+ * 一つのボタンにはできない。 */
+.row > .name.open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row > .name.open:hover {
+  text-decoration: underline;
+}
+
+.terminal-link {
+  flex: none;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.terminal-link:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
 .state {
   flex: none;
   font-size: 11px;
@@ -1199,4 +1230,29 @@ select {
   display: flex;
   gap: 8px;
   margin: 0;
+}
+
+/* ---- 端末 ---- */
+
+/* 端末は gateway の画面そのもの。枠だけこちらで用意し、中身には触らない。 */
+.terminal-pane {
+  height: min(72vh, 720px);
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.terminal-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  transition: opacity 120ms ease-in;
+}
+
+/* 読み込み中の iframe は UA 既定の白。透かして枠の色を見せる。 */
+.terminal-iframe.loading {
+  opacity: 0;
 }

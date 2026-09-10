@@ -1,13 +1,23 @@
 import type { Sid } from "@ccmsg/protocol";
 import { needsSignIn } from "../auth/session.ts";
 import { href } from "../base.ts";
-import { type Tab, TABS } from "../route.ts";
-import { dismissToast, generationWarning, navigate, registration, route, toast } from "../state.ts";
+import { type Tab, visibleTabs } from "../route.ts";
+import {
+  dismissToast,
+  generationWarning,
+  navigate,
+  registration,
+  route,
+  terminalGateway,
+  terminalIds,
+  toast,
+} from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { Files } from "./Files.tsx";
 import { Register } from "./Register.tsx";
 import { SessionList } from "./SessionList.tsx";
 import { SignIn } from "./SignIn.tsx";
+import { TerminalPanel } from "./TerminalPanel.tsx";
 import { Timeline } from "./Timeline.tsx";
 
 /** What each tab is called on screen. The URL keeps the English name — a link
@@ -15,14 +25,18 @@ import { Timeline } from "./Timeline.tsx";
 const TAB_LABELS: Readonly<Record<Tab, string>> = {
   timeline: "transcript",
   files: "ファイル",
+  terminal: "端末",
   status: "状態",
   rooms: "部屋",
 };
 
 function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
+  const tabs = visibleTabs(
+    terminalGateway.value !== undefined && terminalIds.value.get(sid) !== undefined,
+  );
   return (
     <nav class="tabs" aria-label="セッションの見方">
-      {TABS.map((one) => (
+      {tabs.map((one) => (
         <a
           key={one}
           class={one === tab ? "on" : undefined}
@@ -96,7 +110,8 @@ export function App() {
           <SessionTabs sid={at.sid} tab={at.tab} />
           {at.tab === "timeline" && <Timeline sid={at.sid} />}
           {at.tab === "files" && <Files sid={at.sid} path={at.path} lines={at.lines} />}
-          {at.tab !== "timeline" && at.tab !== "files" && (
+          {at.tab === "terminal" && <TerminalPanel sid={at.sid} />}
+          {at.tab !== "timeline" && at.tab !== "files" && at.tab !== "terminal" && (
             <section class="section">
               <h2>{TAB_LABELS[at.tab]}</h2>
               <p class="empty">

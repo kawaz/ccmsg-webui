@@ -66,6 +66,26 @@ export function sortAgents(
     .sort((a, b) => b.started_at - a.started_at || a.sid.localeCompare(b.sid));
 }
 
+/** The terminal each session names, over the whole of the harness's rows.
+ *
+ * Read from the rows as they arrive rather than from the list the screen shows:
+ * a session that is also a connected peer is dropped from that list so it is
+ * not read as two, and it is exactly the session a person is most likely to
+ * want the terminal of. A row that names no terminal is left out — absent and
+ * empty both mean there is nothing to open.
+ *
+ * Later rows win over earlier ones, which matters only where two instances
+ * report the same session: the value is the one this instance last heard. */
+export function terminalIdsBySid(rows: readonly AgentInfo[]): ReadonlyMap<Sid, string> {
+  const found = new Map<Sid, string>();
+  for (const row of rows) {
+    if (row.terminal_id !== undefined && row.terminal_id !== "") {
+      found.set(row.sid, row.terminal_id);
+    }
+  }
+  return found;
+}
+
 export function errorsBySid(
   errors: readonly SessionErrorEntry[],
 ): ReadonlyMap<Sid, SessionErrorEntry> {

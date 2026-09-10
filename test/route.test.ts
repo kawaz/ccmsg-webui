@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseRoute, routePath } from "../src/route.ts";
+import { parseRoute, routePath, visibleTabs } from "../src/route.ts";
 
 const SID = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0";
 
@@ -12,6 +12,18 @@ describe("the URL grammar", () => {
   test("a session names its tab, and defaults to the timeline without one", () => {
     expect(parseRoute(`/s/${SID}/files`)).toEqual({ at: "session", sid: SID, tab: "files" });
     expect(parseRoute(`/s/${SID}`)).toEqual({ at: "session", sid: SID, tab: "timeline" });
+  });
+
+  test("the terminal is a tab of its own", () => {
+    expect(parseRoute(`/s/${SID}/terminal`)).toEqual({ at: "session", sid: SID, tab: "terminal" });
+    expect(routePath({ at: "session", sid: SID, tab: "terminal" })).toBe(`/s/${SID}/terminal`);
+  });
+
+  test("the terminal tab is offered only where a terminal can be reached", () => {
+    expect(visibleTabs(true)).toContain("terminal");
+    expect(visibleTabs(false)).not.toContain("terminal");
+    // それ以外のタブは、端末に届くかどうかで増えも減りもしない。
+    expect(visibleTabs(false)).toEqual(visibleTabs(true).filter((tab) => tab !== "terminal"));
   });
 
   test("anything else is a 404 rather than a guess", () => {

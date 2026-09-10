@@ -17,10 +17,22 @@ import type { Sid } from "@ccmsg/protocol";
  * where a build lives is the build's own answer (`src/base.ts`), and the
  * grammar is the same one whether it hangs from `/` or from `/personal/`. */
 
-export const TABS = ["timeline", "files", "status", "rooms"] as const;
+export const TABS = ["timeline", "files", "terminal", "status", "rooms"] as const;
 export type Tab = (typeof TABS)[number];
 
 export const DEFAULT_TAB: Tab = "timeline";
+
+/** The tabs a session offers right now.
+ *
+ * Every other tab stands on something the instance always has; the terminal
+ * stands on a gateway it may not front and on a terminal the session may not
+ * name, and a tab that could only say "nothing here" is not offered at all.
+ * The grammar still reads the path — a link made where the terminal was
+ * reachable stays a valid URL where it is not, and lands on the tab saying so
+ * rather than on a 404. */
+export function visibleTabs(hasTerminal: boolean): readonly Tab[] {
+  return hasTerminal ? TABS : TABS.filter((tab) => tab !== "terminal");
+}
 
 /** A stretch of a file, 1-based and inclusive. A single line is `end` absent. */
 export interface LineRange {

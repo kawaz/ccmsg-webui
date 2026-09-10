@@ -123,6 +123,18 @@ Reading the envelope back is the contract's `parseDirectDelivery`. A regular exp
 
 The reply side reads a Bash command string. It reads word splitting and `--name value` and nothing else: interpreting expansions would mean claiming to have read what it did not.
 
+## The terminal is borrowed, not built
+
+A session's own terminal can be opened from here. **Drawing it is not this build's job**: the page borrows the screen of the gateway the instance names in `hello` (`terminal_gateway`) in an iframe, and holds neither the rendering nor the input. Holding them would be a second implementation of the same thing.
+
+**The URL is two values put together.** The gateway's base and the `terminal_id` the session names on the `agents` topic make `<gateway>/sessions/<terminal_id>` (contract `hello.ts`). Everything below `/sessions/` is the gateway's spelling rather than the contract's, so a base that carries a path keeps it and the segments hang below it, and a base that arrives with a trailing slash names the same gateway. Nothing is made from a base that is not http(s) or where either value is missing — a link to nowhere is worse than no link.
+
+**A tab that leads nowhere is not offered.** Where the instance fronts no gateway, or the session names no terminal, the tab itself is absent (`visibleTabs`). The URL grammar still reads it: a link made where the terminal was reachable is not a broken URL where it is not, and lands on a screen saying so rather than on a 404.
+
+**Only `agents` rows name a terminal**, and the shown `agents` list drops the rows the peer list already carries. So the map is built from the rows before that is done (`terminalIdsBySid`) — the session whose terminal a person wants is very often the one that is connected right now.
+
+**The embedded URL and the plain one differ.** The tab's iframe asks for `?embed=1&resize=1`: the gateway drops its own header, and follows the frame's size rather than a stored choice, an embedded page having nowhere to offer that choice and nowhere to keep it. The link on a list row is the gateway's own screen, so it carries neither and opens in a tab of its own — the terminal can be looked at without losing the list.
+
 ## Nothing is kept for a notification
 
 A `notify` frame is an event, and the contract keeps none of them. Neither does this page: they live in memory and go when the connection does. The bubble at the end of the Timeline is **the moment before the transcript catches up** — once the same answer is written there, that is the record (which is why the bubble is dashed rather than as solid as a settled line). The topbar shows the latest one as a toast, so a notification is noticed whichever session is open.
