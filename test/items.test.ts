@@ -5,7 +5,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildTimeline,
-  foldLabel,
   foldNeedsOuterFold,
   itemCategory,
   nodeKey,
@@ -13,7 +12,14 @@ import {
   ownFields,
   recordRange,
 } from "../src/timeline/items.ts";
-import { isGeneric, itemDetail, itemLabel, itemProse, rowText } from "../src/timeline/item-view.ts";
+import {
+  foldLabel,
+  isGeneric,
+  itemDetail,
+  itemLabel,
+  itemProse,
+  rowText,
+} from "../src/timeline/item-view.ts";
 import { item, result, use } from "./item.ts";
 
 describe("buildTimeline", () => {
@@ -80,6 +86,14 @@ describe("畳みの見た目", () => {
       { item: use("tool:Bash", { tool_use_id: "u", command: "ls" }) },
     ];
     expect(foldLabel(rows)).toBe("1 思考 + 1 agent 通信 + 1 item");
+  });
+
+  test("汎用形は別に数える (読めていない item が中に居ることが見出しで分かる)", () => {
+    const rows = [
+      { item: use("tool:Bash", { tool_use_id: "t", command: "ls" }) },
+      { item: item("system:unknown", { record: {} }) },
+    ];
+    expect(foldLabel(rows)).toBe("1 item + 1 汎用形");
   });
 });
 

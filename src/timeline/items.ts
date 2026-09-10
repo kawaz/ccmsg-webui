@@ -105,26 +105,6 @@ export function foldNeedsOuterFold(rows: readonly ItemRow[]): boolean {
   return rows.length > 1 || rows.some((row) => itemCategory(row.item) !== "other");
 }
 
-/** 畳みの見出し。軸ごとの数を決まった順で並べる。 */
-export function foldLabel(rows: readonly ItemRow[]): string {
-  const counts = new Map<ItemCategory, number>();
-  for (const row of rows) {
-    const category = itemCategory(row.item);
-    counts.set(category, (counts.get(category) ?? 0) + 1);
-  }
-  const names: Readonly<Record<ItemCategory, string>> = {
-    thinking: "思考",
-    ccmsg: "ccmsg",
-    agent: "agent 通信",
-    other: "item",
-  };
-  const order: readonly ItemCategory[] = ["thinking", "ccmsg", "agent", "other"];
-  return order
-    .filter((category) => (counts.get(category) ?? 0) > 0)
-    .map((category) => `${String(counts.get(category))} ${names[category]}`)
-    .join(" + ");
-}
-
 /** item が出しているうち、その item だけのもの。
  *
  * 共通のもの (どこから来たか・いつか・何番目か) を除くと、残るのはその型が

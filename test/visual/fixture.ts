@@ -15,8 +15,15 @@ export const OTHER_SID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
 
 const AT = "2026-03-01T04:05:06.000Z";
 
+/** Every record carries the id the harness gives it, and the ids are written
+ * down rather than generated: an item is named `<record>:<n>`, that name is on
+ * the page in a fold's key and a search hit's, and a fresh id per run would
+ * make a baseline compare against a different name every time. */
+let written = 0;
+
 function line(row: Record<string, unknown>): string {
-  return `${JSON.stringify(row)}\n`;
+  written += 1;
+  return `${JSON.stringify({ uuid: `rec-${String(written).padStart(2, "0")}`, ...row })}\n`;
 }
 
 function user(text: string): string {
@@ -83,6 +90,18 @@ function transcript(): string {
         ],
       },
     }),
+    // 分類の甘い所も画面に出る、を写す 2 つ: 誰も field を書いていない道具と、
+    // 読み手が置けなかった record。どちらも型名と持ち物で出て、元の行への入口が
+    // 既定で見える。
+    assistant([
+      {
+        type: "tool_use",
+        id: "tu_mystery",
+        name: "MysteryTool",
+        input: { knob: 3, mode: "そのまま" },
+      },
+    ]),
+    line({ type: "なにか", timestamp: AT, note: "読み手が置けなかった行" }),
     assistant([
       {
         type: "text",

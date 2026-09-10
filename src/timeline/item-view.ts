@@ -1,5 +1,13 @@
 import { TRANSCRIPT_ITEM_TYPES, type TranscriptItem } from "@ccmsg/protocol";
-import { field, type ItemRow, ownFields, textField, typeTail } from "./items.ts";
+import {
+  field,
+  type ItemCategory,
+  itemCategory,
+  type ItemRow,
+  ownFields,
+  textField,
+  typeTail,
+} from "./items.ts";
 
 /** 型 1 つ 1 つが画面で何と名乗り、何を出すか。
  *
@@ -185,4 +193,27 @@ export function rowText(row: ItemRow): string {
 
 function itemText(item: TranscriptItem): string {
   return words(itemLabel(item), itemProse(item) ?? itemDetail(item));
+}
+
+/** 畳みの見出し。中に何が畳まれているかを、軸ごとの数で決まった順に並べる。
+ *
+ * 汎用形は別に数える: 「item が 3 つ」と「そのうち 2 つはこの build が読めて
+ * いない」は、開くかどうかを決める時に別の話になる。 */
+export function foldLabel(rows: readonly ItemRow[]): string {
+  const names: readonly [ItemCategory | "generic", string][] = [
+    ["thinking", "思考"],
+    ["ccmsg", "ccmsg"],
+    ["agent", "agent 通信"],
+    ["other", "item"],
+    ["generic", "汎用形"],
+  ];
+  const counts = new Map<ItemCategory | "generic", number>();
+  for (const row of rows) {
+    const key = isGeneric(row.item) ? "generic" : itemCategory(row.item);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return names
+    .filter(([key]) => (counts.get(key) ?? 0) > 0)
+    .map(([key, name]) => `${String(counts.get(key))} ${name}`)
+    .join(" + ");
 }

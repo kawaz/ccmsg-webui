@@ -5,14 +5,15 @@ import type { Sid, TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { href } from "../base.ts";
 import { foldGroupKey, foldPathsById, rawFoldKey, thinkFoldKey } from "../timeline/fold-tree.ts";
-import { isGeneric, isTyped, itemDetail, itemLabel, itemProse } from "../timeline/item-view.ts";
 import {
   foldLabel,
-  foldNeedsOuterFold,
-  type ItemRow,
-  nodeKey,
-  type TimelineNode,
-} from "../timeline/items.ts";
+  isGeneric,
+  isTyped,
+  itemDetail,
+  itemLabel,
+  itemProse,
+} from "../timeline/item-view.ts";
+import { foldNeedsOuterFold, type ItemRow, nodeKey, type TimelineNode } from "../timeline/items.ts";
 import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { groupIndexByUnitKey, timelineSearchUnits } from "../search/timeline-units.ts";
 import {

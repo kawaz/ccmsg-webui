@@ -45,10 +45,24 @@ test("timeline", async ({ ui: page, instance }) => {
 
 test("timeline-fold-open", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  const fold = page.locator("details summary").first();
+  // 既定で閉じている畳み (会話でないものの並び) を開く。思考は既定で開いて
+  // いるので、そこを押すと閉じる方が写る。
+  const fold = page.locator("details.tl-fold > summary").first();
   await expect(fold).toBeVisible();
   await fold.click();
+  await expect(page.locator("details.tl-fold[open]").first()).toBeVisible();
   await shot(page, "timeline-fold-open.png");
+});
+
+// 型付き item が答えられない唯一の問い — 元の行は何と書いてあったか — を、
+// 押した所で取り寄せて出す。分類の甘い item ではこの入口が既定で見えている。
+test("timeline-raw-record", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  const raw = page.locator("details.tl-raw > summary").last();
+  await expect(raw).toBeVisible();
+  await raw.click();
+  await expect(page.locator("details.tl-raw[open] pre")).toContainText("uuid");
+  await shot(page, "timeline-raw-record.png");
 });
 
 test("timeline-search", async ({ ui: page, instance }) => {
