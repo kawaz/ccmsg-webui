@@ -2,6 +2,7 @@ import { computed, effect, signal } from "@preact/signals";
 import type { Static } from "@sinclair/typebox";
 import type {
   AgentInfo,
+  AuthSession,
   AgentsFrame,
   HelloResult,
   LastLiveSession,
@@ -25,8 +26,10 @@ import {
   forgetSession,
   holdSession,
   needsSignIn,
+  subject,
   tokenIsLive,
 } from "./auth/session.ts";
+import { TabShare } from "./auth/tab-share.ts";
 import { type ConnectionStatus, Connection } from "./connection.ts";
 import { type FilesMemory, FilesView } from "./files/files-view.ts";
 import {
@@ -379,6 +382,36 @@ effect(() => {
   timelineFolds.peek().reset();
 });
 
+/** The person's other tabs at this endpoint: who refreshes, and what they all
+ * hold once one of them has (DR-0001 §2.4). Absent when there is no endpoint to
+ * be a tab of. */
+const tabs =
+  endpoint === undefined
+    ? undefined
+    : new TabShare({
+        endpoint,
+        subject: () => subject.peek(),
+        session: () => {
+          const held = access.peek();
+          const sub = subject.peek();
+          return held === undefined || sub === undefined || !tokenIsLive()
+            ? undefined
+            : { sub, access: held };
+        },
+        locks: navigator.locks as LockManager | undefined,
+      });
+
+tabs?.listen((shared) => {
+  if (shared.access.value !== access.peek()?.value) holdSession(shared);
+});
+
+/** Refresh as one of the person's tabs rather than as a page on its own: the
+ * rotation happens once and its answer reaches the others. */
+async function renewSession(at: string): Promise<AuthSession> {
+  const run = (): Promise<AuthSession> => refreshSession(at);
+  return tabs === undefined ? await run() : await tabs.renew(run);
+}
+
 /** The access token to open the next socket with.
  *
  * Asked for on every attempt, so a reconnection on the far side of a token's
@@ -392,8 +425,16 @@ effect(() => {
 async function accessToken(renew = false): Promise<string | undefined> {
   if (!renew && tokenIsLive()) return access.peek()?.value;
   if (endpoint === undefined) return undefined;
+  // What another tab has already settled on, before asking for a rotation of
+  // this page's own: the token is the family's, so one tab's answer is every
+  // tab's answer.
+  const shared = tabs?.fresh();
+  if (shared !== undefined && shared.access.value !== access.peek()?.value) {
+    holdSession(shared);
+    return shared.access.value;
+  }
   try {
-    holdSession(await refreshSession(endpoint));
+    holdSession(await renewSession(endpoint));
     return access.peek()?.value;
   } catch (cause) {
     const refused =
@@ -490,7 +531,7 @@ let renewTimer: ReturnType<typeof setTimeout> | undefined;
 async function renewConnection(): Promise<void> {
   if (endpoint === undefined || status.peek() !== "open") return;
   try {
-    holdSession(await refreshSession(endpoint));
+    holdSession(await renewSession(endpoint));
     const token = access.peek()?.value;
     if (token === undefined) return;
     const reply = await connection.request("auth_refresh", { access_token: token });

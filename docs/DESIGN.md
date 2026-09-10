@@ -151,7 +151,19 @@ Three flows, all of them entering at the endpoint's `/auth/*` (`src/auth/client.
 - **Signing in** tries the refresh cookie first and raises the passkey screen when there is none. No credential is named: a resident passkey answers with its user handle, and which subject that is is the instance's to look up. What is asked for is **a passkey registered for this endpoint**; another host or path prefix is a registration of its own
 - **Extending** works off `auth_expires_at` from `hello`, which is the connection's deadline. At a tenth of it left, `/auth/refresh` mints a token and `auth_refresh` moves the deadline **on the same connection** — there is no reason for the screen to blink every few hours
 
-The token is fetched again on every attempt to connect (`Connection` holds a `TokenSource` rather than a value). A token that expired while a connection was down turns into a refresh in that one place, and nothing else knows it happened. When there is none to be had, the sign-in screen is raised, and it is the only way back.
+The token is fetched again on every attempt to connect (`Connection` holds a `TokenSource` rather than a value). A token that expired while a connection was down turns into a refresh in that one place, and nothing else knows it happened. A handshake that was refused asks for the token again too, saying so: what the page holds is the family's token and not its own, so an expiry it reads as live tells it nothing about whether the token still stands. When there is none to be had, the sign-in screen is raised, and it is the only way back.
+
+## Tabs of one session refresh together
+
+**An access token belongs to the family, and every tab the person has open presents the same one** (DR-0001 §2.4). Tabs that refreshed on their own would each rotate the family and take the token out from under the others, so they coordinate in the browser (`src/auth/tab-share.ts`):
+
+- The refresh — `/auth/refresh` and the `auth_refresh` that follows it — runs inside `navigator.locks.request()`, so one tab of a session does it at a time
+- What it settles on goes to the others over a `BroadcastChannel`, **in memory**: an access token is not written to a store, here as anywhere (see the table above)
+- The tab holding the lock **asks the others** on the same channel before it refreshes, and takes the first token that comes back. Asking rather than only listening is what makes this reliable: the lock and a message are handed over by different queues, so what another tab broadcast may not have arrived yet — and what it broadcast before this tab was opened never will. A tab that nobody answers within the round trip is the only tab of its session, and refreshes
+- A refused handshake tries the newest token another tab passed on before it refreshes at all
+- Without the Web Locks API each tab refreshes for itself. That is the behaviour this improves on rather than one it depends on — the instance's standing token is what makes separate refreshes converge
+
+Names carry **the endpoint and the subject** (`ccmsg.auth.refresh:<endpoint>:<sub>`, `ccmsg.auth:<endpoint>:<sub>`) for the same reason the localStorage keys below do: one origin serves several endpoints and one endpoint several people, and tabs that are not the same session have nothing to agree on. A tab that has not authenticated yet knows no subject and listens on the endpoint alone until it does.
 
 ## localStorage keys name what they belong to
 
