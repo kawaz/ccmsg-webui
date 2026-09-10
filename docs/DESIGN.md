@@ -176,6 +176,8 @@ The subprotocol prefix the access token travels in (`ccmsg.token.`) and the `/au
 
 ## Build
 
+**The endpoint's path prefix is settled at build time by `base`** (vite's `base`, `/` by default). The page takes `location.origin` plus `import.meta.env.BASE_URL` as its endpoint, so an instance published under a prefix is given **a build made for that base** (`bun x vite build --base=/personal/`, served at `https://h.example/personal/`). The current `location.pathname` is not read for it: a path is a route this page reads, and where the build was published is something only the build can state.
+
 The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMSG_DEV_DAEMON`, `http://127.0.0.1:39847` by default). It stands where a reverse proxy stands in a real deployment; without it the endpoint would not be where the page came from, and neither the passkey nor the cookie would hold.
 
 vite with esbuild's automatic JSX (`jsxImportSource: preact`). `@preact/preset-vite` is not used: what it adds is prefresh HMR, and it brings the whole Babel toolchain in for it, while esbuild emits the same JSX. Wanting HMR is what would bring the preset back.

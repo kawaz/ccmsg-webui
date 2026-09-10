@@ -176,6 +176,8 @@ access token を運ぶ subprotocol の接頭辞 (`ccmsg.token.`) と `/auth/*` �
 
 ## ビルド
 
+**endpoint のパス prefix はビルド時の `base` で決まる** (vite の `base`、既定 `/`)。ページは `location.origin` + `import.meta.env.BASE_URL` を自分の endpoint とするので、prefix 付きで配る instance には **その base でビルドした成果物**を置く (`bun x vite build --base=/personal/` を `https://h.example/personal/` に置く)。現在の `location.pathname` から prefix を推測しない — path はこのページが読む route であって、どこに配られたかを答えられるのはビルドだけ。
+
 dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon (`CCMSG_DEV_DAEMON`、既定 `http://127.0.0.1:39847`) に proxy する。本番の reverse proxy と同じ位置に立たせるためで、これが無いと endpoint がページの出所と一致せず、passkey も cookie も成立しない。
 
 vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-vite` は使っていない: 提供するのは prefresh の HMR で、そのために Babel のツールチェーン全体が依存に入る。JSX の変換自体は esbuild が同じ出力を出す。HMR が要るようになったら preset を入れる判断に戻る。
