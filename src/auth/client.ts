@@ -1,4 +1,10 @@
-import type { AuthChallenge, AuthRegisterArgs, AuthSession, RegisterClaims } from "@ccmsg/protocol";
+import type {
+  AuthChallenge,
+  AuthRefreshReason,
+  AuthRegisterArgs,
+  AuthSession,
+  RegisterClaims,
+} from "@ccmsg/protocol";
 import { bufferOf, toBase64Url } from "./base64url.ts";
 import { type AuthRoute, authUrl } from "./endpoint.ts";
 
@@ -161,8 +167,13 @@ export async function assertPasskey(endpoint: string): Promise<AuthSession> {
 
 /** Trade the refresh cookie for a new access token.
  *
- * Takes no arguments: the cookie is the browser's to send, and a page that
- * could state the value is a page that could read it. */
-export async function refreshSession(endpoint: string): Promise<AuthSession> {
-  return (await post(endpoint, "refresh", {})) as unknown as AuthSession;
+ * The token itself is not stated: the cookie is the browser's to send, and a
+ * page that could state the value is a page that could read it. What is stated
+ * is why this page is asking, which nothing on the far side decides by — it is
+ * kept for the person reading their own sessions back. */
+export async function refreshSession(
+  endpoint: string,
+  reason: AuthRefreshReason,
+): Promise<AuthSession> {
+  return (await post(endpoint, "refresh", { reason })) as unknown as AuthSession;
 }

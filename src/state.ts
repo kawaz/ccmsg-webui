@@ -2,6 +2,7 @@ import { computed, effect, signal } from "@preact/signals";
 import type { Static } from "@sinclair/typebox";
 import type {
   AgentInfo,
+  AuthRefreshReason,
   AuthSession,
   AgentsFrame,
   HelloResult,
@@ -21,6 +22,7 @@ import { parseRegisterFragment, type Registration } from "./auth/register-link.t
 import {
   access,
   authProblem,
+  connectRefreshReason,
   connectionExpiresAt,
   describeAuthError,
   forgetSession,
@@ -407,8 +409,8 @@ tabs?.listen((shared) => {
 
 /** Refresh as one of the person's tabs rather than as a page on its own: the
  * rotation happens once and its answer reaches the others. */
-async function renewSession(at: string): Promise<AuthSession> {
-  const run = (): Promise<AuthSession> => refreshSession(at);
+async function renewSession(at: string, reason: AuthRefreshReason): Promise<AuthSession> {
+  const run = (): Promise<AuthSession> => refreshSession(at, reason);
   return tabs === undefined ? await run() : await tabs.renew(run);
 }
 
@@ -434,7 +436,7 @@ async function accessToken(renew = false): Promise<string | undefined> {
     return shared.access.value;
   }
   try {
-    holdSession(await renewSession(endpoint));
+    holdSession(await renewSession(endpoint, connectRefreshReason()));
     return access.peek()?.value;
   } catch (cause) {
     const refused =
@@ -531,7 +533,7 @@ let renewTimer: ReturnType<typeof setTimeout> | undefined;
 async function renewConnection(): Promise<void> {
   if (endpoint === undefined || status.peek() !== "open") return;
   try {
-    holdSession(await renewSession(endpoint));
+    holdSession(await renewSession(endpoint, "expiring"));
     const token = access.peek()?.value;
     if (token === undefined) return;
     const reply = await connection.request("auth_refresh", { access_token: token });

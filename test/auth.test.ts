@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { AuthSession } from "@ccmsg/protocol";
 import { fromBase64Url, toBase64Url } from "../src/auth/base64url.ts";
+import { refreshSession } from "../src/auth/client.ts";
+import { connectRefreshReason, forgetSession, holdSession } from "../src/auth/session.ts";
 import { defaultDeviceLabel } from "../src/auth/device-label.ts";
 import { authUrl, endpointFromLocation, isEndpoint, socketUrl } from "../src/auth/endpoint.ts";
 import { parseRegisterFragment, readClaims } from "../src/auth/register-link.ts";
@@ -85,6 +88,53 @@ describe("the registration link", () => {
     expect(readClaims(token({ sub: "main-1" }))).toBeUndefined();
     expect(readClaims("not.a.token")).toBeUndefined();
     expect(readClaims("single-segment")).toBeUndefined();
+  });
+});
+
+describe("why a refresh is being asked for", () => {
+  const SESSION = {
+    sub: "main-1",
+    access: { value: "token", expires_at: 1_800_000_000_000 },
+  } as unknown as AuthSession;
+
+  /** Stand in for the instance and answer one session, keeping what was asked
+   * of it. */
+  async function asked(run: () => Promise<unknown>): Promise<{ url: string; body: unknown }> {
+    const real = globalThis.fetch;
+    let seen: { url: string; body: unknown } | undefined;
+    globalThis.fetch = ((url: string, init: RequestInit) => {
+      seen = { url, body: JSON.parse(String(init.body)) };
+      return Promise.resolve(new Response(JSON.stringify(SESSION), { status: 200 }));
+    }) as unknown as typeof fetch;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = real;
+    }
+    if (seen === undefined) throw new Error("nothing was asked of the instance");
+    return seen;
+  }
+
+  for (const reason of ["reload", "expiring", "reconnect"] as const) {
+    test(`${reason} travels as the caller's word and alone`, async () => {
+      const seen = await asked(() => refreshSession("http://localhost:5173/", reason));
+      expect(seen.url).toBe("http://localhost:5173/auth/refresh");
+      // The refresh token is the cookie's to carry, so the reason is the whole
+      // of what this page states.
+      expect(seen.body).toEqual({ reason });
+    });
+  }
+
+  test("the page's first token is the reload's, and every later one a reconnect", () => {
+    // One test for the whole of a page's life: what is being fixed is an order,
+    // and the module holds it the way a loaded page does.
+    expect(connectRefreshReason()).toBe("reload");
+    holdSession(SESSION);
+    expect(connectRefreshReason()).toBe("reconnect");
+    // Losing the session does not make the page new again: what follows is
+    // still a socket being opened for the second time.
+    forgetSession();
+    expect(connectRefreshReason()).toBe("reconnect");
   });
 });
 

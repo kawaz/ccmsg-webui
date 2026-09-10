@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import type { AuthSession, Subject, Timestamp } from "@ccmsg/protocol";
+import type { AuthRefreshReason, AuthSession, Subject, Timestamp } from "@ccmsg/protocol";
 import { AuthError } from "./client.ts";
 
 /** What this page holds of a person's session, and nothing else holds.
@@ -26,7 +26,23 @@ export const needsSignIn = signal(false);
  * the person. Cleared when they try again. */
 export const authProblem = signal<string | undefined>(undefined);
 
+/** Whether a session has been held since this page was loaded. Forgetting one
+ * does not unsay it: the page has still been past its first load. */
+let everHeld = false;
+
+/** Why a refresh asked for while opening a socket is being asked for.
+ *
+ * The two look alike from the cookie's side and are not the same thing: a page
+ * that has held nothing yet is restoring what the reload lost, and one that has
+ * is opening a socket again — because the token ran out, or because the
+ * handshake refused it. The refresh a live connection schedules for itself is
+ * neither, and says so at its own call site. */
+export function connectRefreshReason(): AuthRefreshReason {
+  return everHeld ? "reconnect" : "reload";
+}
+
 export function holdSession(session: AuthSession): void {
+  everHeld = true;
   access.value = session.access;
   subject.value = session.sub;
   needsSignIn.value = false;
