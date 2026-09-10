@@ -1,11 +1,18 @@
 import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
-import type { Sid } from "@ccmsg/protocol";
+import type { Sid, TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { href } from "../base.ts";
-import { foldGroupKey, foldPathsByOffset, thinkFoldKey } from "../timeline/fold-tree.ts";
-import { brief, fileResult } from "../timeline/segment-text.ts";
+import { foldGroupKey, foldPathsById, rawFoldKey, thinkFoldKey } from "../timeline/fold-tree.ts";
+import { isGeneric, isTyped, itemDetail, itemLabel, itemProse } from "../timeline/item-view.ts";
+import {
+  foldLabel,
+  foldNeedsOuterFold,
+  type ItemRow,
+  nodeKey,
+  type TimelineNode,
+} from "../timeline/items.ts";
 import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { groupIndexByUnitKey, timelineSearchUnits } from "../search/timeline-units.ts";
 import {
@@ -20,16 +27,9 @@ import {
   totalHeight,
   visibleRange,
 } from "../timeline/virtual-window.ts";
-import { foldGroupShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
+import { foldShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
 import type { TimelineAutoOpenSettings } from "../timeline/timeline-auto-open.ts";
-import {
-  extractIncomingMessages,
-  foldGroupLabel,
-  foldGroupNeedsOuterFold,
-  parseCcmsgReplyCommand,
-} from "../timeline/transcript-model.ts";
-import type { ParsedLine, Segment, TimelineGroup } from "../timeline/transcript-model.ts";
-import type { TranscriptView } from "../timeline/transcript-view.ts";
+import type { TranscriptItemsView } from "../timeline/items-view.ts";
 import { heldFor } from "../conversation/held-messages.ts";
 import { describeUndelivered } from "../conversation/send-outcome.ts";
 import {
@@ -50,12 +50,19 @@ import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 
-/** A session's transcript, read from its end.
+/** A session's transcript as the items an instance read it into, followed
+ * forwards and read backwards.
  *
- * A transcript is followed forwards and read backwards, and the scroll position
- * is what says which of the two a person is doing: at the bottom they are
- * watching it happen, and anywhere else they are reading, which is why an
- * append moves the view only in the first case. */
+ * What is drawn is the type's vocabulary and nothing below it: a type this
+ * build has no picture for is still drawn, as its name and the fields it
+ * carries. The record behind an item is one click away rather than on screen —
+ * `jsonl` fetches the line it was read from — which is what makes an item
+ * whose classification looks thin something a person can check instead of
+ * guess at.
+ *
+ * The scroll position says which of the two directions a person is going: at
+ * the bottom they are watching it happen, and anywhere else they are reading,
+ * which is why an append moves the view only in the first case. */
 
 /** How close to an edge counts as being at it. A few pixels, since a wheel
  * rarely lands exactly on the end and a fractional device pixel never does. */
@@ -72,6 +79,10 @@ const PathLinkerContext = createContext<MarkdownPathLinker | undefined>(undefine
 /** 探している言葉。行の中のどこを光らせるかを決めるだけのもので、間の階層は
  * 素通しなので、パスのリンク先と同じく context で渡す。 */
 const SearchWordsContext = createContext<readonly SearchWord[]>([]);
+
+/** 生の record を取り寄せる先。どの item の下からでも同じ 1 行を頼むので、
+ * 頼み先は画面ぜんぶで 1 つ。 */
+const ViewContext = createContext<TranscriptItemsView | undefined>(undefined);
 
 /** A relative path in a message body is read against the session's working
  * directory — the directory the session itself would have read it in. */
@@ -127,8 +138,7 @@ export function Timeline({ sid }: { sid: Sid }) {
   if (view === undefined || view.sid !== sid) {
     return <p class="empty">接続すると transcript を読みます。</p>;
   }
-  // 覚えているもの (測った高さ・読んでいる行) は 1 つの transcript のもの。
-  // 別のセッションへ移ったら、同じ byte 位置が別の行を指す。
+  // 覚えているもの (測った高さ・読んでいる item) は 1 つの transcript のもの。
   return <TimelineBody key={view.sid} view={view} />;
 }
 
@@ -150,7 +160,7 @@ function sendability(sid: Sid): { live: boolean; why: string } {
   return { live: false, why: "このセッションは instance に接続していません" };
 }
 
-function TimelineBody({ view }: { view: TranscriptView }) {
+function TimelineBody({ view }: { view: TranscriptItemsView }) {
   const scroller = useRef<HTMLDivElement>(null);
   /** 空白ごとの入れ物と、描いている行の並び。前者が窓の起点で、後者が測る対象。 */
   const box = useRef<HTMLDivElement>(null);
@@ -170,16 +180,16 @@ function TimelineBody({ view }: { view: TranscriptView }) {
   const anchor = useRef<Anchor | undefined>(undefined);
   /** 置き直した時の窓の長さ。錨の行ごと形が変わった時の逃げ道に使う。 */
   const spanned = useRef(0);
-  const groups = view.groups.value;
-  const held = view.window.value;
+  const nodes = view.groups.value;
+  const held = view.items.value;
   const search = useInViewSearch();
   const words = search.words.value;
-  const units = useMemo(() => timelineSearchUnits(groups), [groups]);
+  const units = useMemo(() => timelineSearchUnits(nodes), [nodes]);
   const matched = useMemo(() => matchingKeys(units, words), [units, words]);
-  const groupsByUnit = useMemo(() => groupIndexByUnitKey(groups), [groups]);
+  const nodesByUnit = useMemo(() => groupIndexByUnitKey(nodes), [nodes]);
 
   const book = useMemo(() => new HeightBook(ESTIMATE_PX), []);
-  const keys = useMemo(() => groups.map(groupKey), [groups]);
+  const keys = useMemo(() => nodes.map(nodeKey), [nodes]);
   const layout = useSignal<Layout>({ scrollTop: 0, viewport: 0, listTop: 0, tick: 0 });
   /** 今の描画が使っている高さ。effect の中は描画の外なので、描いた時の値を
    * そのまま読めるようにここに置く。 */
@@ -257,9 +267,9 @@ function TimelineBody({ view }: { view: TranscriptView }) {
       to = bottom;
     } else {
       stuck.current = -1;
-      const held = anchor.current;
-      if (held === undefined) return;
-      const at = scrollTopAt(keys, shownHeights.current, held);
+      const kept = anchor.current;
+      if (kept === undefined) return;
+      const at = scrollTopAt(keys, shownHeights.current, kept);
       const now = totalHeight(shownHeights.current);
       // 窓の手前 (端の 1 行の所) を読んでいる錨は負で来る。丸めるのはここ —
       // 窓が scroller のどこから始まるかを知っているのはこちら側。
@@ -279,26 +289,25 @@ function TimelineBody({ view }: { view: TranscriptView }) {
   // その要素はまだ無い。描かれていない行も同じで、まず覚えている高さから位置を
   // 出して窓ごとそこへ動かし、要素が出てから真ん中に寄せ直す。
   const reveal = (key: string) => {
-    const offset = Number(key);
-    for (const foldKey of foldPathsByOffset(groups).get(offset) ?? []) {
+    for (const foldKey of foldPathsById(nodes).get(key) ?? []) {
       timelineFolds.value.set(foldKey, true);
     }
     const element = scroller.current;
-    const index = groupsByUnit.get(key);
-    const group = index === undefined ? undefined : keys[index];
-    if (element !== null && group !== undefined) {
+    const index = nodesByUnit.get(key);
+    const node = index === undefined ? undefined : keys[index];
+    if (element !== null && node !== undefined) {
       // 錨をその行に打ってから動かす。間に居る行の高さが見積もりから実測に
       // 変わっても、置き直しの先はその行のままになる。
-      const held = anchorCentering(keys, shownHeights.current, group, element.clientHeight);
-      if (held !== undefined) {
+      const kept = anchorCentering(keys, shownHeights.current, node, element.clientHeight);
+      if (kept !== undefined) {
         following.current = false;
-        anchor.current = held;
+        anchor.current = kept;
         place();
         sync();
       }
     }
     requestAnimationFrame(() => {
-      const found = scroller.current?.querySelector(`[data-search-key="${key}"]`);
+      const found = scroller.current?.querySelector(`[data-search-key="${CSS.escape(key)}"]`);
       if (found === null || found === undefined) return;
       found.scrollIntoView({ block: "center" });
       // 寄せた先を錨にし直す。かたまりの中の 40 行目のような一致では、かたまり
@@ -378,7 +387,7 @@ function TimelineBody({ view }: { view: TranscriptView }) {
     // A transcript shorter than its own viewport never scrolls, so the first
     // page cannot be reached by scrolling to ask for the next.
     if (element.scrollHeight <= element.clientHeight) void view.readOlder();
-  }, [groups, view]);
+  }, [nodes, view]);
 
   const onScroll = (event: Event) => {
     const element = event.currentTarget as HTMLDivElement;
@@ -390,66 +399,67 @@ function TimelineBody({ view }: { view: TranscriptView }) {
 
   const pathLinker = useTimelinePathLinker(view.sid);
   return (
-    <PathLinkerContext.Provider value={pathLinker}>
-      <SearchWordsContext.Provider value={words}>
-        <section class="section timeline">
-          <h2>
-            transcript — {held.lines.length} 行 / {held.start}–{held.end} バイト
-          </h2>
-          <AutoOpenBar />
-          <SearchBar search={search} matched={matched} onReveal={reveal} />
-          <HeldList sid={view.sid} />
-          {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
-          <div class="tl-scroll" ref={scroller} onScroll={onScroll} onClick={onClickIn}>
-            <p class="empty tl-edge">
-              {view.atBeginning.value
-                ? "— 先頭 —"
-                : view.loading.value
-                  ? "読み込み中…"
-                  : "上にスクロールすると遡ります"}
-            </p>
-            <div class="tl-window" ref={box}>
-              <div class="tl-space" style={{ height: `${range.before}px` }} />
-              <div class="tl-items" ref={items}>
-                {groups.slice(range.first, range.last).map((group, index) => (
-                  <GroupView key={keys[range.first + index]} group={group} />
-                ))}
-              </div>
-              <div class="tl-space" style={{ height: `${range.after}px` }} />
-            </div>
-            {groups.length === 0 && !view.loading.value && (
-              <p class="empty">まだ transcript がありません。</p>
-            )}
-            {notifications.value
-              .filter((held) => held.notification.sid === view.sid)
-              .map((held) => (
-                <div key={held.key} class="tl-bubble notice">
-                  <span class="tl-who">通知</span>
-                  <div class="tl-body">
-                    <MarkdownView
-                      source={held.notification.text}
-                      pathLinker={pathLinker}
-                      highlight={words}
-                    />
-                    <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
-                  </div>
+    <ViewContext.Provider value={view}>
+      <PathLinkerContext.Provider value={pathLinker}>
+        <SearchWordsContext.Provider value={words}>
+          <section class="section timeline">
+            <h2>transcript — {held.length} item</h2>
+            <AutoOpenBar />
+            <SearchBar search={search} matched={matched} onReveal={reveal} />
+            <HeldList sid={view.sid} />
+            {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
+            <div class="tl-scroll" ref={scroller} onScroll={onScroll} onClick={onClickIn}>
+              <p class="empty tl-edge">
+                {view.atBeginning.value
+                  ? "— 先頭 —"
+                  : view.loading.value
+                    ? "読み込み中…"
+                    : "上にスクロールすると遡ります"}
+              </p>
+              {view.gap.value !== undefined && <p class="tl-note tl-edge">{view.gap.value}</p>}
+              <div class="tl-window" ref={box}>
+                <div class="tl-space" style={{ height: `${range.before}px` }} />
+                <div class="tl-items" ref={items}>
+                  {nodes.slice(range.first, range.last).map((node, index) => (
+                    <NodeView key={keys[range.first + index]} node={node} />
+                  ))}
                 </div>
-              ))}
-          </div>
-          <Composer sid={view.sid} {...sendability(view.sid)} />
-          <p class="footer">
-            <button
-              type="button"
-              onClick={() => {
-                navigate({ at: "sessions" });
-              }}
-            >
-              一覧に戻る
-            </button>
-          </p>
-        </section>
-      </SearchWordsContext.Provider>
-    </PathLinkerContext.Provider>
+                <div class="tl-space" style={{ height: `${range.after}px` }} />
+              </div>
+              {nodes.length === 0 && !view.loading.value && (
+                <p class="empty">まだ transcript がありません。</p>
+              )}
+              {notifications.value
+                .filter((one) => one.notification.sid === view.sid)
+                .map((one) => (
+                  <div key={one.key} class="tl-bubble notice">
+                    <span class="tl-who">通知</span>
+                    <div class="tl-body">
+                      <MarkdownView
+                        source={one.notification.text}
+                        pathLinker={pathLinker}
+                        highlight={words}
+                      />
+                      <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <Composer sid={view.sid} {...sendability(view.sid)} />
+            <p class="footer">
+              <button
+                type="button"
+                onClick={() => {
+                  navigate({ at: "sessions" });
+                }}
+              >
+                一覧に戻る
+              </button>
+            </p>
+          </section>
+        </SearchWordsContext.Provider>
+      </PathLinkerContext.Provider>
+    </ViewContext.Provider>
   );
 }
 
@@ -483,14 +493,6 @@ function HeldList({ sid }: { sid: Sid }) {
   );
 }
 
-/** A group's identity is the byte offset of the line it starts at: stable when
- * an older page shifts every index in front of it. */
-function groupKey(group: TimelineGroup, index: number): string {
-  if (group.kind === "entry") return String(group.offset);
-  const first = group.entries[0];
-  return first === undefined ? `fold-${index}` : String(first.offset);
-}
-
 /** Which kinds of fold open by themselves. The four are the categories a fold
  * can be about, so a reader who cares about one of them sets it once rather
  * than opening the same kind of fold over and over. */
@@ -522,189 +524,141 @@ function AutoOpenBar() {
   );
 }
 
-function GroupView({ group }: { group: TimelineGroup }) {
-  if (group.kind === "entry") return <LineView line={group.line} offset={group.offset} />;
+function NodeView({ node }: { node: TimelineNode }) {
+  if (node.kind === "row") return <RowView row={node.row} />;
   // A group that is one plain item has nothing worth folding: opening "1 item"
   // to reach the item is a step that answers nothing.
-  if (!foldGroupNeedsOuterFold(group.entries)) {
-    const entry = group.entries[0]!;
-    return <LineView line={entry.line} offset={entry.offset} />;
-  }
+  if (!foldNeedsOuterFold(node.rows)) return <RowView row={node.rows[0] as ItemRow} />;
   return (
     <Fold
       class="tl-fold"
       folds={timelineFolds.value}
-      foldKey={foldGroupKey(group.entries)}
-      fallback={foldGroupShouldAutoOpen(group.entries, timelineAutoOpen.value)}
-      summary={`${foldGroupLabel(group.entries)} (${group.entries.length})`}
+      foldKey={foldGroupKey(node.rows)}
+      fallback={foldShouldAutoOpen(node.rows, timelineAutoOpen.value)}
+      summary={`${foldLabel(node.rows)} (${node.rows.length})`}
     >
-      {group.entries.map((entry) => (
-        <LineView key={entry.offset} line={entry.line} offset={entry.offset} />
+      {node.rows.map((row) => (
+        <RowView key={row.item.id} row={row} />
       ))}
     </Fold>
   );
 }
 
-function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
+/** One item, and the answer folded into it when there is one.
+ *
+ * The three shapes are the three ways an item reads: what someone said is a
+ * message, what a session thought is an aside worth folding, and everything
+ * else is a line naming what happened. A type with no picture of its own still
+ * lands in the third, under its own name and carrying its own fields, so a
+ * newcomer to the vocabulary appears rather than disappears. */
+function RowView({ row }: { row: ItemRow }) {
+  const { item } = row;
+  if (item.type === "thinking") {
+    return (
+      <div class="tl-line thinking" data-search-key={item.id}>
+        <ThinkingView item={item} />
+        <RawFold item={item} />
+      </div>
+    );
+  }
+  if (item.type.startsWith("message:")) {
+    return (
+      <div class="tl-line message" data-search-key={item.id}>
+        <MessageView item={item} />
+        {row.result !== undefined && (
+          <div class="tl-nested">
+            <MessageView item={row.result} />
+            <RawFold item={row.result} />
+          </div>
+        )}
+        <RawFold item={item} />
+      </div>
+    );
+  }
+  return (
+    <div class={`tl-line item${isGeneric(item) ? " generic" : ""}`} data-search-key={item.id}>
+      <ItemLine item={item} />
+      {row.result !== undefined && <ItemLine item={row.result} />}
+      <RawFold item={item} />
+    </div>
+  );
+}
+
+function MessageView({ item }: { item: TranscriptItem }) {
   const pathLinker = useContext(PathLinkerContext);
   const words = useContext(SearchWordsContext);
-  if (line.kind === "broken") {
-    return (
-      <div class="tl-line broken" data-search-key={offset}>
-        <span class="tl-who">壊れた行</span>
-        <pre class="mono">{line.raw}</pre>
-      </div>
-    );
-  }
-  if (line.kind === "meta") {
-    return (
-      <div class="tl-line meta" data-search-key={offset}>
-        <span class="tl-who">{line.type}</span>
-        <span class="tl-text">{line.summary}</span>
-      </div>
-    );
-  }
-  // 会話は行の見た目より先に決まる: 封筒が載っている行はふつうの user turn
-  // としてではなく、届いた 1 通ずつの吹き出しとして描く (封筒の生テキストを
-  // Markdown として読ませると、返信案内や属性が本文に混ざる)。
-  const incoming = extractIncomingMessages(line);
-  if (incoming.length > 0) {
-    return (
-      <div class="tl-line incoming" data-search-key={offset}>
-        {incoming.map((message, index) => (
-          <div key={index} class="tl-bubble incoming">
-            <span class="tl-who">{message.fromLabel}</span>
-            <div class="tl-body">
-              <MarkdownView
-                source={message.text}
-                restricted
-                pathLinker={pathLinker}
-                highlight={words}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  const restricted = line.role === "user";
+  const prose = itemProse(item);
+  // 会話の 2 方向を色で分ける: 届いたものと、このセッションが出したもの。
+  const way = item.type.endsWith(":in") ? "incoming" : "reply";
   return (
-    <div class={`tl-line ${line.role}`} data-search-key={offset}>
-      <span class="tl-who">{line.role}</span>
+    <div class={`tl-bubble ${way}`}>
+      <span class="tl-who">{itemLabel(item)}</span>
       <div class="tl-body">
-        {line.segments.map((segment, index) => (
-          <SegmentView
-            key={index}
-            segment={segment}
-            foldKey={thinkFoldKey(offset, index)}
-            restricted={restricted}
+        {prose === undefined || prose === "" ? (
+          <p class="tl-note">{itemDetail(item)}</p>
+        ) : (
+          <MarkdownView
+            source={prose}
+            restricted={isTyped(item)}
+            pathLinker={pathLinker}
+            highlight={words}
           />
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
-/** One block of a turn.
- *
- * What a person or an agent wrote is read as Markdown; everything that is not
- * the conversation itself is shown as what it was, in as few words as say it.
- * The two are read by different rules: an agent writes Markdown on purpose,
- * while a person typing `#3 の件` means a hash and a number, so their text goes
- * through the restricted reading (see MarkdownView's `restricted`). */
-function SegmentView({
-  segment,
-  foldKey,
-  restricted,
-}: {
-  segment: Segment;
-  foldKey: string;
-  restricted: boolean;
-}) {
+function ThinkingView({ item }: { item: TranscriptItem }) {
   const pathLinker = useContext(PathLinkerContext);
   const words = useContext(SearchWordsContext);
-  switch (segment.kind) {
-    case "text":
-      return (
-        <div class="tl-text">
-          <MarkdownView
-            source={segment.text}
-            restricted={restricted}
-            pathLinker={pathLinker}
-            highlight={words}
-          />
-        </div>
-      );
-    case "thinking":
-      return (
-        <Fold
-          class="tl-aside"
-          folds={timelineFolds.value}
-          foldKey={foldKey}
-          fallback={timelineAutoOpen.value.thinking}
-          summary={`思考 (${segment.text.length} 文字)`}
-        >
-          <div class="tl-text">
-            <MarkdownView source={segment.text} pathLinker={pathLinker} highlight={words} />
-          </div>
-        </Fold>
-      );
-    case "thinking-hidden":
-      return <p class="tl-note">思考 (本文なし: {segment.reason})</p>;
-    case "tool-use":
-      return <Tool name={segment.name} detail={brief(segment.input)} />;
-    case "file-read":
-      return <Tool name="Read" detail={segment.path} />;
-    case "file-write":
-      return <Tool name="Write" detail={`${segment.path} (${segment.content.length} 文字)`} />;
-    case "file-edit":
-      return <Tool name="Edit" detail={segment.path} />;
-    case "file-tool-result":
-      return <Tool name="result" detail={fileResult(segment.result)} />;
-    case "bash-use": {
-      // このセッションが人や相手に返した 1 通。コマンドとしてではなく、
-      // 会話の片側として読めるようにする。
-      const reply = parseCcmsgReplyCommand(segment.command);
-      if (reply !== undefined) {
-        return (
-          <div class="tl-bubble reply">
-            <span class="tl-who">{reply.to === undefined ? "→ 人" : `→ ${reply.to}`}</span>
-            <div class="tl-body">
-              <MarkdownView source={reply.text} pathLinker={pathLinker} highlight={words} />
-            </div>
-          </div>
-        );
-      }
-      return <Tool name="Bash" detail={segment.command} />;
-    }
-    case "bash-result":
-      return (
-        <Tool name={segment.isError ? "Bash 失敗" : "Bash 出力"} detail={brief(segment.text)} />
-      );
-    case "bash-command":
-      return <Tool name="! コマンド" detail={segment.command} />;
-    case "bash-command-output":
-      return <Tool name="! 出力" detail={brief(segment.stdout ?? segment.stderr ?? "")} />;
-    case "agent-send":
-      return <Tool name={`→ ${segment.to}`} detail={segment.summary ?? brief(segment.message)} />;
-    case "agent-spawn":
-      return <Tool name={`起動 ${segment.name}`} detail={segment.description} />;
-    case "slash-command-prefix":
-      return <p class="tl-note">/{segment.command}</p>;
-    case "tool-result":
-      return <Tool name={segment.isError ? "失敗" : "result"} detail={brief(segment.text)} />;
-    case "unknown-segment":
-      return <Tool name={segment.type} detail={brief(segment.raw)} />;
-  }
+  const text = itemProse(item) ?? "";
+  return (
+    <Fold
+      class="tl-aside"
+      folds={timelineFolds.value}
+      foldKey={thinkFoldKey(item.id)}
+      fallback={timelineAutoOpen.value.thinking}
+      summary={`思考 (${text.length} 文字)`}
+    >
+      <div class="tl-text">
+        <MarkdownView source={text} pathLinker={pathLinker} highlight={words} />
+      </div>
+    </Fold>
+  );
 }
 
-function Tool({ name, detail }: { name: string; detail: string }) {
+/** 会話でも思考でもない item の 1 行。名乗りと、その型が言っていること。 */
+function ItemLine({ item }: { item: TranscriptItem }) {
   const words = useContext(SearchWordsContext);
+  const detail = itemDetail(item);
   return (
     <p class="tl-tool mono">
-      <span class="tl-tool-name">{name}</span>
+      <span class="tl-tool-name">{itemLabel(item)}</span>
       {detail !== "" && <span class="tl-tool-detail">{highlighted(detail, words)}</span>}
     </p>
+  );
+}
+
+/** 元の record。押されるまで取り寄せない — 分類が足りているうちは要らないし、
+ * 足りていない所では、これが確かめる唯一の道になる。
+ *
+ * 1 つの record から読まれた item は同じ所を指すので、どれの下から開いても
+ * 出てくるのは同じ 1 行。 */
+function RawFold({ item }: { item: TranscriptItem }) {
+  const view = useContext(ViewContext);
+  const key = rawFoldKey(item.uuid);
+  const open = timelineFolds.value.isOpen(key, false);
+  useEffect(() => {
+    if (open) void view?.readRecord(item);
+  }, [open, view, item]);
+  const record = view?.records.value.get(item.uuid);
+  return (
+    <Fold class="tl-raw" folds={timelineFolds.value} foldKey={key} fallback={false} summary="jsonl">
+      <pre class="mono">
+        {record === undefined || record.state === "loading" ? "取り寄せています…" : record.text}
+      </pre>
+    </Fold>
   );
 }
 

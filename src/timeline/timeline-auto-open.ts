@@ -1,13 +1,4 @@
-import {
-  agentCommunicationCount,
-  ccmsgMessageCount,
-  isUserNavTurn,
-  type ParsedLine,
-  type Segment,
-  type TimelineEntry,
-} from "./transcript-model.ts";
-
-export type TimelineOpenCategory = "U" | "R" | "C" | "T" | "A";
+import { itemCategory, type ItemRow } from "./items.ts";
 
 export interface TimelineAutoOpenSettings {
   thinking: boolean;
@@ -81,48 +72,25 @@ export function parseTimelineAutoOpenSettings(
   };
 }
 
-export function segmentAutoOpenCategory(segment: Segment): "T" | "A" | null {
-  switch (segment.kind) {
-    case "thinking":
-    case "thinking-hidden":
-      return "T";
-    case "agent-send":
-    case "agent-spawn":
-      return "A";
-    default:
-      return null;
-  }
-}
-
-export function autoOpenCategoriesForLine(line: ParsedLine): ReadonlySet<TimelineOpenCategory> {
-  const categories = new Set<TimelineOpenCategory>();
-  if (line.kind !== "turn") return categories;
-  if (isUserNavTurn(line)) categories.add("U");
-  if (line.role === "assistant" && line.segments.some((segment) => segment.kind === "text")) {
-    categories.add("R");
-  }
-  if (line.segments.some((segment) => segmentAutoOpenCategory(segment) === "T")) {
-    categories.add("T");
-  }
-  // ccmsg boundary は通常 fold group の外側 (boundary entry) に出るが、
-  // fold group 側の auto-open 判定にも同じ粒度で参加させるため、line 単位で
-  // ccmsg 由来と判定できるようにしておく。
-  if (ccmsgMessageCount({ offset: 0, line }) > 0) categories.add("C");
-  if (agentCommunicationCount({ offset: 0, line }) > 0) categories.add("A");
-  return categories;
-}
-
-export function foldGroupShouldAutoOpen(
-  entries: TimelineEntry[],
+/** 畳みを自動で開くか。
+ *
+ * 開くのは「その軸のものが中に居る」畳みだけ。設定は軸ごとに独立していて、
+ * 読み手が気にしている種類を 1 度決めれば、同じ種類の畳みを何度も開かずに
+ * 済む。 */
+export function foldShouldAutoOpen(
+  rows: readonly ItemRow[],
   settings: TimelineAutoOpenSettings,
 ): boolean {
-  if (!settings.items) return false;
-  return entries.some(({ line }) => {
-    const categories = autoOpenCategoriesForLine(line);
-    return (
-      (settings.thinking && categories.has("T")) ||
-      (settings.ccmsg && categories.has("C")) ||
-      (settings.agent && categories.has("A"))
-    );
+  return rows.some((row) => {
+    switch (itemCategory(row.item)) {
+      case "thinking":
+        return settings.thinking;
+      case "ccmsg":
+        return settings.ccmsg;
+      case "agent":
+        return settings.agent;
+      case "other":
+        return settings.items;
+    }
   });
 }

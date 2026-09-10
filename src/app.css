@@ -290,6 +290,47 @@ select {
   gap: 6px;
 }
 
+/* 型付きの 1 行は、item 本体と、その下に置かれる元 record の入口が縦に積む。
+   会話の中に畳まれた答え (agent の返事) も同じ列に入る。 */
+.tl-line.message,
+.tl-line.item,
+.tl-line.thinking {
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 依頼の中に畳まれた答え。誰の答えかが分かるだけ下げる。 */
+.tl-nested {
+  margin-left: 16px;
+}
+
+/* 元の record への入口。読んでいる邪魔をしないよう、普段は薄く小さく置き、
+   その行に触れている間だけ前に出る。分類の甘い item では常に見える
+   (`.generic`) — そこが「元の行を見ないと分からない」所だから。 */
+.tl-raw > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  opacity: 0.25;
+  width: fit-content;
+}
+
+.tl-line:hover .tl-raw > summary,
+.tl-raw[open] > summary,
+.tl-line.generic .tl-raw > summary {
+  opacity: 1;
+}
+
+.tl-raw pre {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 6px 8px;
+  font-size: 12px;
+  max-height: 40vh;
+  overflow: auto;
+}
+
 .tl-who {
   flex: none;
   width: 68px;

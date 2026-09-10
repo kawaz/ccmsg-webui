@@ -1,18 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
-  autoOpenCategoriesForLine,
   defaultTimelineAutoOpen,
-  foldGroupShouldAutoOpen,
+  foldShouldAutoOpen,
   parseTimelineAutoOpenSettings,
-  segmentAutoOpenCategory,
   timelineAutoOpenStorageKey,
   toggleTimelineAutoOpen,
 } from "../src/timeline/timeline-auto-open.ts";
-import { parseTranscriptLine, type TimelineEntry } from "../src/timeline/transcript-model.ts";
-
-function parsedEntry(offset: number, raw: Record<string, unknown>): TimelineEntry {
-  return { offset, line: parseTranscriptLine(JSON.stringify(raw)) };
-}
+import { item, use } from "./item.ts";
 
 describe("defaultTimelineAutoOpen", () => {
   // 親 TL はユーザ向け思考過程を自動展開するが、agent 通信と外側 items fold は閉じる。
@@ -120,125 +114,39 @@ describe("parseTimelineAutoOpenSettings", () => {
   });
 });
 
-describe("segmentAutoOpenCategory", () => {
-  // T/A の inner-details 制御対象だけを返す。通常 tool はカテゴリ外なので checkbox
-  // 操作で勝手に開閉されない。
-  test("thinking is T, agent spawn/send are A, ordinary tools are uncategorized", () => {
-    expect(segmentAutoOpenCategory({ kind: "thinking", text: "inspect" })).toBe("T");
-    // 本文が無くても fold は thinking と同じ枠なので、T の開閉に追従する。
-    expect(segmentAutoOpenCategory({ kind: "thinking-hidden", reason: "redacted" })).toBe("T");
-    expect(
-      segmentAutoOpenCategory({
-        kind: "agent-send",
-        to: "worker",
-        summary: null,
-        message: "go",
-        messageType: "message",
-      }),
-    ).toBe("A");
-    expect(
-      segmentAutoOpenCategory({
-        kind: "agent-spawn",
-        name: "worker",
-        agentType: "Explore",
-        model: "",
-        description: "調査",
-        prompt: "inspect",
-        background: true,
-      }),
-    ).toBe("A");
-    expect(segmentAutoOpenCategory({ kind: "tool-use", name: "Read", input: {} })).toBeNull();
-  });
-});
+describe("foldShouldAutoOpen", () => {
+  const rows = {
+    thinking: [{ item: item("thinking", { text: "考える" }) }],
+    ccmsg: [{ item: item("message:session:in", { text: "きた" }) }],
+    agent: [{ item: use("message:sub:out", { prompt: "調べて" }) }],
+    other: [{ item: use("tool:Bash", { tool_use_id: "t", command: "ls" }) }],
+  };
 
-describe("autoOpenCategoriesForLine", () => {
-  // U/R は fold されない境界だが、UI のカテゴリ定義を pure 判定として固定する。
-  test("human prompt is U and assistant text response is R", () => {
-    const user = parseTranscriptLine(
-      JSON.stringify({ type: "user", message: { role: "user", content: "hello" } }),
-    );
-    const response = parseTranscriptLine(
-      JSON.stringify({
-        type: "assistant",
-        message: { role: "assistant", content: [{ type: "text", text: "done" }] },
-      }),
-    );
-    expect(autoOpenCategoriesForLine(user)).toEqual(new Set(["U"]));
-    expect(autoOpenCategoriesForLine(response)).toEqual(new Set(["R"]));
+  // 軸ごとに独立: 開くのは「その軸のものが中に居る」畳みだけで、他の軸の畳みは
+  // 閉じたままになる。
+  test("設定した軸の畳みだけが開く", () => {
+    const only = (key: keyof typeof rows) => ({
+      thinking: key === "thinking",
+      ccmsg: key === "ccmsg",
+      agent: key === "agent",
+      items: key === "other",
+    });
+    for (const key of Object.keys(rows) as (keyof typeof rows)[]) {
+      expect(foldShouldAutoOpen(rows[key], only(key))).toBe(true);
+      for (const other of Object.keys(rows) as (keyof typeof rows)[]) {
+        if (other !== key) expect(foldShouldAutoOpen(rows[other], only(key))).toBe(false);
+      }
+    }
   });
 
-  // 会話本文を持つ peer relay は A。idle_notification は運用ノイズなので、既存の
-  // agentCommunicationCount と同じく A には含めず通常 items のままにする。
-  test("non-idle peer relay is A while idle notification is uncategorized", () => {
-    const peer = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: { content: '<agent-message from="worker">done</agent-message>' },
-      }),
-    );
-    const idle = parseTranscriptLine(
-      JSON.stringify({
-        type: "user",
-        message: {
-          content:
-            '<teammate-message teammate_id="worker">{"type":"idle_notification","from":"worker","idleReason":"available"}</teammate-message>',
-        },
-      }),
-    );
-    expect(autoOpenCategoriesForLine(peer)).toEqual(new Set(["A"]));
-    expect(autoOpenCategoriesForLine(idle)).toEqual(new Set());
-  });
-});
-
-describe("foldGroupShouldAutoOpen", () => {
-  const thinking = parsedEntry(1, {
-    type: "assistant",
-    message: { content: [{ type: "thinking", thinking: "inspect" }] },
-  });
-  const agent = parsedEntry(2, {
-    type: "assistant",
-    message: {
-      content: [{ type: "tool_use", name: "SendMessage", input: { to: "worker", message: "go" } }],
-    },
+  test("混ざった畳みは、1 つでも設定した軸があれば開く", () => {
+    const mixed = [...rows.other, ...rows.thinking];
+    const settings = { thinking: true, ccmsg: false, agent: false, items: false };
+    expect(foldShouldAutoOpen(mixed, settings)).toBe(true);
   });
 
-  // N items は T/A を包む FoldGroup を開くためのゲートにすぎず、T/A が
-  // 一致しなければ fold は開かない。
-  test("N items gates only an outer FoldGroup containing enabled T/A", () => {
-    expect(
-      foldGroupShouldAutoOpen([thinking], {
-        thinking: true,
-        ccmsg: true,
-        agent: false,
-        items: false,
-      }),
-    ).toBe(false);
-    expect(
-      foldGroupShouldAutoOpen([thinking], {
-        thinking: true,
-        ccmsg: false,
-        agent: false,
-        items: true,
-      }),
-    ).toBe(true);
-    expect(
-      foldGroupShouldAutoOpen([agent], { thinking: false, ccmsg: false, agent: true, items: true }),
-    ).toBe(true);
-    expect(
-      foldGroupShouldAutoOpen([thinking], {
-        thinking: false,
-        ccmsg: false,
-        agent: true,
-        items: true,
-      }),
-    ).toBe(false);
-    expect(
-      foldGroupShouldAutoOpen([thinking, agent], {
-        thinking: false,
-        ccmsg: false,
-        agent: false,
-        items: true,
-      }),
-    ).toBe(false);
+  test("どれも設定していなければ開かない", () => {
+    const off = { thinking: false, ccmsg: false, agent: false, items: false };
+    expect(foldShouldAutoOpen([...rows.thinking, ...rows.other], off)).toBe(false);
   });
 });

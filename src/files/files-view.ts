@@ -18,7 +18,7 @@ import { ancestorsOf, isAbsolutePath, ROOT, sortEntries } from "./paths.ts";
  * Nothing is subscribed here. A tree is answered by request and a file is read
  * once — a directory does not push, so what this holds is a cache with an
  * explicit reload rather than a live value that a dropped connection would
- * make stale (which is what `TranscriptView` has to worry about). */
+ * make stale (which is what `TranscriptItemsView` has to worry about). */
 
 export interface TreeState {
   /** Directories the reader has opened. */

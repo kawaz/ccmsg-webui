@@ -15,6 +15,7 @@ import type {
   SessionErrorsFrame,
   Sid,
   TopicName,
+  TranscriptItem,
 } from "@ccmsg/protocol";
 import { AuthError, assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
@@ -55,7 +56,7 @@ import {
   terminalIdsBySid,
 } from "./sessions.ts";
 import { FoldOpen } from "./timeline/fold-open.ts";
-import { forgetFoldsBefore } from "./timeline/fold-tree.ts";
+import { forgetFoldsOutside } from "./timeline/fold-tree.ts";
 import {
   defaultTimelineAutoOpen,
   parseTimelineAutoOpenSettings,
@@ -63,7 +64,7 @@ import {
   timelineAutoOpenStorageKey,
   toggleTimelineAutoOpen,
 } from "./timeline/timeline-auto-open.ts";
-import { TranscriptView } from "./timeline/transcript-view.ts";
+import { TranscriptItemsView } from "./timeline/items-view.ts";
 import { type Slot, TopicFold, union } from "./topic-fold.ts";
 
 /** The whole of this build's state, and the functions that change it.
@@ -136,7 +137,7 @@ export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
 /** The transcript of the session the URL names, or nothing when the URL names
  * no session. One at a time: a screen shows one timeline, and a subscription
  * kept for a session nobody is looking at is a file being tailed for nobody. */
-export const transcript = signal<TranscriptView | undefined>(undefined);
+export const transcript = signal<TranscriptItemsView | undefined>(undefined);
 
 /** One notification as this page holds it: the contract's frame plus a key of
  * this page's own, since two notifications are told apart by nothing on the
@@ -255,9 +256,7 @@ export const connection = new Connection({
   topic(message) {
     const view = transcript.value;
     if (view !== undefined && message.topic === view.topic) {
-      view.take(
-        message.data as { sid: Sid; size: number; lines?: string[]; start?: number; end?: number },
-      );
+      view.take(message.data as { sid: Sid; items?: TranscriptItem[] });
       return;
     }
     switch (message.topic) {
@@ -309,7 +308,7 @@ effect(() => {
     transcript.value = undefined;
     return;
   }
-  const view = new TranscriptView(connection, wanted);
+  const view = new TranscriptItemsView(connection, wanted);
   // A fold's state is about the transcript being read, so moving to another
   // session starts from that session's own settings and no held overrides.
   timelineFolds.value = new FoldOpen();
@@ -317,13 +316,18 @@ effect(() => {
   view.open();
 });
 
-// 窓から落ちた行の fold は、その行ごと画面から無くなったので開閉も消す。
-// 落とすのと同じ契機で消すのは、残しても「もう無い行の開閉」でしかなく、
-// 遡り読みで戻ってきた行は読み手の既定から始まるべきだから。
+// 手放した item の fold は、その item ごと画面から無くなったので開閉も消す。
+// 落とすのと同じ契機で消すのは、残しても「もう無いものの開閉」でしかなく、
+// 遡り読みで戻ってきた item は読み手の既定から始まるべきだから。
 effect(() => {
   const view = transcript.value;
   if (view === undefined) return;
-  forgetFoldsBefore(timelineFolds.peek(), view.window.value.start);
+  const held = new Set<string>();
+  for (const item of view.items.value) {
+    held.add(item.id);
+    held.add(item.uuid);
+  }
+  forgetFoldsOutside(timelineFolds.peek(), held);
 });
 
 /** The files tab's state for the session the URL names, or nothing when the URL

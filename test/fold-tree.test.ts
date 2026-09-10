@@ -1,219 +1,66 @@
-// fold-tree decides, from the transcript alone, which folds have to be open
-// for a given line to exist in the DOM — Timeline stopped rendering a closed
-// fold's body, so nav can no longer find its target by asking the page.
+// fold-tree decides, from the items alone, which folds have to be open for a
+// given item to exist in the DOM — Timeline does not render a closed fold's
+// body, so a search hit can no longer be found by asking the page.
 //
 // The contract that matters is agreement with what Timeline actually renders:
 // a path naming a fold that never appears would leave a match un-reachable,
-// and a missing path would leave nav thinking a hidden line was already on
-// screen. Timeline's one "no fold here after all" shortcut is covered below
-// (a fold group that is a single plain item is hoisted instead of wrapped).
+// and a missing path would leave the search thinking a hidden item was already
+// on screen. Timeline's one "no fold here after all" shortcut is covered below
+// (a group that is a single plain item is drawn on its own instead).
 import { describe, expect, test } from "bun:test";
+import { buildTimeline } from "../src/timeline/items.ts";
 import {
-  byteOffsetsFromLengths,
-  groupTimelineLines,
-  pairQueuedTurns,
-  parseTranscriptLine,
-  resolveToolResults,
-  utf8ByteLength,
-  type TimelineGroup,
-} from "../src/timeline/transcript-model.ts";
-import { foldGroupKey, foldPathsByOffset, forgetFoldsBefore } from "../src/timeline/fold-tree.ts";
+  foldGroupKey,
+  foldPathsById,
+  forgetFoldsOutside,
+  rawFoldKey,
+  thinkFoldKey,
+} from "../src/timeline/fold-tree.ts";
 import { FoldOpen } from "../src/timeline/fold-open.ts";
+import { item, use } from "./item.ts";
 
-const START = 0;
-
-let clock = 0;
-function ts(): string {
-  clock += 1;
-  return `2026-08-12T00:00:${String(clock).padStart(2, "0")}.000Z`;
-}
-function userPrompt(text: string): string {
-  return JSON.stringify({
-    type: "user",
-    message: { role: "user", content: text },
-    timestamp: ts(),
-  });
-}
-function assistantText(text: string): string {
-  return JSON.stringify({
-    type: "assistant",
-    message: { role: "assistant", content: [{ type: "text", text }] },
-    timestamp: ts(),
-  });
-}
-function thinking(text: string): string {
-  return JSON.stringify({
-    type: "assistant",
-    message: { role: "assistant", content: [{ type: "thinking", thinking: text }] },
-    timestamp: ts(),
-  });
-}
-function toolUse(id: string): string {
-  return JSON.stringify({
-    type: "assistant",
-    message: {
-      role: "assistant",
-      content: [{ type: "tool_use", id, name: "Bash", input: { command: `echo ${id}` } }],
-    },
-    timestamp: ts(),
-  });
-}
-function toolResult(id: string): string {
-  return JSON.stringify({
-    type: "user",
-    message: {
-      role: "user",
-      content: [{ type: "tool_result", tool_use_id: id, content: "ok", is_error: false }],
-    },
-    timestamp: ts(),
-  });
-}
-
-function build(raws: readonly string[]): {
-  groups: TimelineGroup[];
-  offsets: number[];
-  paths: Map<number, string[]>;
-} {
-  const perLine = raws.map(parseTranscriptLine);
-  const offsets = byteOffsetsFromLengths(
-    START,
-    raws.map((raw) => utf8ByteLength(raw)),
-  );
-  const parsed = resolveToolResults(pairQueuedTurns(perLine, raws));
-  const groups = groupTimelineLines(parsed, offsets);
-  return { groups, offsets, paths: foldPathsByOffset(groups) };
-}
-
-describe("foldPathsByOffset", () => {
-  test("a boundary line is enclosed by nothing", () => {
-    // 0: user prompt, 1: thinking, 2: tool_use, 3: tool_result, 4: answer
-    const raws = [
-      userPrompt("q"),
-      thinking("hmm"),
-      toolUse("tu_1"),
-      toolResult("tu_1"),
-      assistantText("a"),
-    ];
-    const { offsets, paths } = build(raws);
-    expect(paths.get(offsets[0]!)).toBeUndefined();
-    expect(paths.get(offsets[4]!)).toBeUndefined();
+describe("foldPathsById", () => {
+  test("畳みの中の item は、それを開く名前で引ける", () => {
+    const first = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
+    const second = use("tool:Read", { tool_use_id: "t2", file_path: "a.ts" });
+    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), first, second]);
+    const paths = foldPathsById(nodes);
+    expect(paths.get(first.id)).toEqual([foldGroupKey([{ item: first }])]);
+    expect(paths.get(second.id)).toEqual([foldGroupKey([{ item: first }])]);
   });
 
-  test("every entry of a fold group needs only that group's outer fold", () => {
-    // 2 段目のサブグループは廃止 (kawaz r151 m38): fold を開けば thinking も
-    // tool 群も等しく 1 行ずつ現れるので、どの entry も outer 1 段で届く。
-    const raws = [
-      userPrompt("q"),
-      thinking("hmm"),
-      toolUse("tu_1"),
-      toolResult("tu_1"),
-      toolUse("tu_2"),
-      toolResult("tu_2"),
-      assistantText("a"),
-    ];
-    const { groups, paths } = build(raws);
-    const fold = groups.find((group) => group.kind === "fold");
-    if (fold?.kind !== "fold") throw new Error("expected a fold group");
-    const outer = foldGroupKey(fold.entries);
-    for (const entry of fold.entries) {
-      expect(paths.get(entry.offset)).toEqual([outer]);
-    }
+  test("会話は畳みの中に居ないので、開くものが無い", () => {
+    const said = item("message:user:in", { text: "やって" });
+    expect(foldPathsById(buildTimeline([said])).get(said.id)).toBeUndefined();
   });
 
-  test("a lone plain item is hoisted, so it has no fold to open", () => {
-    // A single tool_use/tool_result pair resolves into one entry, which
-    // FoldGroup renders without a <details> of its own.
-    const raws = [userPrompt("q"), toolUse("tu_1"), toolResult("tu_1"), assistantText("a")];
-    const { groups, offsets, paths } = build(raws);
-    const fold = groups.find((group) => group.kind === "fold");
-    if (fold?.kind !== "fold") throw new Error("expected a fold group");
-    expect(fold.entries.length).toBe(1);
-    expect(paths.get(offsets[1]!)).toEqual([]);
-  });
-
-  test("a tool-only run of several entries still folds under its own outer fold", () => {
-    const raws = [
-      userPrompt("q"),
-      toolUse("tu_1"),
-      toolResult("tu_1"),
-      toolUse("tu_2"),
-      toolResult("tu_2"),
-      assistantText("a"),
-    ];
-    const { groups, offsets, paths } = build(raws);
-    const fold = groups.find((group) => group.kind === "fold");
-    if (fold?.kind !== "fold") throw new Error("expected a fold group");
-    const outer = foldGroupKey(fold.entries);
-    expect(paths.get(offsets[1]!)).toEqual([outer]);
-    expect(paths.get(offsets[3]!)).toEqual([outer]);
-  });
-
-  test("every fold entry is accounted for, and only fold entries are", () => {
-    const raws = [
-      userPrompt("q1"),
-      thinking("hmm"),
-      toolUse("tu_1"),
-      toolResult("tu_1"),
-      assistantText("a1"),
-      userPrompt("q2"),
-      toolUse("tu_2"),
-      toolResult("tu_2"),
-      assistantText("a2"),
-    ];
-    const { groups, paths } = build(raws);
-    const foldOffsets = groups
-      .filter((group) => group.kind === "fold")
-      .flatMap((group) => (group.kind === "fold" ? group.entries.map((e) => e.offset) : []));
-    expect([...paths.keys()].sort((a, b) => a - b)).toEqual(foldOffsets.sort((a, b) => a - b));
-  });
-
-  test("keys are per group, so the two fold groups above never share one", () => {
-    const raws = [
-      userPrompt("q1"),
-      thinking("t1"),
-      toolUse("tu_1"),
-      toolResult("tu_1"),
-      assistantText("a1"),
-      userPrompt("q2"),
-      thinking("t2"),
-      toolUse("tu_2"),
-      toolResult("tu_2"),
-      assistantText("a2"),
-    ];
-    const { groups } = build(raws);
-    const folds = groups.filter((group) => group.kind === "fold");
-    expect(folds.length).toBe(2);
-    const keys = folds.map((fold) => (fold.kind === "fold" ? foldGroupKey(fold.entries) : ""));
-    expect(new Set(keys).size).toBe(2);
+  test("1 つだけの item は畳まれずに出るので、開く名前も空", () => {
+    const alone = use("tool:Bash", { tool_use_id: "t", command: "ls" });
+    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), alone]);
+    expect(foldPathsById(nodes).get(alone.id)).toEqual([]);
   });
 });
 
-describe("forgetFoldsBefore", () => {
-  test("窓の先頭より前の行の fold だけを忘れる", () => {
-    const store = new FoldOpen();
-    store.set("fold:10", true);
-    store.set("think:10:0", true);
-    store.set("fold:120", true);
-    store.set("think:120:1", true);
-    forgetFoldsBefore(store, 100);
-    expect(store.isOpen("fold:10", false)).toBe(false);
-    expect(store.isOpen("think:10:0", false)).toBe(false);
-    expect(store.isOpen("fold:120", false)).toBe(true);
-    expect(store.isOpen("think:120:1", false)).toBe(true);
+describe("forgetFoldsOutside", () => {
+  test("手放した item の開閉だけを忘れる", () => {
+    const folds = new FoldOpen();
+    const kept = "rec-a:0";
+    const gone = "rec-b:0";
+    folds.set(thinkFoldKey(kept), true);
+    folds.set(thinkFoldKey(gone), true);
+    folds.set(rawFoldKey("rec-a"), true);
+    folds.set(rawFoldKey("rec-b"), true);
+    forgetFoldsOutside(folds, new Set([kept, "rec-a"]));
+    expect(folds.isOpen(thinkFoldKey(kept), false)).toBe(true);
+    expect(folds.isOpen(thinkFoldKey(gone), false)).toBe(false);
+    expect(folds.isOpen(rawFoldKey("rec-a"), false)).toBe(true);
+    expect(folds.isOpen(rawFoldKey("rec-b"), false)).toBe(false);
   });
 
-  test("先頭を持っている窓は何も忘れない", () => {
-    const store = new FoldOpen();
-    store.set("fold:0", true);
-    forgetFoldsBefore(store, 0);
-    expect(store.isOpen("fold:0", false)).toBe(true);
-  });
-
-  test("行を名前にしていない key には手を出さない", () => {
-    // markdown の節 fold のように、行の byte 位置で名前が付いていないもの。
-    const store = new FoldOpen();
-    store.set("section:intro", true);
-    forgetFoldsBefore(store, 100);
-    expect(store.isOpen("section:intro", false)).toBe(true);
+  test("この画面のものでない名前には手を付けない", () => {
+    const folds = new FoldOpen();
+    folds.set("ほかの何か", true);
+    forgetFoldsOutside(folds, new Set());
+    expect(folds.isOpen("ほかの何か", false)).toBe(true);
   });
 });

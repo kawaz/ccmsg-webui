@@ -18,7 +18,7 @@ import {
   visibleRange,
 } from "../src/timeline/virtual-window.ts";
 import { groupIndexByUnitKey } from "../src/search/timeline-units.ts";
-import type { TimelineGroup } from "../src/timeline/transcript-model.ts";
+import type { TimelineNode } from "../src/timeline/items.ts";
 
 /** 100px の行が n 本。数え上げを暗算で追えるようにする。 */
 function even(n: number, px = 100): number[] {
@@ -147,10 +147,13 @@ describe("上に足された時に読んでいる行が動かない", () => {
 describe("一致した行へ届く", () => {
   /** 1 行だけのかたまりと、畳まれた 3 行のかたまり。 */
   const groups = [
-    { kind: "entry", offset: 0, line: { kind: "meta" } },
-    { kind: "fold", entries: [{ offset: 100 }, { offset: 200 }, { offset: 300 }] },
-    { kind: "entry", offset: 400, line: { kind: "meta" } },
-  ] as unknown as readonly TimelineGroup[];
+    { kind: "row", row: { item: { id: "0" } } },
+    {
+      kind: "fold",
+      rows: [{ item: { id: "100" } }, { item: { id: "200" } }, { item: { id: "300" } }],
+    },
+    { kind: "row", row: { item: { id: "400" } } },
+  ] as unknown as readonly TimelineNode[];
 
   test("畳まれた中の行も、それを含むかたまりの名前で引ける", () => {
     const at = groupIndexByUnitKey(groups);
