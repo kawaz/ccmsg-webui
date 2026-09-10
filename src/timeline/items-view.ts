@@ -47,6 +47,16 @@ const WINDOW_BYTES = 1024 * 1024;
  * window that dropped what it was just given would ask for it again forever. */
 const WINDOW_FLOOR = 200;
 
+/** An upper bound later than anything a transcript can carry, which is how the
+ * first read says "the end of it".
+ *
+ * A read with no bound at all is the whole transcript read from its beginning,
+ * and the first thing a screen wants is the other end. Naming an instant
+ * rather than reading the clock keeps the request free of this browser's own
+ * time: a clock a few minutes behind the session's would cut the newest items
+ * out of the first page. */
+const LATEST = Number.MAX_SAFE_INTEGER;
+
 /** One record as the file has it, once someone asked to see it. */
 export interface RawRecord {
   readonly state: "loading" | "held" | "failed";
@@ -75,11 +85,6 @@ export class TranscriptItemsView {
    * older left to ask for. */
   readonly atBeginning = signal(false);
   readonly failure = signal<string | undefined>(undefined);
-  /** What a read could not reach. An instance answers a bounded range from its
-   * start, so a range wider than one page leaves items between what came back
-   * and what is held; saying so is what keeps the timeline from reading as if
-   * they were adjacent. */
-  readonly gap = signal<string | undefined>(undefined);
   readonly records = signal<ReadonlyMap<string, RawRecord>>(new Map());
 
   readonly groups = computed<readonly TimelineNode[]>(() => buildTimeline(this.items.value));
@@ -136,7 +141,14 @@ export class TranscriptItemsView {
   }
 
   /** Ask for the items before the ones held. Called when a person scrolls up
-   * to the top of what has been taken, and once when the subscription opens. */
+   * to the top of what has been taken, and once when the subscription opens.
+   *
+   * An upper bound alone is what asks for the newest of a range, so every read
+   * here names one and walks backwards a page at a time. The bound is the
+   * oldest item held, which is the same item a reply hands back as `prev` —
+   * and staying the held one keeps it right after the window has let go of its
+   * front, where a remembered `prev` would name something dropped and open a
+   * hole behind it. */
   async readOlder(): Promise<void> {
     if (this.#reading || this.#closed || this.atBeginning.value) return;
     this.#reading = true;
@@ -146,12 +158,10 @@ export class TranscriptItemsView {
       const reply = (await this.#port.request("transcript_items_read", {
         sid: this.#sid,
         limit: PAGE_ITEMS,
-        // Absent means the whole transcript, which is what the first read
-        // wants: nothing is held to read back from yet.
-        ...(oldest === undefined ? {} : { until_uuid: oldest.uuid }),
+        ...(oldest === undefined ? { until_at: LATEST } : { until_id: oldest.id }),
       })) as unknown as TranscriptItemsReadResult;
       if (this.#closed) return;
-      this.#prepend(reply.items, reply.next, oldest);
+      this.#prepend(reply.items, reply.prev);
       this.failure.value = undefined;
     } catch (cause) {
       this.failure.value = String(cause);
@@ -196,25 +206,15 @@ export class TranscriptItemsView {
     this.#publish();
   }
 
-  #prepend(
-    items: readonly TranscriptItem[],
-    next: string | undefined,
-    oldest: TranscriptItem | undefined,
-  ): void {
+  /** Take a page from before what is held. `prev` names where the next one
+   * back would start, so its absence is the transcript's beginning: there is
+   * nothing older left to ask for. */
+  #prepend(items: readonly TranscriptItem[], prev: string | undefined): void {
+    this.atBeginning.value = prev === undefined;
     const fresh = items.filter((item) => !this.#ids.has(item.id));
-    // An answer that reached what is held is an answer that reached back as
-    // far as there is: the range asked for began at the transcript's start.
-    const whole = next === undefined || (oldest !== undefined && next === oldest.id);
-    this.gap.value = whole
-      ? undefined
-      : "この間に、まだ読めていない item があります (instance は範囲の古い側から答えます)";
-    if (fresh.length === 0) {
-      this.atBeginning.value = true;
-      return;
-    }
+    if (fresh.length === 0) return;
     for (const item of fresh) this.#ids.add(item.id);
     this.#held = [...fresh.map(weigh), ...this.#held];
-    this.atBeginning.value = whole && fresh.length < PAGE_ITEMS;
     this.#publish();
   }
 

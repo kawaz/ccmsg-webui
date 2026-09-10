@@ -417,7 +417,6 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                     ? "読み込み中…"
                     : "上にスクロールすると遡ります"}
               </p>
-              {view.gap.value !== undefined && <p class="tl-note tl-edge">{view.gap.value}</p>}
               <div class="tl-window" ref={box}>
                 <div class="tl-space" style={{ height: `${range.before}px` }} />
                 <div class="tl-items" ref={items}>

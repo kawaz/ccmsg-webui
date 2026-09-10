@@ -37,7 +37,9 @@ describe("購読と最初の読み込み", () => {
     expect(port.subscribed).toEqual([`transcript_items:${SID}`]);
     await Promise.resolve();
     expect(port.asked[0]?.op).toBe("transcript_items_read");
-    expect(port.asked[0]?.args["until_uuid"]).toBeUndefined();
+    // 何も持っていない時も末尾を頼む: 上限だけを名指した読みが「範囲の新しい
+    // 側」を答えるので、始まりから読み下ろすことにはならない。
+    expect(port.asked[0]?.args["until_at"]).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   test("既に持っているなら読み直さない", async () => {
@@ -85,7 +87,7 @@ describe("追記", () => {
 });
 
 describe("遡り", () => {
-  test("持っている先頭の record より手前を頼み、前に足す", async () => {
+  test("持っている先頭の item より手前を頼み、前に足す", async () => {
     const port = new Port();
     const view = new TranscriptItemsView(port, SID);
     const held = item("message:user:out", { text: "いま" });
@@ -93,10 +95,23 @@ describe("遡り", () => {
     const older = item("message:user:in", { text: "むかし" });
     port.answers = [{ items: [older] }];
     await view.readOlder();
-    expect(port.asked[0]?.args["until_uuid"]).toBe(held.uuid);
+    expect(port.asked[0]?.args["until_id"]).toBe(held.id);
     expect(view.items.value.map((one) => one.id)).toEqual([older.id, held.id]);
+    // prev が無い = その範囲はもう始まりまで届いている。
     expect(view.atBeginning.value).toBe(true);
-    expect(view.gap.value).toBeUndefined();
+  });
+
+  test("prev が来たら、そこが次に頼む上限になる (= 手元の先頭)", async () => {
+    const port = new Port();
+    const view = new TranscriptItemsView(port, SID);
+    const held = item("message:user:out", { text: "いま" });
+    view.take({ sid: SID, items: [held] });
+    const older = item("message:user:in", { text: "むかし" });
+    port.answers = [{ items: [older], prev: older.id }, { items: [] }];
+    await view.readOlder();
+    expect(view.atBeginning.value).toBe(false);
+    await view.readOlder();
+    expect(port.asked[1]?.args["until_id"]).toBe(older.id);
   });
 
   test("何も新しく来なければ、そこが先頭", async () => {
@@ -104,21 +119,19 @@ describe("遡り", () => {
     const view = new TranscriptItemsView(port, SID);
     const held = item("message:user:out", { text: "いま" });
     view.take({ sid: SID, items: [held] });
-    port.answers = [{ items: [held] }];
+    port.answers = [{ items: [] }];
     await view.readOlder();
     expect(view.atBeginning.value).toBe(true);
     expect(view.items.value.length).toBe(1);
   });
 
-  test("答えが手元に届いていないなら、その間が空いていると言う", async () => {
+  test("先頭に着いたら、もう頼まない", async () => {
     const port = new Port();
     const view = new TranscriptItemsView(port, SID);
-    const held = item("message:user:out", { text: "いま" });
-    view.take({ sid: SID, items: [held] });
-    port.answers = [{ items: [item("message:user:in", { text: "ずっと前" })], next: "別の:0" }];
+    port.answers = [{ items: [item("message:user:in", { text: "はじめ" })] }];
     await view.readOlder();
-    expect(view.gap.value).toBeDefined();
-    expect(view.atBeginning.value).toBe(false);
+    await view.readOlder();
+    expect(port.asked.length).toBe(1);
   });
 
   test("読めなかったら理由を出す", async () => {

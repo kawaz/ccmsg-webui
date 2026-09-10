@@ -19,7 +19,7 @@ export function item(
     id: `${uuid}:${String(index)}`,
     uuid,
     type,
-    at: `2026-03-01T00:00:${String(made % 60).padStart(2, "0")}.000Z`,
+    at: 1_772_000_000_000 + made * 1000,
     source: { offset: where.offset ?? made * 100, bytes: where.bytes ?? 80 },
     ...fields,
   } as unknown as TranscriptItem;
