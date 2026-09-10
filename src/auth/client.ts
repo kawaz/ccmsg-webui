@@ -34,8 +34,8 @@ async function post(
     answer = await fetch(authUrl(endpoint, route), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      // The instance is on an origin of its own, so the refresh cookie only
-      // travels when it is asked for by name.
+      // The instance is this page's own origin, and the refresh cookie is
+      // asked for by name so that a request this page makes carries it.
       credentials: "include",
       body: JSON.stringify(body),
     });
@@ -132,13 +132,14 @@ export async function registerPasskey(options: {
 /** Prove a registered passkey and get a session.
  *
  * No credential is named: a resident passkey answers with the handle it was
- * made against, and which subject that is is the instance's to look up. */
-export async function assertPasskey(endpoint: string, rpId?: string): Promise<AuthSession> {
+ * made against, and which subject that is is the instance's to look up. No
+ * relying party is named either: it is the endpoint's host, which is this
+ * page's own domain and what the browser assumes (DR-0001 §2.3). */
+export async function assertPasskey(endpoint: string): Promise<AuthSession> {
   const challenge = await fetchChallenge(endpoint);
   const got = await navigator.credentials.get({
     publicKey: {
       challenge: bufferOf(challenge.challenge),
-      ...(rpId === undefined ? {} : { rpId }),
       userVerification: "required",
     },
   });

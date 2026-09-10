@@ -15,6 +15,7 @@ import type {
   TopicName,
 } from "@ccmsg/protocol";
 import { AuthError, assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
+import { endpointFromLocation, socketUrl } from "./auth/endpoint.ts";
 import { parseRegisterFragment, type Registration } from "./auth/register-link.ts";
 import {
   access,
@@ -37,14 +38,7 @@ import {
 import { type HeldMessage, heldFromSend } from "./conversation/held-messages.ts";
 import { oversizeReason } from "./frame-limit.ts";
 import { parseRoute, type Route, routePath } from "./route.ts";
-import {
-  isEntryUrl,
-  loadEndpoint,
-  loadRpId,
-  localStore,
-  saveEndpoint,
-  saveRpId,
-} from "./settings.ts";
+import { localStore } from "./settings.ts";
 import {
   errorsBySid,
   isSortKey,
@@ -83,7 +77,16 @@ const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
  * notification is a line a session wrote for whoever is watching. */
 const TOPICS: readonly TopicName[] = ["peers", "agents", "session_errors", "notify"];
 
-export const endpoint = signal<string | undefined>(loadEndpoint(localStore, location.hash));
+/** The instance this page belongs to: the base URL it was served from.
+ *
+ * Read once and never set. It is not a preference — a passkey answers only for
+ * the domain this page came from and the refresh cookie only travels to the
+ * prefix it was set for, so an endpoint other than this one is an instance this
+ * browser cannot authenticate to (DR-0001 §2.3). */
+export const endpoint: string | undefined = endpointFromLocation(
+  location.origin,
+  import.meta.env.BASE_URL,
+);
 
 /** The registration a link carried, while it is being completed.
  *
@@ -384,10 +387,9 @@ effect(() => {
  * present raises the sign-in screen, which is the only way back. */
 async function accessToken(): Promise<string | undefined> {
   if (tokenIsLive()) return access.peek()?.value;
-  const url = endpoint.peek();
-  if (url === undefined) return undefined;
+  if (endpoint === undefined) return undefined;
   try {
-    holdSession(await refreshSession(url));
+    holdSession(await refreshSession(endpoint));
     return access.peek()?.value;
   } catch (cause) {
     forgetSession();
@@ -402,12 +404,12 @@ async function accessToken(): Promise<string | undefined> {
   }
 }
 
-/** Point at an instance, remember it, and subscribe to what the list needs. */
-export function connect(url: string): void {
-  saveEndpoint(localStore, url);
-  endpoint.value = url;
+/** Open the socket under this page's endpoint and subscribe to what the list
+ * needs. */
+export function connect(): void {
+  if (endpoint === undefined) return;
   generationWarning.value = undefined;
-  connection.connect(url, accessToken);
+  connection.connect(socketUrl(endpoint), accessToken);
   for (const topic of TOPICS) connection.subscribe(topic);
 }
 
@@ -415,24 +417,17 @@ export function disconnect(): void {
   connection.close();
 }
 
-/** Connect with what was already configured, which is what a reload does. */
-export function reconnectFromSettings(): void {
-  const url = endpoint.value;
-  if (url !== undefined && isEntryUrl(url)) connect(url);
-}
-
 /** Prove a passkey and connect on what it minted.
  *
- * The relying party is the one the registration settled on rather than the
- * page's own domain: a web UI served from a neighbouring subdomain would
- * otherwise ask for a passkey that was never made there. */
+ * No relying party is named: a passkey answers for the domain of the page
+ * asking, which is the endpoint's own host — the one it was registered under
+ * (DR-0001 §2.3). */
 export async function signIn(): Promise<void> {
-  const url = endpoint.peek();
-  if (url === undefined) return;
+  if (endpoint === undefined) return;
   authProblem.value = undefined;
   try {
-    holdSession(await assertPasskey(url, loadRpId(localStore, url)));
-    connect(url);
+    holdSession(await assertPasskey(endpoint));
+    connect();
   } catch (cause) {
     authProblem.value = describeAuthError(cause);
   }
@@ -451,10 +446,9 @@ export async function completeRegistration(code: string, deviceLabel: string): P
       code,
       deviceLabel,
     });
-    saveRpId(localStore, held.claims.endpoint, held.claims.rp_id);
     holdSession(session);
     registration.value = undefined;
-    connect(held.claims.endpoint);
+    connect();
   } catch (cause) {
     authProblem.value = describeAuthError(cause);
   }
@@ -465,7 +459,7 @@ export async function completeRegistration(code: string, deviceLabel: string): P
 export function dismissRegistration(): void {
   registration.value = undefined;
   authProblem.value = undefined;
-  reconnectFromSettings();
+  connect();
 }
 
 /** How much of a connection's remaining life to use before renewing it. The
@@ -483,10 +477,9 @@ let renewTimer: ReturnType<typeof setTimeout> | undefined;
  * deadline — a client that reconnected to use a fresh token would blink every
  * few hours for no reason (DR-0001 §2.5). */
 async function renewConnection(): Promise<void> {
-  const url = endpoint.peek();
-  if (url === undefined || status.peek() !== "open") return;
+  if (endpoint === undefined || status.peek() !== "open") return;
   try {
-    holdSession(await refreshSession(url));
+    holdSession(await refreshSession(endpoint));
     const token = access.peek()?.value;
     if (token === undefined) return;
     const reply = await connection.request("auth_refresh", { access_token: token });

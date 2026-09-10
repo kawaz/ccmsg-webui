@@ -5,7 +5,7 @@
     "": {
       "name": "@ccmsg/webui",
       "dependencies": {
-        "@ccmsg/protocol": "1.4.0",
+        "@ccmsg/protocol": "1.6.0",
         "@preact/signals": "^2.0.0",
         "@sinclair/typebox": "^0.34.33",
         "mdast-util-from-markdown": "^2.0.3",
@@ -30,7 +30,7 @@
     },
   },
   "packages": {
-    "@ccmsg/protocol": ["@ccmsg/protocol@1.4.0", "", { "dependencies": { "@sinclair/typebox": "^0.34.33" } }, "sha512-Rf+2B6ziDH3wuImEIMtI4JNyI9yif8CqG+mn5NDg5/e9Im8FnjYLLpri63sp/7PbtHZ+e5nnKOMz6NdSQqSx2Q=="],
+    "@ccmsg/protocol": ["@ccmsg/protocol@1.6.0", "", { "dependencies": { "@sinclair/typebox": "^0.34.33" } }, "sha512-vzvmi5AX/ggX8x5SqOSQeNMETgQ9uC+AibzqHuqk+FKGufFX6enTDVUEGOZZoKqIoPALgNRAJJZLVHk3slJWmA=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.28.2", "", { "os": "aix", "cpu": "ppc64" }, "sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ=="],
 

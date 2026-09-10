@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fromBase64Url, toBase64Url } from "../src/auth/base64url.ts";
 import { defaultDeviceLabel } from "../src/auth/device-label.ts";
-import { authUrl, isEndpoint } from "../src/auth/endpoint.ts";
+import { authUrl, endpointFromLocation, isEndpoint, socketUrl } from "../src/auth/endpoint.ts";
 import { parseRegisterFragment, readClaims } from "../src/auth/register-link.ts";
 
 function token(claims: Record<string, unknown>): string {
@@ -13,7 +13,7 @@ const CLAIMS = {
   iss: "0123456789abcdef0123456789abcdef",
   sub: "main-1",
   unit: "main",
-  endpoint: "ws://localhost:39847/ws",
+  endpoint: "http://localhost:5173/",
   rp_id: "localhost",
   expires_at: 1_800_000_000_000,
   jti: "one",
@@ -31,23 +31,38 @@ describe("base64url without padding", () => {
   });
 });
 
-describe("where an instance's auth routes are", () => {
-  test("the socket's own name is not part of the prefix", () => {
-    expect(authUrl("ws://localhost:39847/ws", "challenge")).toBe(
-      "http://localhost:39847/auth/challenge",
+describe("what hangs under an endpoint", () => {
+  test("the routes are written after the base URL, prefix and all", () => {
+    expect(authUrl("http://localhost:5173/", "challenge")).toBe(
+      "http://localhost:5173/auth/challenge",
     );
-    expect(authUrl("wss://ui.example/ws", "register")).toBe("https://ui.example/auth/register");
-  });
-
-  test("a proxy's prefix is carried, because the route is matched at the end", () => {
-    expect(authUrl("wss://h.example/personal/ws", "assert")).toBe(
+    expect(authUrl("https://h.example/personal/", "assert")).toBe(
       "https://h.example/personal/auth/assert",
     );
   });
 
-  test("only a websocket endpoint", () => {
-    expect(isEndpoint("wss://h/ws")).toBe(true);
-    expect(isEndpoint("https://h/ws")).toBe(false);
+  test("the socket keeps the endpoint's own scheme", () => {
+    expect(socketUrl("https://h.example/personal/")).toBe("https://h.example/personal/ws");
+    expect(socketUrl("http://localhost:5173/")).toBe("http://localhost:5173/ws");
+  });
+
+  test("an endpoint is a base URL: http(s), no route of its own, trailing slash", () => {
+    expect(isEndpoint("https://h.example/")).toBe(true);
+    expect(isEndpoint("https://h.example/personal/")).toBe(true);
+    expect(isEndpoint("https://h.example/personal")).toBe(false);
+    expect(isEndpoint("wss://h.example/ws")).toBe(false);
+    expect(isEndpoint("nonsense")).toBe(false);
+  });
+
+  test("the page's own address is the endpoint, with the base it was built for", () => {
+    expect(endpointFromLocation("http://localhost:5173", "/")).toBe("http://localhost:5173/");
+    expect(endpointFromLocation("https://h.example", "/personal/")).toBe(
+      "https://h.example/personal/",
+    );
+    // A base spelled without its slash still names a prefix, not a file.
+    expect(endpointFromLocation("https://h.example", "/personal")).toBe(
+      "https://h.example/personal/",
+    );
   });
 });
 
@@ -55,12 +70,12 @@ describe("the registration link", () => {
   test("the fragment carries the token, and the claims are read for display", () => {
     const held = parseRegisterFragment(`#register=${token(CLAIMS)}`);
     expect(held?.claims.sub).toBe("main-1");
-    expect(held?.claims.endpoint).toBe("ws://localhost:39847/ws");
+    expect(held?.claims.endpoint).toBe("http://localhost:5173/");
     expect(held?.token).toBe(token(CLAIMS));
   });
 
   test("a fragment naming no registration is not one", () => {
-    expect(parseRegisterFragment("#url=ws://h/ws")).toBeUndefined();
+    expect(parseRegisterFragment("#other=value")).toBeUndefined();
     expect(parseRegisterFragment("")).toBeUndefined();
   });
 
