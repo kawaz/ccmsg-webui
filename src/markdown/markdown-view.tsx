@@ -197,10 +197,9 @@ interface MarkdownRenderCtx {
   /** Running count of task items visited so far — the ordinal assigned to the
    * next one. Mutated during the walk, mirroring `headingIndex`. */
   taskIndex: number;
-  /** 探している言葉。地の文の中の一致だけを `<mark>` で囲む。コードは囲まない
-   * — 色付けは 1 行を span の列に切ってあり、その境界をまたぐ `<mark>` は
-   * 作れない (ファイル本文の側は `splitSpansForHighlight` が span を切り直す
-   * ことで同じことをしている)。 */
+  /** 探している言葉。地の文は render の時に text を切って `<mark>` を挟み、
+   * コードは 1 行が span の列なので同じ切り方を span 側へ写して切り直す
+   * (`splitSpansForHighlight`) — 色付けの区切りを壊さずに光らせられる。 */
   highlight?: readonly SearchWord[];
 }
 
@@ -532,7 +531,9 @@ function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode |
 
     case "code": {
       const code = node as Code;
-      return <CodeBlock key={key} code={code.value} lang={code.lang ?? null} />;
+      return (
+        <CodeBlock key={key} code={code.value} lang={code.lang ?? null} highlight={ctx.highlight} />
+      );
     }
 
     case "link": {
@@ -1276,7 +1277,9 @@ export function renderRestrictedMarkdown(
         i += 1;
       }
       if (i < lines.length) i += 1; // consume closing fence
-      blocks.push(<CodeBlock key={`b${key++}`} code={body.join("\n")} lang={lang} />);
+      blocks.push(
+        <CodeBlock key={`b${key++}`} code={body.join("\n")} lang={lang} highlight={highlight} />,
+      );
       continue;
     }
     if (/^>\s?/.test(line)) {

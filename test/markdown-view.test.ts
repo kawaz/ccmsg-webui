@@ -24,6 +24,7 @@ import {
   renderMarkdownAst,
   renderRestrictedMarkdown,
 } from "../src/markdown/markdown-view.tsx";
+import { parseSearchQuery } from "../src/search/in-view-search.ts";
 import { CodeBlock } from "../src/ui/CodeBlock.tsx";
 
 function isVNode(x: unknown): x is VNode {
@@ -475,6 +476,27 @@ describe("renderMarkdownAst / structural coverage", () => {
     const blocks = collect(vnode, (n) => n.type === CodeBlock);
     expect(blocks).toHaveLength(1);
     expect(blocks[0]!.props).toMatchObject({ lang: "ts", code: "const x = 1;" });
+  });
+
+  // 探している言葉はコードの中でも光る。フェンスの中身は CodeBlock が
+  // 組み立てるので、歩く側は言葉をそこまで届ける責任だけを持つ。
+  test("探している言葉が CodeBlock まで届く", () => {
+    const root: Root = {
+      type: "root",
+      children: [{ type: "code", lang: "ts", value: "const x = 1;" }],
+    };
+    const highlight = parseSearchQuery("const", { caseSensitive: false, regex: false }).words;
+    const blocks = collect(
+      renderMarkdownAst(root, undefined, { highlight }),
+      (n) => n.type === CodeBlock,
+    );
+    expect(blocks[0]!.props).toMatchObject({ highlight });
+
+    const restricted = collect(
+      renderRestrictedMarkdown("```ts\nconst x = 1;\n```", undefined, highlight),
+      (n) => n.type === CodeBlock,
+    );
+    expect(restricted[0]!.props).toMatchObject({ highlight });
   });
 
   // A fence with no info-string still renders through CodeBlock, with a

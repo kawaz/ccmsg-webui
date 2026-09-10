@@ -22,16 +22,21 @@ import {
   tokenizeLines,
 } from "../markdown/highlight.ts";
 import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
-import {
-  matchingKeys,
-  type SearchWord,
-  splitForHighlight,
-  splitSpansForHighlight,
-} from "../search/in-view-search.ts";
+import { matchingKeys, type SearchWord } from "../search/in-view-search.ts";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
+import { markedSpans, markedText } from "./search-marks.tsx";
 import { href } from "../base.ts";
 import type { LineRange, Route } from "../route.ts";
-import { files, filesMemory, navigate, sessionPaths } from "../state.ts";
+import {
+  clampSplitWidth,
+  formatSplitWidth,
+  parseSplitWidth,
+  SPLIT_MAX_PX,
+  SPLIT_MIN_PX,
+  splitStorageKey,
+} from "../layout/split-width.ts";
+import { localStore } from "../settings.ts";
+import { files, filesMemory, hello, navigate, sessionPaths } from "../state.ts";
 
 /** A session's files: the tree on one side, the file being read on the other.
  *
@@ -52,20 +57,137 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
   const openAt = (next: Route) => {
     navigate(next);
   };
+  const panes = useRef<HTMLDivElement | null>(null);
+  const tree = useRef<HTMLElement | null>(null);
+  const split = useSplitWidth();
   return (
     <section class="section files">
-      <div class="files-panes">
-        <nav class="files-tree" aria-label="ファイル">
+      <div
+        class="files-panes"
+        ref={panes}
+        style={split.width === undefined ? undefined : `--files-tree-w:${split.width}px`}
+      >
+        <nav class="files-tree" aria-label="ファイル" ref={tree}>
           <p class="files-section">プロジェクト</p>
           <DirBody view={view} dir={ROOT} depth={0} selected={path} />
           <OutsideFiles view={view} selected={path} />
         </nav>
+        <Splitter
+          width={split.width}
+          measure={() => tree.current?.getBoundingClientRect().width}
+          onDrag={(clientX) => {
+            const box = panes.current?.getBoundingClientRect();
+            if (box !== undefined) split.hold(clientX - box.left);
+          }}
+          onSet={split.hold}
+          onSettle={split.keep}
+        />
         <div class="files-viewer">
           <Viewer view={view} path={path} lines={lines} session={session} openAt={openAt} />
         </div>
       </div>
     </section>
   );
+}
+
+/** 2 ペインの境目。掴んで動かせて、覚えている幅がその instance に残る。
+ *
+ * `separator` は矢印キーでも動く前提の役 (WAI-ARIA) なので、掴めるだけでなく
+ * focus して ←→ でも動かせる。狭い画面では 2 つが上下に積まれて左右の境目が
+ * 無くなるため、そこでは CSS が消す。 */
+function Splitter({
+  width,
+  measure,
+  onDrag,
+  onSet,
+  onSettle,
+}: {
+  width: number | undefined;
+  measure: () => number | undefined;
+  onDrag: (clientX: number) => void;
+  onSet: (px: number) => void;
+  onSettle: () => void;
+}) {
+  const now = width ?? measure();
+  return (
+    <div
+      class="files-split"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="ファイルの木と本文の境目"
+      aria-valuemin={SPLIT_MIN_PX}
+      aria-valuemax={SPLIT_MAX_PX}
+      {...(now === undefined ? {} : { "aria-valuenow": Math.round(now) })}
+      tabIndex={0}
+      onPointerDown={(event: PointerEvent) => {
+        // 掴んでいる間は指が境目から離れても追う。本文の上で離しても、
+        // 選択がそこで始まってしまわないように既定も止める。
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        event.preventDefault();
+      }}
+      onPointerMove={(event: PointerEvent) => {
+        if (!(event.currentTarget as HTMLElement).hasPointerCapture(event.pointerId)) return;
+        onDrag(event.clientX);
+      }}
+      onPointerUp={(event: PointerEvent) => {
+        (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+        onSettle();
+      }}
+      onKeyDown={(event: KeyboardEvent) => {
+        const step =
+          event.key === "ArrowLeft"
+            ? -SPLIT_STEP_PX
+            : event.key === "ArrowRight"
+              ? SPLIT_STEP_PX
+              : 0;
+        if (step === 0) return;
+        const from = width ?? measure();
+        if (from === undefined) return;
+        event.preventDefault();
+        onSet(from + step);
+        onSettle();
+      }}
+    />
+  );
+}
+
+/** 矢印キー 1 回で動く幅。 */
+const SPLIT_STEP_PX = 16;
+
+/** 覚えている幅と、その書き戻し方。
+ *
+ * 名前は instance が答えてから決まるので、答える前は覚えていない扱いにする —
+ * instance を知らないまま書くと、次に来た instance の幅として読まれてしまう。 */
+function useSplitWidth(): {
+  width: number | undefined;
+  hold: (px: number) => void;
+  keep: () => void;
+} {
+  const instance = hello.value?.instance;
+  const key = instance === undefined ? undefined : splitStorageKey(instance);
+  const [width, setWidth] = useState<number | undefined>(undefined);
+  // 書き戻す時に読むのは今の幅で、その handler が作られた時の幅ではない
+  // (矢印キーは 1 回の中で動かして書くので、state の再描画を待てない)。
+  const latest = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const held = key === undefined ? undefined : parseSplitWidth(localStore.get(key));
+    latest.current = held;
+    setWidth(held);
+  }, [key]);
+  return {
+    width,
+    hold(px: number) {
+      const next = clampSplitWidth(px);
+      latest.current = next;
+      setWidth(next);
+    },
+    keep() {
+      // 書くのは指を離した時だけ。動かしている間の 1 フレームごとに書くと、
+      // 覚える価値のない途中の幅で store を叩き続けることになる。
+      if (key === undefined || latest.current === undefined) return;
+      localStore.set(key, formatSplitWidth(latest.current));
+    },
+  };
 }
 
 /** The files reached outside the browsable root.
@@ -444,35 +566,7 @@ function lineContent(
   spans: HighlightSpan[] | undefined,
   words: readonly SearchWord[],
 ) {
-  if (spans === undefined) {
-    if (words.length === 0) return text;
-    return splitForHighlight(text, words).map((piece, at) =>
-      piece.color === undefined ? (
-        piece.text
-      ) : (
-        <mark key={at} class="search-hl" data-search-color={piece.color}>
-          {piece.text}
-        </mark>
-      ),
-    );
-  }
-  return splitSpansForHighlight(spans, words).map((span, at) => {
-    const body =
-      span.style === undefined ? (
-        span.text
-      ) : (
-        <span class="shiki-tok" style={span.style}>
-          {span.text}
-        </span>
-      );
-    return span.color === undefined ? (
-      <span key={at}>{body}</span>
-    ) : (
-      <mark key={at} class="search-hl" data-search-color={span.color}>
-        {body}
-      </mark>
-    );
-  });
+  return spans === undefined ? markedText(text, words) : markedSpans(spans, words);
 }
 
 /** Where a link inside this document opens.

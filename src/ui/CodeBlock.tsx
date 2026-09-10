@@ -5,6 +5,8 @@ import {
   isHighlightEligible,
   tokenizeLines,
 } from "../markdown/highlight.ts";
+import type { SearchWord } from "../search/in-view-search.ts";
+import { markedSpans, markedText } from "./search-marks.tsx";
 
 /** One fenced code block.
  *
@@ -13,8 +15,21 @@ import {
  * are fetched only once a block that can use them is on screen (see
  * highlight.ts). A fence's info-string language name (`ts`, `py`) is looked up
  * by treating it as a filename extension, which is the same table a path would
- * go through. */
-export function CodeBlock({ code, lang }: { code: string; lang: string | null }) {
+ * go through.
+ *
+ * 探している言葉は色が届く前でも後でも光る。届いた後は 1 行が span の列に
+ * なっているので、一致が span の境界をまたいでも切り直して光らせる
+ * (`splitSpansForHighlight`) — 色付けの区切りはそのまま残る。 */
+export function CodeBlock({
+  code,
+  lang,
+  highlight,
+}: {
+  code: string;
+  lang: string | null;
+  highlight?: readonly SearchWord[];
+}) {
+  const words = highlight ?? [];
   const language = lang ? detectLanguage(`_.${lang.toLowerCase()}`) : null;
 
   // Keyed by `code` so a fast re-render with different fence content cannot
@@ -38,7 +53,7 @@ export function CodeBlock({ code, lang }: { code: string; lang: string | null })
   if (lines === null) {
     return (
       <pre class="md-code">
-        <code>{code}</code>
+        <code>{markedText(code, words)}</code>
       </pre>
     );
   }
@@ -48,15 +63,7 @@ export function CodeBlock({ code, lang }: { code: string; lang: string | null })
       <code>
         {lines.map((spans, i) => (
           <span class="md-code-line" key={i}>
-            {spans.map((span, j) =>
-              span.style !== undefined ? (
-                <span class="shiki-tok" style={span.style} key={j}>
-                  {span.text}
-                </span>
-              ) : (
-                span.text
-              ),
-            )}
+            {markedSpans(spans, words)}
             {i < lines.length - 1 ? "\n" : null}
           </span>
         ))}
