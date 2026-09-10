@@ -17,8 +17,9 @@ import type {
   TopicName,
 } from "@ccmsg/protocol";
 import { AuthError, assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
+import { BASE, href, locationRoute } from "./base.ts";
 import { endpointFromLocation, socketUrl } from "./auth/endpoint.ts";
-import { parseRegisterFragment, type Registration } from "./auth/register-link.ts";
+import type { Registration } from "./auth/register-link.ts";
 import {
   access,
   authProblem,
@@ -42,7 +43,7 @@ import {
 } from "./files/files-store.ts";
 import { type HeldMessage, heldFromSend } from "./conversation/held-messages.ts";
 import { oversizeReason } from "./frame-limit.ts";
-import { parseRoute, type Route, routePath } from "./route.ts";
+import type { Route } from "./route.ts";
 import { localStore } from "./settings.ts";
 import {
   errorsBySid,
@@ -88,17 +89,14 @@ const TOPICS: readonly TopicName[] = ["peers", "agents", "session_errors", "noti
  * the domain this page came from and the refresh cookie only travels to the
  * prefix it was set for, so an endpoint other than this one is an instance this
  * browser cannot authenticate to (DR-0001 §2.3). */
-export const endpoint: string | undefined = endpointFromLocation(
-  location.origin,
-  import.meta.env.BASE_URL,
-);
+export const endpoint: string | undefined = endpointFromLocation(location.origin, BASE);
 
 /** The registration a link carried, while it is being completed.
  *
- * Read once, from the fragment: it is the whole of what `passkey add` handed
- * over, and the six digits that go with it arrive by the other route (the
- * person's eyes, from a terminal). */
-export const registration = signal<Registration | undefined>(parseRegisterFragment(location.hash));
+ * Filled in from the fragment, whenever one arrives: it is the whole of what
+ * `passkey add` handed over, and the six digits that go with it arrive by the
+ * other route (the person's eyes, from a terminal). */
+export const registration = signal<Registration | undefined>(undefined);
 export const status = signal<ConnectionStatus>("idle");
 export const statusDetail = signal<string | undefined>(undefined);
 export const hello = signal<HelloResult | undefined>(undefined);
@@ -111,7 +109,7 @@ const agentSlots = signal<readonly Slot<AgentsData>[]>([]);
 const errorSlots = signal<readonly Slot<ErrorsData>[]>([]);
 
 export const sortKey = signal<SortKey>(loadSortKey());
-export const route = signal<Route>(parseRoute(location.pathname, location.search));
+export const route = signal<Route>(locationRoute());
 
 export const peers = computed<readonly PeerInfo[]>(() =>
   sortPeers(union(peerSlots.value, "peers"), sortKey.value),
@@ -575,13 +573,13 @@ function loadSortKey(): SortKey {
  * not have to walk through the app's own bookkeeping. */
 export function navigate(next: Route, options?: { replace?: boolean }): void {
   route.value = next;
-  const path = routePath(next);
+  const path = href(next);
   if (options?.replace === true) history.replaceState(null, "", path);
   else history.pushState(null, "", path);
 }
 
 export function adoptLocation(): void {
-  route.value = parseRoute(location.pathname, location.search);
+  route.value = locationRoute();
 }
 
 /** 人からセッションへ 1 通送る。

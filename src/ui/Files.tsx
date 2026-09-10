@@ -29,7 +29,8 @@ import {
   splitSpansForHighlight,
 } from "../search/in-view-search.ts";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
-import { type LineRange, type Route, routePath } from "../route.ts";
+import { href } from "../base.ts";
+import type { LineRange, Route } from "../route.ts";
 import { files, filesMemory, navigate, sessionPaths } from "../state.ts";
 
 /** A session's files: the tree on one side, the file being read on the other.
@@ -209,7 +210,7 @@ function FileRow({
     <a
       class={`files-row${path === selected ? " files-row-on" : ""}`}
       style={indent(depth)}
-      href={routePath(to)}
+      href={href(to)}
       aria-current={path === selected ? "true" : undefined}
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
@@ -502,7 +503,7 @@ function usePathLinker(
       const to = filesRouteFor(sid, ref, from);
       if (to === undefined) return undefined;
       return {
-        href: routePath(to),
+        href: href(to),
         onClick(event: MouseEvent) {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
           event.preventDefault();

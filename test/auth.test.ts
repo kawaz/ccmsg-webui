@@ -5,7 +5,12 @@ import { refreshSession } from "../src/auth/client.ts";
 import { connectRefreshReason, forgetSession, holdSession } from "../src/auth/session.ts";
 import { defaultDeviceLabel } from "../src/auth/device-label.ts";
 import { authUrl, endpointFromLocation, isEndpoint, socketUrl } from "../src/auth/endpoint.ts";
-import { parseRegisterFragment, readClaims } from "../src/auth/register-link.ts";
+import {
+  parseRegisterFragment,
+  type Registration,
+  readClaims,
+  watchRegisterLinks,
+} from "../src/auth/register-link.ts";
 
 function token(claims: Record<string, unknown>): string {
   const body = toBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
@@ -158,5 +163,58 @@ describe("what to call the device being registered", () => {
 
   test("something unrecognised still gets a name a person can rewrite", () => {
     expect(defaultDeviceLabel("nothing familiar")).toBe("この端末");
+  });
+});
+
+describe("a registration link arriving in an open tab", () => {
+  /** A stand-in address bar: the fragment, and whoever is listening for it. */
+  function page(hash: string) {
+    const reactors: (() => void)[] = [];
+    const state = { hash, cleared: 0 };
+    return {
+      state,
+      arrive(next: string) {
+        state.hash = next;
+        for (const react of reactors) react();
+      },
+      port: {
+        hash: () => state.hash,
+        clearHash: () => {
+          state.hash = "";
+          state.cleared += 1;
+        },
+        onHashChange: (react: () => void) => reactors.push(react),
+      },
+    };
+  }
+
+  test("a fragment that arrives after load starts the same registration", () => {
+    const held: Registration[] = [];
+    const tab = page("");
+    watchRegisterLinks(tab.port, (one) => held.push(one));
+    expect(held).toHaveLength(0);
+
+    tab.arrive(`#register=${token(CLAIMS)}`);
+    expect(held).toHaveLength(1);
+    expect(held[0]?.claims.sub).toBe("main-1");
+    // The token is spent where it is read, so the address bar is left shareable.
+    expect(tab.state.hash).toBe("");
+    expect(tab.state.cleared).toBe(1);
+  });
+
+  test("a fragment present at load is taken without waiting for a change", () => {
+    const held: Registration[] = [];
+    const tab = page(`#register=${token(CLAIMS)}`);
+    watchRegisterLinks(tab.port, (one) => held.push(one));
+    expect(held).toHaveLength(1);
+    expect(tab.state.hash).toBe("");
+  });
+
+  test("a fragment naming no registration still clears, and holds nothing", () => {
+    const held: Registration[] = [];
+    const tab = page("#other=value");
+    watchRegisterLinks(tab.port, (one) => held.push(one));
+    expect(held).toHaveLength(0);
+    expect(tab.state.cleared).toBe(1);
   });
 });

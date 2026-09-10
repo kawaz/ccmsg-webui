@@ -10,7 +10,12 @@ import type { Sid } from "@ccmsg/protocol";
  * which lines are pointed at. They are the query rather than more path
  * segments because a path contains slashes — the one character a path segment
  * cannot carry — and because they qualify a tab rather than name a deeper
- * place. */
+ * place.
+ *
+ * The grammar above is written from the base the build was published under
+ * (`base`, `/` by default), which every function here takes rather than reads:
+ * where a build lives is the build's own answer (`src/base.ts`), and the
+ * grammar is the same one whether it hangs from `/` or from `/personal/`. */
 
 export const TABS = ["timeline", "files", "status", "rooms"] as const;
 export type Tab = (typeof TABS)[number];
@@ -61,8 +66,26 @@ export function formatLineRange(range: LineRange): string {
     : `${range.start}-${range.end}`;
 }
 
-export function parseRoute(path: string, search = ""): Route {
-  const parts = path.split("/").filter((part) => part !== "");
+/** A base as a prefix: one leading and one trailing slash, whatever it was
+ * spelled as. */
+export function normalizeBase(base: string): string {
+  const withLead = base.startsWith("/") ? base : `/${base}`;
+  return withLead.endsWith("/") ? withLead : `${withLead}/`;
+}
+
+/** The part of a pathname the grammar reads, or nothing when the address is
+ * outside the base — which is a place this build does not answer for. */
+function belowBase(path: string, base: string): string | undefined {
+  const prefix = normalizeBase(base);
+  if (prefix === "/") return path;
+  if (`${path}/` === prefix) return "/";
+  return path.startsWith(prefix) ? path.slice(prefix.length - 1) : undefined;
+}
+
+export function parseRoute(path: string, search = "", base = "/"): Route {
+  const below = belowBase(path, base);
+  if (below === undefined) return { at: "unknown", path };
+  const parts = below.split("/").filter((part) => part !== "");
   if (parts.length === 0) return { at: "sessions" };
   const [head, sid, tab] = parts;
   if (head !== "s" || sid === undefined || !SID.test(sid)) return { at: "unknown", path };
@@ -81,18 +104,21 @@ export function parseRoute(path: string, search = ""): Route {
   };
 }
 
-export function routePath(route: Route): string {
+export function routePath(route: Route, base = "/"): string {
+  const prefix = normalizeBase(base);
   switch (route.at) {
     case "sessions":
-      return "/";
+      return prefix;
     case "session": {
-      const base = `/s/${route.sid}/${route.tab}`;
-      if (route.tab !== "files" || route.path === undefined) return base;
+      const at = `${prefix}s/${route.sid}/${route.tab}`;
+      if (route.tab !== "files" || route.path === undefined) return at;
       const params = new URLSearchParams({ path: route.path });
       if (route.lines !== undefined) params.set("lines", formatLineRange(route.lines));
-      return `${base}?${params.toString()}`;
+      return `${at}?${params.toString()}`;
     }
     case "unknown":
+      // The address as it arrived, base and all: an unknown route is the whole
+      // of what was asked for, not a place below this build.
       return route.path;
   }
 }

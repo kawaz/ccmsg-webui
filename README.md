@@ -17,6 +17,8 @@ CCMSG_DEV_DAEMON=http://127.0.0.1:39847 just dev   # http://localhost:5173
 
 The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to the daemon, standing where a reverse proxy stands in a real deployment. The endpoint is therefore where this page came from — `http://localhost:5173/` in development — and there is no URL to type.
 
+To develop against a build published under a prefix, name it: `CCMSG_DEV_BASE=/personal/ just dev` serves the page at `http://localhost:5173/personal/` and proxies the routes below that prefix, path and all — which is where an instance published under a prefix is reached. `bun x vite build --base=/personal/` is the same statement for a build.
+
 The daemon needs an instance with an `entry` section (host and port), and nothing else: who may enter is answered by a passkey, so there is no origin list and no entry token.
 
 A first visit has to be registered. On the machine running the instance:

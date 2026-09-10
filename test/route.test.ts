@@ -30,3 +30,58 @@ describe("the URL grammar", () => {
     });
   });
 });
+
+describe("the grammar under a base", () => {
+  const BASE = "/personal/";
+
+  test("the base is stripped before the grammar is read", () => {
+    expect(parseRoute("/personal/", "", BASE)).toEqual({ at: "sessions" });
+    // A prefix reached without its trailing slash is still the prefix.
+    expect(parseRoute("/personal", "", BASE)).toEqual({ at: "sessions" });
+    expect(parseRoute(`/personal/s/${SID}/files`, "", BASE)).toEqual({
+      at: "session",
+      sid: SID,
+      tab: "files",
+    });
+  });
+
+  test("an address outside the base is not a route this build answers for", () => {
+    expect(parseRoute(`/s/${SID}/files`, "", BASE)).toEqual({
+      at: "unknown",
+      path: `/s/${SID}/files`,
+    });
+    expect(parseRoute("/personalise/s", "", BASE).at).toBe("unknown");
+  });
+
+  test("a link is written with the base back on", () => {
+    expect(routePath({ at: "sessions" }, BASE)).toBe("/personal/");
+    expect(routePath({ at: "session", sid: SID, tab: "status" }, BASE)).toBe(
+      `/personal/s/${SID}/status`,
+    );
+    // A base spelled without its slashes names the same prefix.
+    expect(routePath({ at: "session", sid: SID, tab: "status" }, "personal")).toBe(
+      `/personal/s/${SID}/status`,
+    );
+  });
+
+  test("parse and format are each other's inverse under either base", () => {
+    for (const base of ["/", BASE]) {
+      for (const route of [
+        { at: "sessions" },
+        { at: "session", sid: SID, tab: "rooms" },
+        { at: "session", sid: SID, tab: "files", path: "src/a.ts", lines: { start: 3, end: 9 } },
+      ] as const) {
+        const printed = routePath(route, base);
+        const cut = printed.indexOf("?");
+        const [path, search] =
+          cut === -1 ? [printed, ""] : [printed.slice(0, cut), printed.slice(cut)];
+        expect(parseRoute(path, search, base)).toEqual(route);
+      }
+    }
+  });
+
+  test("an unknown route keeps the whole address it was asked for", () => {
+    const asked = parseRoute("/personal/elsewhere", "", BASE);
+    expect(routePath(asked, BASE)).toBe("/personal/elsewhere");
+  });
+});

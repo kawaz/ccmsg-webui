@@ -2,7 +2,7 @@ import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import type { Sid } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
-import { routePath } from "../route.ts";
+import { href } from "../base.ts";
 import { foldGroupKey, foldPathsByOffset } from "../timeline/fold-tree.ts";
 import { brief, fileResult } from "../timeline/segment-text.ts";
 import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
@@ -71,7 +71,7 @@ function useTimelinePathLinker(sid: Sid): MarkdownPathLinker | undefined {
       const to = filesRouteFor(sid, ref, from);
       if (to === undefined) return undefined;
       return {
-        href: routePath(to),
+        href: href(to),
         onClick(event: MouseEvent) {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
           event.preventDefault();

@@ -20,6 +20,7 @@ This page is a static site served **from under an instance's endpoint** (DR-0001
 | fold | `src/topic-fold.ts` | folding topic frames into what is held, by the contract's `granularity` |
 | state | `src/state.ts` | the signals, and the functions that are their only writers |
 | derived | `src/sessions.ts` `src/route.ts` | ordering, sections, display names, the URL grammar (pure) |
+| base | `src/base.ts` | where this build was published, and the routes read and written against it |
 | transcript | `src/timeline/` | the pure jsonl-to-events model, and the `TranscriptView` that gathers its fetching |
 | screens | `src/ui/` | reading only |
 
@@ -147,7 +148,7 @@ The daemon's DR-0001 is where this is decided. What is written here is only **wh
 
 Three flows, all of them entering at the endpoint's `/auth/*` (`src/auth/client.ts`). The endpoint is a base URL ending in a slash, so a route is written after it (`<endpoint>auth/<name>`, and `<endpoint>ws` for the socket). The scheme is not rewritten: a WebSocket is an HTTP request that upgrades, so the `https:` spelling is what `new WebSocket()` is given (DR-0001 §2.7).
 
-- **Registration** happens only when a link brought `#register=<token>` (`src/auth/register-link.ts`). The claims are read for display alone — the signature is the issuing instance's to check. **The six digits are not in the URL**, so they are typed in: the two halves travelling apart is what makes a leaked URL not a registration. The device label is filled in from the user agent and rewritten by the person (`src/auth/device-label.ts`)
+- **Registration** happens only when a link brought `#register=<token>` (`src/auth/register-link.ts`). The claims are read for display alone — the signature is the issuing instance's to check. **The six digits are not in the URL**, so they are typed in: the two halves travelling apart is what makes a leaked URL not a registration. The device label is filled in from the user agent and rewritten by the person (`src/auth/device-label.ts`). The fragment is read on arrival and on every `hashchange`, since a link opened into a tab already showing this page changes nothing else
 - **Signing in** tries the refresh cookie first and raises the passkey screen when there is none. No credential is named: a resident passkey answers with its user handle, and which subject that is is the instance's to look up. What is asked for is **a passkey registered for this endpoint**; another host or path prefix is a registration of its own
 - **Extending** works off `auth_expires_at` from `hello`, which is the connection's deadline. At a tenth of it left, `/auth/refresh` mints a token and `auth_refresh` moves the deadline **on the same connection** — there is no reason for the screen to blink every few hours
 
@@ -189,6 +190,8 @@ The subprotocol prefix the access token travels in (`ccmsg.token.`) and the `/au
 ## Build
 
 **The endpoint's path prefix is settled at build time by `base`** (vite's `base`, `/` by default). The page takes `location.origin` plus `import.meta.env.BASE_URL` as its endpoint, so an instance published under a prefix is given **a build made for that base** (`bun x vite build --base=/personal/`, served at `https://h.example/personal/`). The current `location.pathname` is not read for it: a path is a route this page reads, and where the build was published is something only the build can state.
+
+**The same base is what routes are read from and written with** (`src/base.ts`). A pathname has the base taken off before the URL grammar reads it, and a link has it put back on, so `/personal/s/<sid>/timeline` is the session `/s/<sid>/timeline` names under a build published at `/personal/`. An address outside the base is an unknown route: it is not a place this build answers for. The grammar itself (`src/route.ts`) stays base-free and takes one, so that what a link means does not depend on where the build happens to live.
 
 The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMSG_DEV_DAEMON`, `http://127.0.0.1:39847` by default). It stands where a reverse proxy stands in a real deployment; without it the endpoint would not be where the page came from, and neither the passkey nor the cookie would hold.
 

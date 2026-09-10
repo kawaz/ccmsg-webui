@@ -20,6 +20,7 @@
 | 畳み | `src/topic-fold.ts` | topic frame を手元の値に畳む。規則は契約の `granularity` |
 | 状態 | `src/state.ts` | signal と、その唯一の書き手である関数 |
 | 派生 | `src/sessions.ts` `src/route.ts` | 並び・セクション・表示名・URL 文法 (純関数) |
+| base | `src/base.ts` | この成果物が配られた場所と、それを起点にした route の読み書き |
 | transcript | `src/timeline/` | jsonl 行 → 表示イベントの純関数層と、取得を束ねる `TranscriptView` |
 | 画面 | `src/ui/` | 読むだけ |
 
@@ -147,7 +148,7 @@ composer が有効なのは、instance が今つながっていると言って�
 
 流れは 3 つに分かれ、入口は全て endpoint の `/auth/*` (`src/auth/client.ts`)。endpoint は末尾 `/` の base URL なので、route はその後ろに継ぐだけで引ける (`<endpoint>auth/<name>`、WS は `<endpoint>ws`)。scheme は書き換えない — WS も upgrade する HTTP 要求なので、`https:` のまま `new WebSocket()` に渡す (DR-0001 §2.7)。
 
-- **登録**: `#register=<token>` を持って来た時だけ (`src/auth/register-link.ts`)。claims は表示のためだけに読む (署名を検証できるのは発行 instance だけ)。**6 桁のコードは URL に無い** ので入力させる — URL とコードが別経路で届くことが、URL が漏れても登録にならない根拠。端末ラベルは UA から埋めて人が書き換える (`src/auth/device-label.ts`)
+- **登録**: `#register=<token>` を持って来た時だけ (`src/auth/register-link.ts`)。claims は表示のためだけに読む (署名を検証できるのは発行 instance だけ)。**6 桁のコードは URL に無い** ので入力させる — URL とコードが別経路で届くことが、URL が漏れても登録にならない根拠。端末ラベルは UA から埋めて人が書き換える (`src/auth/device-label.ts`)。fragment は読み込み時と `hashchange` の両方で読む — 既に開いているタブで登録リンクを開くと変わるのは fragment だけだから
 - **認証**: access が無ければまず refresh cookie を試し、それも無ければ passkey の画面を出す。credential は名指ししない (resident な passkey が user handle で答え、誰かを引くのは instance の仕事)。求めるのは **この endpoint で登録した passkey** で、別ホスト・別パス prefix は別の登録になる
 - **期限の延長**: `hello` の `auth_expires_at` が接続の期限。残り 10% で `/auth/refresh` → 同じ接続の上で `auth_refresh`。**繋ぎ直さない** — 数時間ごとに画面が瞬く理由が無い
 
@@ -189,6 +190,8 @@ access token を運ぶ subprotocol の接頭辞 (`ccmsg.token.`) と `/auth/*` �
 ## ビルド
 
 **endpoint のパス prefix はビルド時の `base` で決まる** (vite の `base`、既定 `/`)。ページは `location.origin` + `import.meta.env.BASE_URL` を自分の endpoint とするので、prefix 付きで配る instance には **その base でビルドした成果物**を置く (`bun x vite build --base=/personal/` を `https://h.example/personal/` に置く)。現在の `location.pathname` から prefix を推測しない — path はこのページが読む route であって、どこに配られたかを答えられるのはビルドだけ。
+
+**route を読むのも書くのも同じ base から** (`src/base.ts`)。pathname は base を剥がしてから URL 文法に渡し、リンクは base を付けて書くので、`/personal/` に配った成果物では `/s/<sid>/timeline` が `/personal/s/<sid>/timeline` として現れる。base の外の address は unknown route — この成果物が答える場所ではない。文法そのもの (`src/route.ts`) は base を持たず引数で受け取る。リンクの意味が、成果物の置き場所で変わらないようにするため。
 
 dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon (`CCMSG_DEV_DAEMON`、既定 `http://127.0.0.1:39847`) に proxy する。本番の reverse proxy と同じ位置に立たせるためで、これが無いと endpoint がページの出所と一致せず、passkey も cookie も成立しない。
 

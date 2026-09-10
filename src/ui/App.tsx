@@ -1,6 +1,7 @@
 import type { Sid } from "@ccmsg/protocol";
 import { needsSignIn } from "../auth/session.ts";
-import { routePath, type Tab, TABS } from "../route.ts";
+import { href } from "../base.ts";
+import { type Tab, TABS } from "../route.ts";
 import { dismissToast, generationWarning, navigate, registration, route, toast } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { Files } from "./Files.tsx";
@@ -25,7 +26,7 @@ function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
         <a
           key={one}
           class={one === tab ? "on" : undefined}
-          href={routePath({ at: "session", sid, tab: one })}
+          href={href({ at: "session", sid, tab: one })}
           aria-current={one === tab ? "page" : undefined}
           onClick={(event: MouseEvent) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;

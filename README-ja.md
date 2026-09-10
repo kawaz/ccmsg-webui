@@ -17,6 +17,8 @@ CCMSG_DEV_DAEMON=http://127.0.0.1:39847 just dev   # http://localhost:5173
 
 dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon に proxy する (本番の reverse proxy と同じ位置)。したがって endpoint はこのページの出所そのもの — dev なら `http://localhost:5173/` — で、入力する URL は無い。
 
+パス prefix 付きで配る構成を dev で試すときは prefix を名指しする: `CCMSG_DEV_BASE=/personal/ just dev` はページを `http://localhost:5173/personal/` で出し、その prefix 配下の route をパスごと proxy する (prefix 付きで配られた instance に届くのはそのパス)。ビルド側で同じことを言うのが `bun x vite build --base=/personal/`。
+
 daemon 側に要るのは `entry` (host / port) を持つ instance だけ。入口の許可は passkey で、origin の一覧も entry token も無い。
 
 初回は登録が要る。instance のある端末で

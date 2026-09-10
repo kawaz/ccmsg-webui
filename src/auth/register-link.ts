@@ -29,6 +29,37 @@ export function parseRegisterFragment(hash: string): Registration | undefined {
   return claims === undefined ? undefined : { token, claims };
 }
 
+/** The address bar, as far as a registration link needs it. */
+export interface RegisterLinkPage {
+  /** The fragment as it stands now. */
+  readonly hash: () => string;
+  /** Drop the fragment, keeping the route it was hung on: a token is spent
+   * where it is read, and the address left behind is one that can be shared or
+   * reloaded. */
+  readonly clearHash: () => void;
+  readonly onHashChange: (react: () => void) => void;
+}
+
+/** Take what a fragment carries, now and each time another one arrives.
+ *
+ * A link opened in a tab already showing this page changes the fragment and
+ * nothing else — no load, no navigation — so the same reading has to run on
+ * `hashchange` as on arrival, or the link would look like it did nothing. */
+export function watchRegisterLinks(
+  page: RegisterLinkPage,
+  hold: (held: Registration) => void,
+): void {
+  const take = (): void => {
+    const hash = page.hash();
+    if (hash === "") return;
+    const held = parseRegisterFragment(hash);
+    page.clearHash();
+    if (held !== undefined) hold(held);
+  };
+  take();
+  page.onHashChange(take);
+}
+
 /** The claims inside a registration token.
  *
  * Read without verifying anything, and only for what the page displays. The
