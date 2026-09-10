@@ -2228,7 +2228,7 @@ describe("classifyUserMessage", () => {
         message: {
           role: "user",
           content:
-            "Resume the paused workflow by calling: Workflow({scriptPath: '/Users/kawaz/.claude-personal/projects/-Users-kawaz--local-share-repos-github-com-kawaz-claude-ccmsg-main/ff82a8e6-6598-49c2-ae8c-3a1fd55cc887/workflows/scripts/screenshot-longrun-fixture2-wf_666fea3f-0be.js', resumeFromRunId: 'wf_666fea3f-0be'}) — completed agents return cached results.",
+            "Resume the paused workflow by calling: Workflow({scriptPath: '/home/user/.claude/projects/-home-user-repo/ff82a8e6-6598-49c2-ae8c-3a1fd55cc887/workflows/scripts/screenshot-longrun-fixture2-wf_666fea3f-0be.js', resumeFromRunId: 'wf_666fea3f-0be'}) — completed agents return cached results.",
         },
       };
       expect(classifyUserMessage(entry)).toBe("workflow-resume");
