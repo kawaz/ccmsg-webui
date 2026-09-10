@@ -1,7 +1,5 @@
-import { useSignal } from "@preact/signals";
 import { connectionExpiresAt, subject } from "../auth/session.ts";
 import { instanceLabel } from "../instance-label.ts";
-import { isEntryUrl } from "../settings.ts";
 import { connect, disconnect, endpoint, hello, status, statusDetail } from "../state.ts";
 
 const WORDS: Record<string, string> = {
@@ -21,34 +19,25 @@ function untilWords(at: number): string {
   return new Date(at).toLocaleTimeString();
 }
 
-/** Where the person says which instance to talk to.
+/** What this connection is, in one line.
  *
- * Only the address is typed: it is the one thing a static site cannot know, and
- * the one thing here that is not a secret. Who is connecting is answered by a
- * passkey and shown beside it. */
+ * The instance is not chosen here: this page is served from under its endpoint,
+ * so the address is shown rather than typed (DR-0001 §2.2). What is left to do
+ * is stop and start it. Who is connected is answered by a passkey and shown
+ * beside it. */
 export function ConnectionBar() {
-  const url = useSignal(endpoint.value ?? "");
   const state = status.value;
-  const ready = isEntryUrl(url.value);
 
   return (
     <div class="bar">
       <span class={`dot ${state === "open" ? "open" : state === "closed" ? "closed" : ""}`} />
       <span>{WORDS[state] ?? state}</span>
-      <input
-        type="text"
-        value={url.value}
-        placeholder="ws://127.0.0.1:39847/ws"
-        aria-label="daemon の WebSocket URL"
-        onInput={(event) => {
-          url.value = event.currentTarget.value;
-        }}
-      />
+      <code class="endpoint">{endpoint}</code>
       <button
         type="button"
-        disabled={!ready}
+        disabled={endpoint === undefined}
         onClick={() => {
-          if (ready) connect(url.value);
+          connect();
         }}
       >
         接続

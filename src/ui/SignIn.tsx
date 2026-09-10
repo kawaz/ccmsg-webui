@@ -14,7 +14,8 @@ export function SignIn() {
     <section class="section auth">
       <h2>passkey で認証する</h2>
       <p class="empty">
-        <code>{endpoint.value}</code> に繋ぐには passkey が要ります。
+        <code>{endpoint}</code> で登録した passkey が要ります。別のホストやパスで登録した passkey
+        は、ここでは使えません (登録は endpoint ごとです)。
       </p>
       {authProblem.value !== undefined && <p class="banner">{authProblem.value}</p>}
       <p class="auth-actions">

@@ -74,15 +74,11 @@ code,
   border-radius: var(--radius);
 }
 
-.bar input {
+.bar .endpoint {
   flex: 1 1 220px;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
+  overflow-wrap: anywhere;
+  color: var(--muted);
 }
 
 button {
