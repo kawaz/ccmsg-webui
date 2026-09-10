@@ -6,10 +6,10 @@
 
 What this repository holds is **one reader of the contract**. It folds what the daemon pushes into something to look at, and turns what a person does into ops. The domain's vocabulary — what a session is, how its classification is decided, how a topic folds — lives in the contract and is not restated here.
 
-The daemon does not serve this page. It is a static site with an origin of its own, and the daemon offers only the WebSocket API. That asymmetry is where the design starts, and three things follow from it.
+This page is a static site served **from under an instance's endpoint** (DR-0001 §2.2), and what the daemon offers under that same endpoint is the WebSocket and `/auth/*`. Sharing an origin is where the design starts, and three things follow from it.
 
-- **The endpoint cannot be inferred.** Where the page came from says nothing about the daemon, so a person supplies the endpoint (`src/settings.ts`). What answers who has come is a passkey (below)
-- **Who may enter is the daemon's configuration.** A handshake from an origin outside its allowlist is refused with 403, a number the browser never shows (below)
+- **The endpoint is where this page came from.** It is `location.origin` plus this build's base, and nothing about it is typed in (`src/auth/endpoint.ts`). A passkey answers only for the domain of the page asking and a refresh cookie travels only to the prefix it was set for, so another endpoint is an instance this browser cannot authenticate to at all
+- **Who may enter is a passkey.** What answers who has come is the access token; there is no origin allowlist (below)
 - **A different generation is not spoken to.** There is no compatibility path; the page asks for a reload (contract, "版と互換")
 
 ## Layers
@@ -142,13 +142,13 @@ The daemon's DR-0001 is where this is decided. What is written here is only **wh
 |---|---|---|
 | access token | **in memory alone** (`src/auth/session.ts`) | the secret that opens a socket; anything in the store is readable by every script that ever runs on this origin |
 | refresh token | **an httpOnly cookie**, which this page cannot read | the instance reads and writes it, and the page's whole part in it is that the browser sends it |
-| endpoint URL | localStorage (`ccmsg.entry.url`) | an address, not a secret |
-| the passkey's `rp_id` | localStorage (`ccmsg.auth.rp:<url>`) | the domain the registration settled on. Inferring it from where the page is served asks, on a neighbouring subdomain, for a passkey that was never made there |
+| the endpoint | **kept nowhere**, read from `location` | it is where the page came from. A stored copy could only disagree with it, and `https://h/` and `https://h/personal/` are two endpoints |
+| the passkey's `rp_id` | **kept nowhere** | it is the endpoint's host, which is this page's own domain and what the browser assumes. No `rpId` is passed to `credentials.get()` (DR-0001 §2.3) |
 
-Three flows, all of them entering at the endpoint's `/auth/*` (`src/auth/client.ts`). The routes are matched at the end of a path, so one is derived by dropping the socket's `/ws` and putting `/auth/<name>` in its place (`src/auth/endpoint.ts`).
+Three flows, all of them entering at the endpoint's `/auth/*` (`src/auth/client.ts`). The endpoint is a base URL ending in a slash, so a route is written after it (`<endpoint>auth/<name>`, and `<endpoint>ws` for the socket). The scheme is not rewritten: a WebSocket is an HTTP request that upgrades, so the `https:` spelling is what `new WebSocket()` is given (DR-0001 §2.7).
 
 - **Registration** happens only when a link brought `#register=<token>` (`src/auth/register-link.ts`). The claims are read for display alone — the signature is the issuing instance's to check. **The six digits are not in the URL**, so they are typed in: the two halves travelling apart is what makes a leaked URL not a registration. The device label is filled in from the user agent and rewritten by the person (`src/auth/device-label.ts`)
-- **Signing in** tries the refresh cookie first and raises the passkey screen when there is none. No credential is named: a resident passkey answers with its user handle, and which subject that is is the instance's to look up
+- **Signing in** tries the refresh cookie first and raises the passkey screen when there is none. No credential is named: a resident passkey answers with its user handle, and which subject that is is the instance's to look up. What is asked for is **a passkey registered for this endpoint**; another host or path prefix is a registration of its own
 - **Extending** works off `auth_expires_at` from `hello`, which is the connection's deadline. At a tenth of it left, `/auth/refresh` mints a token and `auth_refresh` moves the deadline **on the same connection** — there is no reason for the screen to blink every few hours
 
 The token is fetched again on every attempt to connect (`Connection` holds a `TokenSource` rather than a value). A token that expired while a connection was down turns into a refresh in that one place, and nothing else knows it happened. When there is none to be had, the sign-in screen is raised, and it is the only way back.
@@ -157,7 +157,7 @@ The token is fetched again on every attempt to connect (`Connection` holds a `To
 
 A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.
 
-- entry: the endpoint under `ccmsg.entry.url`. What belongs to one instance names it in the key (`ccmsg.auth.rp:<url>`), since one kept under a bare name would be answered with for whichever endpoint was configured last. **No secret is kept here** (above)
+- **Neither a secret nor the endpoint is kept here** (above)
 - anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) an unsent draft (`ccmsg.draft:<instance>:<sid>`) and what the files tab remembers (`ccmsg.files:<instance>:<sid>`) are this
 
 ## The contract validates its own frames
@@ -166,14 +166,16 @@ Every topic frame is checked against `TOPIC_SCHEMAS` with the contract's `isVali
 
 ## What cannot be observed
 
-**The page cannot read the HTTP status of a refused handshake.** A 401 (wrong token) and a 403 (origin not allowed) both arrive through the WebSocket API as an `error` event with nothing in it, so the page can only say that the connection was refused or did not arrive.
+**The page cannot read the HTTP status of a refused handshake.** A token that was not accepted and a daemon that was not there both arrive through the WebSocket API as an `error` event with nothing in it, so the page can only say that the connection was refused or did not arrive.
 
-The status is not lost, only out of the page's reach: the **browser's console and network panel do show it** (Chrome writes `Unexpected response code: 403`). What cannot read it is the script, not the person, so the two are told apart there and in the daemon's log. Probing over HTTP first would not settle it either, since a cross-origin request shows just as little.
+The status is not lost, only out of the page's reach: the **browser's console and network panel do show it** (Chrome writes `Unexpected response code: 401`). What cannot read it is the script, not the person, so the two are told apart there and in the daemon's log.
 
 ## What the contract does not carry
 
 The subprotocol prefix the access token travels in (`ccmsg.token.`) and the `/auth/*` paths belong to the daemon's entry policy (daemon §3.1, DR-0001 §2.7) rather than to the contract, and `@ccmsg/protocol` exports neither. They are constants in `src/connection.ts` and `src/auth/endpoint.ts`.
 
 ## Build
+
+The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMSG_DEV_DAEMON`, `http://127.0.0.1:39847` by default). It stands where a reverse proxy stands in a real deployment; without it the endpoint would not be where the page came from, and neither the passkey nor the cookie would hold.
 
 vite with esbuild's automatic JSX (`jsxImportSource: preact`). `@preact/preset-vite` is not used: what it adds is prefresh HMR, and it brings the whole Babel toolchain in for it, while esbuild emits the same JSX. Wanting HMR is what would bring the preset back.

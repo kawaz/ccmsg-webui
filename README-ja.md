@@ -2,7 +2,7 @@
 
 > 🇬🇧 [README.md](./README.md)
 
-ccmsg の web UI。daemon とは契約 (`@ccmsg/protocol`) だけで話す静的サイトで、daemon から配信されない別 origin のページとして動く。
+ccmsg の web UI。daemon とは契約 (`@ccmsg/protocol`) だけで話す静的サイトで、instance の endpoint (base URL) の直下に配られて動く。
 
 ## いま動くもの
 
@@ -12,15 +12,20 @@ Sessions 一覧: 稼働セッション (`peers`)、ハーネス側のセッシ�
 
 ```sh
 bun install
-just dev          # http://localhost:5173
+CCMSG_DEV_DAEMON=http://127.0.0.1:39847 just dev   # http://localhost:5173
 ```
 
-画面上部のバーに daemon の WebSocket URL (例 `ws://127.0.0.1:39847/ws`) と entry token を入れて接続する。`#url=…&token=…` の fragment を付けた URL を開いても同じで、値は localStorage に保存され、fragment はアドレスバーから消える (fragment はサーバに送られないので、token を載せてよいのはここだけ)。
+dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon に proxy する (本番の reverse proxy と同じ位置)。したがって endpoint はこのページの出所そのもの — dev なら `http://localhost:5173/` — で、入力する URL は無い。
 
-daemon 側には 2 つの設定が要る。
+daemon 側に要るのは `entry` (host / port) を持つ instance だけ。入口の許可は passkey で、origin の一覧も entry token も無い。
 
-- `entry` を持つ instance であること (WebSocket を待ち受ける)。entry token は state ディレクトリの `entry.token`
-- `entry.origins` にこのページの origin (dev なら `http://localhost:5173`) を入れること。空の origins は「誰でも」ではなく「ブラウザは誰も」の意味で、`Origin` を名乗る接続は 403 になる
+初回は登録が要る。instance のある端末で
+
+```sh
+ccmsg daemon passkey add <unit> http://localhost:5173/ --name <ラベル>
+```
+
+を実行し、表示された `http://localhost:5173/#register=<jwt>` を開いて、CLI が出した 6 桁のコードを入力する (コードは URL に入っていないので、URL だけ漏れても登録にはならない)。以後はこのページを開けば cookie で戻り、切れたら passkey で入り直す。
 
 ## 開発
 
