@@ -32,6 +32,15 @@ export interface TranscriptPort {
  * own limit, so it is a wish rather than a promise. */
 const PAGE_BYTES = 256 * 1024;
 
+/** How much of a transcript one screen holds while the tail keeps arriving.
+ *
+ * The same 1 MiB the instance seeds its own fold of a transcript with, which is
+ * what makes the two say the same thing: what a screen holds without asking is
+ * what an instance offers without being asked. Older than that is not lost —
+ * `transcript_read` pages it back, 256 KiB at a time, and the fold stitches it
+ * onto the start of the window. */
+const WINDOW_BYTES = 1024 * 1024;
+
 const EMPTY: AppendWindow = { start: 0, end: 0, lines: [] };
 
 export class TranscriptView {
@@ -62,7 +71,7 @@ export class TranscriptView {
     this.#port = port;
     this.#sid = sid;
     this.#topic = `transcript:${sid}`;
-    this.#fold = new AppendFold(this.#topic);
+    this.#fold = new AppendFold(this.#topic, WINDOW_BYTES);
   }
 
   get sid(): Sid {
@@ -120,6 +129,9 @@ export class TranscriptView {
         { lines: data.lines, start: data.start, end: data.end },
         data.size,
       );
+      // An append can push the beginning out of the window, and then there is
+      // something older to ask for again.
+      this.atBeginning.value = this.#fold.atBeginning;
     } catch (cause) {
       // A gap means frames were missed while nothing was reading, and the file
       // is the authority on what is in it: read the tail again from scratch.
@@ -166,7 +178,7 @@ export class TranscriptView {
    * looks like. */
   #restart(reason: string): void {
     this.failure.value = reason;
-    this.#fold = new AppendFold(this.#topic);
+    this.#fold = new AppendFold(this.#topic, WINDOW_BYTES);
     this.#lineCache = emptyLineMapCache<ParsedLine>();
     this.#lengthCache = emptyLineMapCache<number>();
     this.#crossCache = emptyCrossLineCache();

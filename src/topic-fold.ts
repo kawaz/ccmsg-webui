@@ -117,23 +117,34 @@ export interface AppendPart {
  * the file over and over — so the window starts empty at that point and is
  * filled from two directions: frames add to its end, and reads add to its
  * start. A part that neither abuts nor overlaps the window is a gap, and a gap
- * is refused rather than closed by pretending two stretches are adjacent. */
+ * is refused rather than closed by pretending two stretches are adjacent.
+ *
+ * How much it holds is bounded by `windowBytes`, if one is given. What a
+ * subscriber follows is a value that only grows, so without a bound a screen
+ * left open holds the whole of it; past the bound the oldest lines are let go
+ * of, whole lines at a time, and what was let go of is exactly what
+ * `transcript_read` answers — the same path that fills the start of a window
+ * that was never at the beginning. The bound is applied where the window grows
+ * at its end, so a page someone asked for is not taken back out from under
+ * them by the read that fetched it. */
 export class AppendFold {
   #start = 0;
   #end = 0;
   #lines: readonly string[] = [];
   #size = 0;
+  readonly #windowBytes: number | undefined;
   /** Whether the window sits anywhere yet. Until something says where the value
    * is being read — a snapshot, a read, or an append — an empty window at zero
    * and an empty window at the end of a large file are the same two numbers. */
   #pinned = false;
 
-  constructor(topic: string) {
+  constructor(topic: string, windowBytes?: number) {
     const granularity = topicGranularity(topic);
     if (granularity === undefined) throw new Error(`unknown topic ${topic}`);
     if (granularity !== "append") {
       throw new Error(`topic ${topic} folds as ${granularity}, which this fold does not hold`);
     }
+    this.#windowBytes = windowBytes;
   }
 
   get window(): AppendWindow {
@@ -186,6 +197,7 @@ export class AppendFold {
     if (part.end <= this.#end) return this.window;
     this.#lines = [...this.#lines, ...linesFrom(part, this.#end)];
     this.#end = part.end;
+    this.#letGoOfTheOldest();
     return this.window;
   }
 
@@ -209,6 +221,25 @@ export class AppendFold {
     this.#lines = [...linesUntil(part, this.#start), ...this.#lines];
     this.#start = part.start;
     return this.window;
+  }
+
+  /** Let go of leading lines until the window is within its bound.
+   *
+   * Whole lines only: half a line is not something the model layer above can
+   * read, and `start` has to stay an offset a read can be asked to reach. The
+   * last line is always kept, so a bound smaller than one line leaves a window
+   * that still sits where the value ends rather than nowhere. */
+  #letGoOfTheOldest(): void {
+    if (this.#windowBytes === undefined) return;
+    let start = this.#start;
+    let dropped = 0;
+    while (dropped < this.#lines.length - 1 && this.#end - start > this.#windowBytes) {
+      start += lineByteLength(this.#lines[dropped]!);
+      dropped += 1;
+    }
+    if (dropped === 0) return;
+    this.#lines = this.#lines.slice(dropped);
+    this.#start = start;
   }
 
   /** Put the window where a part says it is, holding that part. */

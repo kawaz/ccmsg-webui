@@ -155,6 +155,53 @@ describe("append: where the window sits", () => {
   });
 });
 
+describe("append: 窓の大きさ", () => {
+  const TOPIC = "transcript:00000000-0000-0000-0000-000000000000";
+  // 1 行 = 本文 + 改行。ここでは 4 byte 固定にして、窓の byte 数で数える。
+  const line = (n: number) => `l${String(n).padStart(2, "0")}`;
+
+  test("末尾が伸びた分だけ先頭を落とし、行の途中では切らない", () => {
+    const fold = new AppendFold(TOPIC, 10);
+    fold.begin(0);
+    for (let n = 0; n < 5; n++) {
+      fold.append({ lines: [line(n)], start: n * 4, end: (n + 1) * 4 });
+    }
+    // 20 byte 追記されたが、窓は 10 byte を超えない最大の行境界 (8 byte) で止まる。
+    expect(fold.window).toEqual({ start: 12, end: 20, lines: [line(3), line(4)] });
+    expect(fold.size).toBe(20);
+  });
+
+  test("落ちた先には遡り読みで戻せる (先頭を持っていないと言い続ける)", () => {
+    const fold = new AppendFold(TOPIC, 10);
+    fold.begin(0);
+    for (let n = 0; n < 5; n++) {
+      fold.append({ lines: [line(n)], start: n * 4, end: (n + 1) * 4 });
+    }
+    expect(fold.atBeginning).toBe(false);
+    const after = fold.prepend({ lines: [line(1), line(2)], start: 4, end: 12 });
+    expect(after).toEqual({ start: 4, end: 20, lines: [line(1), line(2), line(3), line(4)] });
+    // 読み手が求めた頁は、それを取ってきた read には取り上げられない。
+    expect(fold.window.start).toBe(4);
+  });
+
+  test("窓より大きい 1 行は落とさない (窓はどこかに在り続ける)", () => {
+    const fold = new AppendFold(TOPIC, 4);
+    fold.begin(0);
+    fold.append({ lines: ["0123456789"], start: 0, end: 11 });
+    expect(fold.window.lines).toEqual(["0123456789"]);
+  });
+
+  test("窓を言わない fold は何も落とさない", () => {
+    const fold = new AppendFold(TOPIC);
+    fold.begin(0);
+    for (let n = 0; n < 5; n++) {
+      fold.append({ lines: [line(n)], start: n * 4, end: (n + 1) * 4 });
+    }
+    expect(fold.window.start).toBe(0);
+    expect(fold.atBeginning).toBe(true);
+  });
+});
+
 describe("append: 重なりと、穴からの復帰", () => {
   const TOPIC = "transcript:00000000-0000-0000-0000-000000000000";
 

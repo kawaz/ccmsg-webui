@@ -5,6 +5,7 @@
 // line" can no longer start by looking the element up: the element does not
 // exist until its enclosing folds are open. These keys name the folds to open
 // first, and match the keys FoldGroup registers itself under.
+import type { FoldOpen } from "./fold-open.ts";
 import {
   foldGroupNeedsOuterFold,
   type TimelineEntry,
@@ -16,6 +17,36 @@ import {
  * prepends for the same reason (transcript-model.ts's lineByteOffsets doc). */
 export function foldGroupKey(entries: readonly TimelineEntry[]): string {
   return `fold:${entries[0]!.offset}`;
+}
+
+/** The key of one thinking block's fold: the line it is in, and where in that
+ * line it sits (one line carries several segments). */
+export function thinkFoldKey(offset: number, index: number): string {
+  return `think:${offset}:${index}`;
+}
+
+/** Forget what the reader did to folds the timeline no longer holds — the
+ * folds of every line before `start`, which is where the held window begins
+ * once the oldest lines have been let go of.
+ *
+ * The rule lives here because it is the keys that decide it, and the keys are
+ * made here: a fold whose line is gone is named by an offset outside the
+ * window, and nothing else in the store is. */
+export function forgetFoldsBefore(folds: FoldOpen, start: number): void {
+  if (start === 0) return;
+  folds.drop((key) => {
+    const at = foldKeyOffset(key);
+    return at !== undefined && at < start;
+  });
+}
+
+/** Which line a timeline fold's key names. Every key this file makes names its
+ * line first; anything else is not one of them. */
+function foldKeyOffset(key: string): number | undefined {
+  const [kind, offset] = key.split(":");
+  if (kind !== "fold" && kind !== "think") return undefined;
+  const at = Number(offset);
+  return Number.isInteger(at) ? at : undefined;
 }
 
 /**

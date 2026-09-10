@@ -54,6 +54,7 @@ import {
   sortPeers,
 } from "./sessions.ts";
 import { FoldOpen } from "./timeline/fold-open.ts";
+import { forgetFoldsBefore } from "./timeline/fold-tree.ts";
 import {
   defaultTimelineAutoOpen,
   parseTimelineAutoOpenSettings,
@@ -306,6 +307,15 @@ effect(() => {
   timelineFolds.value = new FoldOpen();
   transcript.value = view;
   view.open();
+});
+
+// 窓から落ちた行の fold は、その行ごと画面から無くなったので開閉も消す。
+// 落とすのと同じ契機で消すのは、残しても「もう無い行の開閉」でしかなく、
+// 遡り読みで戻ってきた行は読み手の既定から始まるべきだから。
+effect(() => {
+  const view = transcript.value;
+  if (view === undefined) return;
+  forgetFoldsBefore(timelineFolds.peek(), view.window.value.start);
 });
 
 /** The files tab's state for the session the URL names, or nothing when the URL

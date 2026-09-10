@@ -17,7 +17,8 @@ import {
   utf8ByteLength,
   type TimelineGroup,
 } from "../src/timeline/transcript-model.ts";
-import { foldGroupKey, foldPathsByOffset } from "../src/timeline/fold-tree.ts";
+import { foldGroupKey, foldPathsByOffset, forgetFoldsBefore } from "../src/timeline/fold-tree.ts";
+import { FoldOpen } from "../src/timeline/fold-open.ts";
 
 const START = 0;
 
@@ -184,5 +185,35 @@ describe("foldPathsByOffset", () => {
     expect(folds.length).toBe(2);
     const keys = folds.map((fold) => (fold.kind === "fold" ? foldGroupKey(fold.entries) : ""));
     expect(new Set(keys).size).toBe(2);
+  });
+});
+
+describe("forgetFoldsBefore", () => {
+  test("窓の先頭より前の行の fold だけを忘れる", () => {
+    const store = new FoldOpen();
+    store.set("fold:10", true);
+    store.set("think:10:0", true);
+    store.set("fold:120", true);
+    store.set("think:120:1", true);
+    forgetFoldsBefore(store, 100);
+    expect(store.isOpen("fold:10", false)).toBe(false);
+    expect(store.isOpen("think:10:0", false)).toBe(false);
+    expect(store.isOpen("fold:120", false)).toBe(true);
+    expect(store.isOpen("think:120:1", false)).toBe(true);
+  });
+
+  test("先頭を持っている窓は何も忘れない", () => {
+    const store = new FoldOpen();
+    store.set("fold:0", true);
+    forgetFoldsBefore(store, 0);
+    expect(store.isOpen("fold:0", false)).toBe(true);
+  });
+
+  test("行を名前にしていない key には手を出さない", () => {
+    // markdown の節 fold のように、行の byte 位置で名前が付いていないもの。
+    const store = new FoldOpen();
+    store.set("section:intro", true);
+    forgetFoldsBefore(store, 100);
+    expect(store.isOpen("section:intro", false)).toBe(true);
   });
 });

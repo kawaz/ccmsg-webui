@@ -122,3 +122,17 @@ describe("FoldOpen", () => {
     stop();
   });
 });
+
+describe("FoldOpen: 窓から落ちた fold", () => {
+  test("落ちた key は開閉も中身の痕跡も残さない", () => {
+    const store = new FoldOpen();
+    store.set("fold:10", true);
+    store.set("fold:90", true);
+    store.drop((key) => key === "fold:10");
+    expect(store.isOpen("fold:10", false)).toBe(false);
+    expect(store.isBodyMounted("fold:10")).toBe(false);
+    // 残った側は触られていない。
+    expect(store.isOpen("fold:90", false)).toBe(true);
+    expect(store.isBodyMounted("fold:90")).toBe(true);
+  });
+});

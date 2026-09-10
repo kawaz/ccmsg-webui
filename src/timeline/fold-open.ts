@@ -62,6 +62,19 @@ export class FoldOpen {
     });
   }
 
+  /** Forget the folds a caller says are gone.
+   *
+   * Unmounting is not what this is for — a fold scrolled out of view comes
+   * back, which is the whole reason this state lives out here. This is for a
+   * fold whose lines the timeline no longer holds: what it recorded is about
+   * text that is not on the screen and would have to be read again to be, and
+   * a read answers the reader's default, not what they once did to a fold they
+   * can no longer see. */
+  drop(gone: (key: string) => boolean): void {
+    for (const key of this.#overrides.keys()) if (gone(key)) this.#overrides.delete(key);
+    for (const key of this.#mounted.keys()) if (gone(key)) this.#mounted.delete(key);
+  }
+
   /** Back to every fold's own default, which is what a change to the auto-open
    * settings asks for. The mounted latch deliberately survives — new defaults
    * re-close folds, they do not discard what is inside them. */

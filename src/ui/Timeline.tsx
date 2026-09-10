@@ -3,7 +3,7 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/
 import type { Sid } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { href } from "../base.ts";
-import { foldGroupKey, foldPathsByOffset } from "../timeline/fold-tree.ts";
+import { foldGroupKey, foldPathsByOffset, thinkFoldKey } from "../timeline/fold-tree.ts";
 import { brief, fileResult } from "../timeline/segment-text.ts";
 import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { timelineSearchUnits } from "../search/timeline-units.ts";
@@ -379,7 +379,7 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
           <SegmentView
             key={index}
             segment={segment}
-            segmentKey={`${offset}:${index}`}
+            foldKey={thinkFoldKey(offset, index)}
             restricted={restricted}
           />
         ))}
@@ -397,11 +397,11 @@ function LineView({ line, offset }: { line: ParsedLine; offset: number }) {
  * through the restricted reading (see MarkdownView's `restricted`). */
 function SegmentView({
   segment,
-  segmentKey,
+  foldKey,
   restricted,
 }: {
   segment: Segment;
-  segmentKey: string;
+  foldKey: string;
   restricted: boolean;
 }) {
   const pathLinker = useContext(PathLinkerContext);
@@ -423,7 +423,7 @@ function SegmentView({
         <Fold
           class="tl-aside"
           folds={timelineFolds.value}
-          foldKey={`think:${segmentKey}`}
+          foldKey={foldKey}
           fallback={timelineAutoOpen.value.thinking}
           summary={`思考 (${segment.text.length} 文字)`}
         >
