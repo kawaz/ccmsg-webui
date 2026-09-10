@@ -245,8 +245,18 @@ select {
   border-top: 1px solid var(--border);
 }
 
-.tl-line:first-child {
-  border-top: 0;
+/* 持っている窓ぜんぶ。上と下の空白が、描いていない行の分の長さをスクロール
+   バーに持たせる (中身は無い)。空白と行の並びの間に隙間を置かないので、窓の
+   起点は描く範囲が変わっても動かない。 */
+.tl-window {
+  display: flow-root;
+  flex: none;
+}
+
+.tl-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .tl-who {
