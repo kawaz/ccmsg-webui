@@ -3,30 +3,31 @@ import { expect, shot, test } from "./harness.ts";
 
 /** What the screens look like, screen by screen.
  *
- * One file and one order, because the states run into each other: a browser
- * that has not registered is the sign-in screen, and registering is what turns
- * it into every screen after. Playwright is told not to parallelise (one
- * daemon, one dev server, fixed ports), so the order below is the order they
- * are drawn in. */
+ * Each test draws one screen and nothing else depends on it: the registration
+ * every screen after the first two rests on is done in the fixture (see
+ * `harness.ts`), so a screen that fails to match fails alone. Playwright is
+ * told not to parallelise — one daemon, one dev server, fixed ports. */
 
-test.describe.configure({ mode: "serial" });
-
-test("sign-in", async ({ ui: page, instance }) => {
+test("sign-in", async ({ page, instance }) => {
+  // The built-in `page`, not `ui`: what this screen is is a browser that has
+  // not registered, and a context of its own is exactly that.
   await page.goto(instance.endpoint);
   await expect(page.getByRole("button", { name: "passkey で認証" })).toBeVisible();
   await shot(page, "sign-in.png");
 });
 
 test("register", async ({ ui: page, instance }) => {
-  const { url, code } = await instance.passkey();
+  // A registration of its own, because the browser used the fixture's. What is
+  // on screen is the same screen; the person it names is the second one this
+  // instance has issued a link for.
+  const { url } = await instance.passkey();
   await page.goto(url);
   await expect(page.getByRole("heading", { name: "passkey を登録する" })).toBeVisible();
   await shot(page, "register.png");
-
-  await page.getByLabel("CLI が表示した 6 桁のコード").fill(code);
-  await page.getByLabel("この端末の名前").fill("visual runner");
-  await page.getByRole("button", { name: "登録する" }).click();
-  await expect(page.getByRole("heading", { name: "稼働セッション", exact: false })).toBeVisible();
+  // Put the app back in front, so the screens after this one are not drawn
+  // behind a registration nobody finished.
+  await page.getByRole("button", { name: "やめる" }).click();
+  await expect(page.getByRole("heading", { name: /稼働セッション/ })).toBeVisible();
 });
 
 test("sessions", async ({ ui: page, instance }) => {

@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.2.9",
+  "webui_version": "0.2.10",
   "screens": {
     "conversation": {
       "darwin": "58c2e4bf48bf241cb2b348825159a7a63535b2b9306f0106f95d99221c8812fb"
@@ -14,7 +14,7 @@
       "darwin": "a1654d139f9a1687b2fbb3324744ac6b99fcc8ba5edbf797eb8ecfe05dc27b40"
     },
     "register": {
-      "darwin": "e01952fad21129923f88d8e18a30a3c8d61c6df95b07dd4cd60b73faa823a7d7"
+      "darwin": "41e7fc7db742458ed72d4bf3e2143998ba4149162bbc8f78acbe37bcfead01ba"
     },
     "sessions": {
       "darwin": "ec78f1817b095f5bd3c164f4c70bd5e17b4d6e7ae927be000b4bd6ede2d5d506"

@@ -4,14 +4,24 @@ import { type Instance, startInstance } from "./instance.ts";
 import { type FakeSession, greetAsSession } from "./session.ts";
 
 /** What every visual test runs against: one disposable instance with a fixture
- * transcript and two sessions greeting it, and one browser that registers a
- * passkey against it and keeps it.
+ * transcript and two sessions greeting it, and one browser that has registered
+ * a passkey against it.
  *
  * Both are worker-scoped, and that is not only about cost. Who this browser is
  * is held in two places a fresh context would drop — the credential inside the
- * virtual authenticator, and the refresh cookie the daemon set — so a
- * registration made for one screenshot has to be the same browser every screen
- * after it is drawn in. */
+ * virtual authenticator, and the refresh cookie the daemon set — so every
+ * screen drawn after the registration has to be drawn in the same browser.
+ *
+ * **The registration happens here rather than in a test**, because everything
+ * after it depends on it and a test is allowed to fail. Downstream of a failing
+ * assertion, the registration would not run at all, and every later screen
+ * would quietly become the sign-in screen: one broken thing would be reported
+ * as many. Setup that fails stops the run at the thing that is actually wrong.
+ *
+ * The one screen this cannot draw is the sign-in screen, which is what a
+ * browser that has *not* registered sees. That test takes the built-in `page`
+ * instead: a context of its own is an unregistered browser. */
+
 export interface Fixtures {
   instance: Instance;
   ui: Page;
@@ -57,25 +67,13 @@ export const test = base.extend<object, Fixtures>({
     { scope: "worker" },
   ],
   ui: [
-    async ({ browser }, use) => {
+    async ({ browser, instance }, use) => {
       const context = await browser.newContext();
       const page = await context.newPage();
-      // The virtual authenticator is the browser's own, driven over CDP: what
-      // the page calls is `navigator.credentials`, and every byte it produces
-      // goes through the daemon's real verification. Nothing about the
-      // registration is stubbed — only the finger.
-      const cdp = await context.newCDPSession(page);
-      await cdp.send("WebAuthn.enable");
-      await cdp.send("WebAuthn.addVirtualAuthenticator", {
-        options: {
-          protocol: "ctap2",
-          transport: "internal",
-          hasResidentKey: true,
-          hasUserVerification: true,
-          isUserVerified: true,
-          automaticPresenceSimulation: true,
-        },
-      });
+      await addAuthenticator(page);
+      const { url, code } = await instance.passkey();
+      await page.goto(url);
+      await register(page, code);
       await use(page);
       await context.close();
     },
@@ -84,6 +82,37 @@ export const test = base.extend<object, Fixtures>({
 });
 
 export { expect };
+
+/** Give this browser a passkey it can answer with, without a person touching
+ * anything.
+ *
+ * The virtual authenticator is the browser's own, driven over CDP: what the
+ * page calls is `navigator.credentials`, and every byte it produces goes
+ * through the daemon's real verification. Nothing about the registration is
+ * stubbed — only the finger. */
+async function addAuthenticator(page: Page): Promise<void> {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      protocol: "ctap2",
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+}
+
+/** Finish the registration screen this page is on, and wait for the app behind
+ * it. */
+export async function register(page: Page, code: string): Promise<void> {
+  await page.getByLabel("CLI が表示した 6 桁のコード").fill(code);
+  await page.getByLabel("この端末の名前").fill("visual runner");
+  await page.getByRole("button", { name: "登録する" }).click();
+  await expect(page.getByRole("heading", { name: /稼働セッション/ })).toBeVisible();
+}
 
 /** Take one screenshot, with what the page cannot draw the same way twice
  * covered over.
