@@ -218,3 +218,24 @@ access token を運ぶ subprotocol の接頭辞 (`ccmsg.token.`) と `/auth/*` �
 dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon (`CCMSG_DEV_DAEMON`、既定 `http://127.0.0.1:39847`) に proxy する。本番の reverse proxy と同じ位置に立たせるためで、これが無いと endpoint がページの出所と一致せず、passkey も cookie も成立しない。
 
 vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-vite` は使っていない: 提供するのは prefresh の HMR で、そのために Babel のツールチェーン全体が依存に入る。JSX の変換自体は esbuild が同じ出力を出す。HMR が要るようになったら preset を入れる判断に戻る。
+
+## テスト
+
+**2 つの走らせ方が 1 つの `test/` を分け合う**。`bun test` が読むのは `*.test.ts` で、純関数層 — 契約の畳み方、URL 文法、一覧の並び、jsonl の写像 — をブラウザ無しで固定する。Playwright が読むのは `*.visual.ts` (`test/visual/`) で、こちらは**描かれたもの**を基準画像と比べる。名前で分けているのは、既定の `*.spec.ts` を `bun test` も自分のものとして拾うため。
+
+### 見た目の比較が立っているもの
+
+見た目の比較は本物の上で走る: 使い捨ての config home に **daemon を 1 つ実際に起動**し、dev server を本番の reverse proxy と同じ位置に立たせ、ブラウザは CDP の virtual authenticator で **passkey を本当に登録する**。作り物なのは指だけで、登録も署名も daemon の検証をそのまま通る。セッションは harness を動かす代わりに、session として greeting する接続を書いてある — 本物の Claude Code は pid と時計と誰かの機械のパスを画面に載せるので、そのどれも基準画像にできない。
+
+**同じ絵が 2 度描けることが、この比較の前提**。だから使い捨てのはずの path と port が固定してある (`test/visual/instance.ts`): 画面に出る endpoint も instance id もそこから derive されるので、乱数の付いた temp ディレクトリでは毎回違う文字列が写る。instance の id は daemon が作る前に置いてあり、transcript は時刻まで書き下した fixture で、残る 1 箇所 — 接続バーの、期限を数える所 — だけは mask で覆う。
+
+### 基準画像は別リポにある
+
+画像は `kawaz/ccmsg-webui-snapshots` にあり、この repo が持つのは digest だけ (`test/visual/manifest.json`)。基準画像の価値はその履歴 — 同じ画面の、version ごとの並び — で、それは source を clone する全員が払うには重い。manifest が答えるのは「今比べている基準画像は、この version が受け入れたものか」で、画面が変わったこと自体は比較の側が diff 画像付きで落ちる。
+
+**基準画像は描いた platform のものと比べる** (`{platform}/<画面名>.png`)。mac と CI runner ではフォントも smoothing も違い、文字のある所は全部変わるので、閾値では吸収できない。container の中で 1 組だけ描く道もあるが、それは `just visual` に docker を要求する。
+
+- `just visual` — 今の描画を基準画像と比べ、manifest と照合する
+- `just visual-accept` — 今の描画を基準にし、snapshots リポに commit する (push は人がやる)。manifest は作業コピーに残るので、画面を変えた commit に一緒に入れる
+
+`just ci` には**入れていない**。要るものが lint/typecheck/test と違う (daemon の source、browser の binary、基準画像リポ) ためで、CI では独立した job になっている。

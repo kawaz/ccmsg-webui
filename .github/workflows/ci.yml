@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  # linux の基準画像は linux が描いたものしか使えないので、この runner の上で
+  # 描かせる経路を 1 つ開けておく。出来上がりは artifact に出るだけで、
+  # snapshots リポに入れるのは人がやる。
+  workflow_dispatch:
+    inputs:
+      redraw_baselines:
+        description: linux の基準画像を描き直して artifact に出す
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -33,3 +42,70 @@ jobs:
       # 依存の重複排除で各段が 1 回ずつしか走らないので、ローカルと同じ 1 コマンドにする。
       - name: CI (lint + typecheck + test)
         run: just ci
+
+  # 見た目の比較。`just ci` と別 job なのは、必要なものの重さが違うから —
+  # daemon の source、browser の binary、基準画像リポの 3 つが要る。
+  # 基準画像は描いた platform のものと比べるので、この job は linux の基準画像を見る。
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: webui
+
+      # daemon は実物を動かす: 画面が読むものは全部この instance から来る。
+      - uses: actions/checkout@v7
+        with:
+          repository: kawaz/ccmsg
+          path: ccmsg
+
+      - uses: actions/checkout@v7
+        with:
+          repository: kawaz/ccmsg-webui-snapshots
+          path: snapshots
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: extractions/setup-just@v4
+
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile --cwd webui
+          bun install --frozen-lockfile --cwd ccmsg
+
+      - name: Install the browser
+        run: bun x playwright install --with-deps chromium
+        working-directory: webui
+
+      - name: Visual regression
+        if: inputs.redraw_baselines != true
+        run: just visual
+        working-directory: webui
+        env:
+          CCMSG_CLI: ${{ github.workspace }}/ccmsg/src/cli.ts
+          CCMSG_WEBUI_SNAPSHOTS: ${{ github.workspace }}/snapshots
+
+      - name: Redraw the baselines
+        if: inputs.redraw_baselines == true
+        run: bun x playwright test --update-snapshots
+        working-directory: webui
+        env:
+          CCMSG_CLI: ${{ github.workspace }}/ccmsg/src/cli.ts
+          CCMSG_WEBUI_SNAPSHOTS: ${{ github.workspace }}/snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.redraw_baselines == true
+        with:
+          name: linux-baselines
+          path: snapshots/linux/
+
+      # 落ちた時に見たいのは差分そのもの: 期待・実際・diff の 3 枚が入る。
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff
+          path: |
+            webui/test-results/
+            webui/playwright-report/

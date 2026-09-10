@@ -218,3 +218,24 @@ The subprotocol prefix the access token travels in (`ccmsg.token.`) and the `/au
 The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMSG_DEV_DAEMON`, `http://127.0.0.1:39847` by default). It stands where a reverse proxy stands in a real deployment; without it the endpoint would not be where the page came from, and neither the passkey nor the cookie would hold.
 
 vite with esbuild's automatic JSX (`jsxImportSource: preact`). `@preact/preset-vite` is not used: what it adds is prefresh HMR, and it brings the whole Babel toolchain in for it, while esbuild emits the same JSX. Wanting HMR is what would bring the preset back.
+
+## Tests
+
+**Two runners share one `test/` tree.** `bun test` reads `*.test.ts` and pins the pure layers — how the contract folds, the URL grammar, the ordering of the list, the jsonl mapping — with no browser. Playwright reads `*.visual.ts` (`test/visual/`) and compares **what was drawn** against a baseline image. The names differ because `bun test` claims the usual `*.spec.ts` as its own.
+
+### What the visual comparison stands on
+
+It runs against the real thing: **one daemon is actually started** against a disposable config home, the dev server stands where a reverse proxy stands in a real deployment, and the browser **really registers a passkey** through a CDP virtual authenticator. Only the finger is simulated — the registration and every signature go through the daemon's own verification. Sessions are connections that greet as sessions rather than a running harness: a real Claude Code puts a pid, a clock and somebody's own paths on screen, and none of those can be a baseline.
+
+**The whole comparison rests on the same picture being drawable twice**, which is why the disposable paths and ports are fixed (`test/visual/instance.ts`): the endpoint and the instance id on screen are derived from them, and a temp directory with a random suffix would write a different string every run. The instance's id is laid down before the daemon can make one, the transcript is a fixture with its instants written out, and the one place left — the stretch of the connection bar counting down to an expiry — is masked.
+
+### The baselines live in another repository
+
+The images are in `kawaz/ccmsg-webui-snapshots`; what this repository keeps is their digests (`test/visual/manifest.json`). A baseline's worth is its history — the same screen, version after version — and that is too heavy for everyone who clones the source to carry. What the manifest answers is whether the baselines being compared against are the ones this version accepted; a screen that actually changed fails at the comparison itself, with a diff image.
+
+**A baseline belongs to the platform that drew it** (`{platform}/<screen>.png`). Fonts and font smoothing differ between a mac and a CI runner, so everywhere there is text is different, and no threshold absorbs that. Drawing one set inside a container is the alternative, and it costs `just visual` a dependency on docker.
+
+- `just visual` — compare what is drawn now against the baselines, and check them against the manifest
+- `just visual-accept` — take what is drawn now as the baseline and commit it to the snapshots repository (pushing is a person's). The manifest is left in the working copy, to go into the commit that changed the screen
+
+It is **not** part of `just ci`: what it needs is different (the daemon's source, a browser binary, the baseline repository), so CI runs it as a job of its own.

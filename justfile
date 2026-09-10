@@ -19,6 +19,13 @@ bump-trigger-paths := "src/ index.html bun.lock tsconfig.json vite.config.ts"
 
 version-files := "package.json"
 
+# 基準画像の置き場。本体リポは manifest (sha256) だけを持ち、画像は別リポの
+# 履歴に閉じる。既定は隣に clone されたもので、別の場所なら環境変数で指す。
+
+snapshots-repo := "https://github.com/kawaz/ccmsg-webui-snapshots.git"
+
+snapshots-dir := env("CCMSG_WEBUI_SNAPSHOTS", justfile_directory() / "../../ccmsg-webui-snapshots/main")
+
 # ---------- default ----------
 
 # レシピ一覧を表示
@@ -67,6 +74,42 @@ build:
 # dev server (別 origin で daemon に繋ぐ前提。daemon 側の entry.origins に入れる)
 dev:
     bun x vite
+
+# ---------- visual recipes (画面の見た目) ----------
+
+# 画面の見た目を基準画像と比べる (基準は kawaz/ccmsg-webui-snapshots)
+visual: check-snapshots
+    bun x playwright test
+    bun test/visual/manifest.ts verify
+
+# 今の描画を基準にする (snapshots リポに commit、manifest は作業コピーに残す)
+[script]
+visual-accept: check-snapshots
+    bun x playwright test --update-snapshots
+    bun test/visual/manifest.ts write
+    dir="{{ snapshots-dir }}"
+    version=$(just version)
+    (
+        cd "$dir"
+        git add -A -- '*.png'
+        if git diff --cached --quiet; then
+            printf '基準画像は変わっていません (commit しません)\n'
+            exit 0
+        fi
+        git commit -m "Redraw the baselines for webui v${version}" -- '*.png'
+        printf 'snapshots リポの commit を確認して push してください: %s\n' "$PWD"
+    )
+    printf 'manifest.json は作業コピーに残してあります (画面を変えた commit に含めてください)\n'
+
+# 基準画像リポの clone があるか (無ければ取り方を出す)
+[private]
+[script]
+check-snapshots:
+    dir="{{ snapshots-dir }}"
+    if [ ! -d "$dir/.git" ]; then
+        printf >&2 '基準画像リポがありません: %s\n  git clone --depth 1 %s "$dir"\n  (別の場所に置くなら CCMSG_WEBUI_SNAPSHOTS で指す)\n' "$dir" "{{ snapshots-repo }}"
+        exit 1
+    fi
 
 # ---------- check recipes (push の sanity 検証) ----------
 
