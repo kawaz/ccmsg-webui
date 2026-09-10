@@ -83,8 +83,18 @@ test("conversation", async ({ ui: page, instance }) => {
 test("notification", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
   await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
-  await instance.notify(OTHER_SID, "基準画像の置き場が決まりました。");
-  await expect(page.locator(".toast")).toBeVisible();
+  // 接続が立っていることを先に確かめる。下の送り直しを、普段は 1 回で終わらせる
+  // ため — 立っていない所へ送っても、届く先が無い。
+  await expect(page.locator(".bar")).toContainText("接続済み");
+  // 送って、出るまで送り直す。`notify` は**保持されない** topic なので、購読が
+  // 立つ前や再接続の隙間に投げられた 1 通はそこで失われ、待っても戻ってこない
+  // — 取り戻す手段は送り直すことしかない。回数ではなく「出たか」で終わるので、
+  // 間隔を勘で決める必要もない。トーストが出す文面は毎回同じなので、2 通目が
+  // 出た場合でも写るものは変わらない。
+  await expect(async () => {
+    await instance.notify(OTHER_SID, "基準画像の置き場が決まりました。");
+    await expect(page.locator(".toast")).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
   await shot(page, "notification.png");
 });
 
