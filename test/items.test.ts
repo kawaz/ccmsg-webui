@@ -37,7 +37,7 @@ describe("buildTimeline", () => {
 
   test("直後に来た答えは呼び出しの中に畳まれ、離れた答えは来た所に残る", () => {
     const call = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
-    const answer = result("tool:Bash", call, { tool_use_id: "t1", stdout: "a\nb" });
+    const answer = result("tool:Bash", call, { stdout: "a\nb" });
     const near = buildTimeline([call, answer]);
     expect(near.length).toBe(1);
     expect(nodeRows(near[0]!)[0]?.result).toBe(answer);
@@ -59,12 +59,21 @@ describe("buildTimeline", () => {
     const orphan = item("tool:Bash", {
       role: "result",
       parent_item: "居ない:0",
-      tool_use_id: "t9",
+      parent_tool_use_id: "t9",
       stdout: "x",
     });
     const nodes = buildTimeline([orphan]);
     expect(nodes.length).toBe(1);
     expect(nodeKey(nodes[0]!)).toBe(orphan.id);
+  });
+
+  test("呼び出しの id を持たない答えも、harness の鍵で呼び出しに結ばれる", () => {
+    const call = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
+    // instance が呼び出しを読めていない答えは `tool:unknown` として届く。
+    const answer = result("tool:unknown", { tool_use_id: "t1" }, { result: { stdout: "a" } });
+    const nodes = buildTimeline([call, answer]);
+    expect(nodes.length).toBe(1);
+    expect(nodeRows(nodes[0]!)[0]?.result).toBe(answer);
   });
 });
 
@@ -135,14 +144,14 @@ describe("知らない型も出る", () => {
 
   test("共通の field は「その item だけのもの」に入らない", () => {
     const own = ownFields(use("tool:Bash", { tool_use_id: "t", command: "ls" }));
-    expect(Object.keys(own).sort()).toEqual(["command", "tool_use_id"]);
+    expect(Object.keys(own).sort()).toEqual(["command"]);
   });
 });
 
 describe("探す対象", () => {
   test("画面に出ている名乗りと中身が、そのまま探す対象になる", () => {
     const call = use("tool:Bash", { tool_use_id: "t", command: "echo こんにちは" });
-    const answer = result("tool:Bash", call, { tool_use_id: "t", stdout: "こんにちは" });
+    const answer = result("tool:Bash", call, { stdout: "こんにちは" });
     expect(rowText({ item: call, result: answer })).toContain("echo こんにちは");
     expect(rowText({ item: call, result: answer })).toContain("Bash の結果");
   });

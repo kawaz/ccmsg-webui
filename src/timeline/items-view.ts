@@ -47,16 +47,6 @@ const WINDOW_BYTES = 1024 * 1024;
  * window that dropped what it was just given would ask for it again forever. */
 const WINDOW_FLOOR = 200;
 
-/** An upper bound later than anything a transcript can carry, which is how the
- * first read says "the end of it".
- *
- * A read with no bound at all is the whole transcript read from its beginning,
- * and the first thing a screen wants is the other end. Naming an instant
- * rather than reading the clock keeps the request free of this browser's own
- * time: a clock a few minutes behind the session's would cut the newest items
- * out of the first page. */
-const LATEST = Number.MAX_SAFE_INTEGER;
-
 /** One record as the file has it, once someone asked to see it. */
 export interface RawRecord {
   readonly state: "loading" | "held" | "failed";
@@ -143,12 +133,13 @@ export class TranscriptItemsView {
   /** Ask for the items before the ones held. Called when a person scrolls up
    * to the top of what has been taken, and once when the subscription opens.
    *
-   * An upper bound alone is what asks for the newest of a range, so every read
-   * here names one and walks backwards a page at a time. The bound is the
-   * oldest item held, which is the same item a reply hands back as `prev` —
-   * and staying the held one keeps it right after the window has let go of its
-   * front, where a remembered `prev` would name something dropped and open a
-   * hole behind it. */
+   * A read with no lower bound answers the newest of its range, so every read
+   * here walks backwards a page at a time. The first one, with nothing held,
+   * names no bound at all and is answered with the transcript's tail; after
+   * that the bound is the oldest item held (`until_id`), which is the same
+   * item a reply hands back as `prev` — and staying the held one keeps it
+   * right after the window has let go of its front, where a remembered `prev`
+   * would name something dropped and open a hole behind it. */
   async readOlder(): Promise<void> {
     if (this.#reading || this.#closed || this.atBeginning.value) return;
     this.#reading = true;
@@ -158,7 +149,7 @@ export class TranscriptItemsView {
       const reply = (await this.#port.request("transcript_items_read", {
         sid: this.#sid,
         limit: PAGE_ITEMS,
-        ...(oldest === undefined ? { until_at: LATEST } : { until_id: oldest.id }),
+        ...(oldest === undefined ? {} : { until_id: oldest.id }),
       })) as unknown as TranscriptItemsReadResult;
       if (this.#closed) return;
       this.#prepend(reply.items, reply.prev);

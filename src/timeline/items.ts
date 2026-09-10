@@ -6,7 +6,7 @@ import type { TranscriptItem } from "@ccmsg/protocol";
  * transcript の record の形はここに書かれていないし、書けない — 届くのは
  * 分類された item であって、harness の file ではない。
  *
- * ここでやるのは 3 つだけ: 呼び出しと答えを `parent_item` で結ぶこと、続けて
+ * ここでやるのは 3 つだけ: 呼び出しと答えを結ぶこと、続けて
  * 並んだ「会話でないもの」を 1 つの畳みにまとめること、そして知らない型が来て
  * も必ず 1 行として出すこと。 */
 
@@ -55,12 +55,16 @@ export function itemCategory(item: TranscriptItem): ItemCategory {
  * 名前で指す — 間に挟まったものを飛ばして畳むと、間の時間が消える。 */
 export function buildTimeline(items: readonly TranscriptItem[]): readonly TimelineNode[] {
   const at = new Map<string, number>();
-  for (const [index, item] of items.entries()) at.set(item.id, index);
+  const calls = new Map<string, number>();
+  for (const [index, item] of items.entries()) {
+    at.set(item.id, index);
+    const key = textField(item, "tool_use_id");
+    if (key !== undefined && field(item, "role") === "use") calls.set(key, index);
+  }
   const child = new Map<number, number>();
   const folded = new Set<number>();
   for (const [index, item] of items.entries()) {
-    if (!("parent_item" in item)) continue;
-    const call = at.get(item.parent_item);
+    const call = callOf(item, at, calls);
     if (call === undefined) continue;
     if (!item.type.startsWith("message:sub") && call !== index - 1) continue;
     child.set(call, index);
@@ -87,6 +91,26 @@ export function buildTimeline(items: readonly TranscriptItem[]): readonly Timeli
   }
   flush();
   return nodes;
+}
+
+/** その答えが答えている呼び出しは、手元の何番目か。
+ *
+ * 答えは呼び出しを 2 つの言い方で指す: 読んだ側が付けた item の id
+ * (`parent_item`、呼び出しを読んでいなければ付かない) と、harness が 2 つを
+ * 組にした鍵 (`parent_tool_use_id`、必ず付く)。前者が手元で引けるならそれ、
+ * 引けなければ鍵で手元の呼び出しに突き合わせる — 呼び出しが instance の読んだ
+ * 範囲の外に居ただけで、こちらは前の頁で既に持っていることがある。 */
+function callOf(
+  item: TranscriptItem,
+  at: ReadonlyMap<string, number>,
+  calls: ReadonlyMap<string, number>,
+): number | undefined {
+  if (field(item, "role") !== "result") return undefined;
+  const named = textField(item, "parent_item");
+  const found = named === undefined ? undefined : at.get(named);
+  if (found !== undefined) return found;
+  const key = textField(item, "parent_tool_use_id");
+  return key === undefined ? undefined : calls.get(key);
 }
 
 /** かたまりの名前。畳みの中の行の並びで決まるので、開閉しても遡っても同じ
@@ -120,6 +144,8 @@ const COMMON_FIELDS = new Set([
   "role",
   "parent_item",
   "result_item",
+  "tool_use_id",
+  "parent_tool_use_id",
 ]);
 
 export function ownFields(item: TranscriptItem): Record<string, unknown> {

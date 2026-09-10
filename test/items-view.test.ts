@@ -37,9 +37,11 @@ describe("購読と最初の読み込み", () => {
     expect(port.subscribed).toEqual([`transcript_items:${SID}`]);
     await Promise.resolve();
     expect(port.asked[0]?.op).toBe("transcript_items_read");
-    // 何も持っていない時も末尾を頼む: 上限だけを名指した読みが「範囲の新しい
-    // 側」を答えるので、始まりから読み下ろすことにはならない。
-    expect(port.asked[0]?.args["until_at"]).toBe(Number.MAX_SAFE_INTEGER);
+    // 何も持っていない最初の 1 回は境界を置かない: 下限の無い読みは範囲の
+    // 新しい側を答えるので、そのまま末尾が返る。
+    expect(port.asked[0]?.args["until_at"]).toBeUndefined();
+    expect(port.asked[0]?.args["until_id"]).toBeUndefined();
+    expect(port.asked[0]?.args["since_at"]).toBeUndefined();
   });
 
   test("既に持っているなら読み直さない", async () => {

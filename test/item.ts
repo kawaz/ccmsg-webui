@@ -29,10 +29,19 @@ export function use(type: string, fields: Record<string, unknown> = {}): Transcr
   return item(type, { role: "use", ...fields });
 }
 
+/** 呼び出しへの答え。契約では harness の鍵 (`parent_tool_use_id`) が必ず付き、
+ * 読んだ側の id (`parent_item`) は呼び出しを読めていた時だけ付くので、呼び出し
+ * を渡さない形も書ける (= その答えは鍵でしか親に辿り着けない)。 */
 export function result(
   type: string,
-  parent: TranscriptItem,
+  parent: TranscriptItem | { tool_use_id: string },
   fields: Record<string, unknown> = {},
 ): TranscriptItem {
-  return item(type, { role: "result", parent_item: parent.id, ...fields });
+  const key = (parent as unknown as Record<string, unknown>)["tool_use_id"];
+  return item(type, {
+    role: "result",
+    ...("id" in parent ? { parent_item: parent.id } : {}),
+    ...(typeof key === "string" ? { parent_tool_use_id: key } : {}),
+    ...fields,
+  });
 }
