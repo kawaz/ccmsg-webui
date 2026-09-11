@@ -1741,3 +1741,12 @@ select {
   background: color-mix(in srgb, var(--waiting) 12%, var(--surface));
   color: var(--waiting);
 }
+
+/* 訳がまだ全部は届いていない、と言う 1 行。段落ごとに届くので、出ている本文は
+   「訳した段落 + まだ原文の段落」が混ざった姿になる。 */
+.tl-translating {
+  display: block;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+}

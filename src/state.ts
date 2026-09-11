@@ -24,6 +24,7 @@ import type {
   Sid,
   TopicName,
   TranscriptItem,
+  TranslateRunResult,
 } from "@ccmsg/protocol";
 import { assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
@@ -66,6 +67,8 @@ import {
   terminalIdsBySid,
 } from "./sessions.ts";
 import { FoldOpen } from "./timeline/fold-open.ts";
+import type { TranslateRoute } from "./timeline/translate.ts";
+import { hasBrowserTranslator } from "./timeline/translators.ts";
 import { forgetFoldsOutside } from "./timeline/fold-tree.ts";
 import {
   clearDisplay,
@@ -805,6 +808,35 @@ export function navigate(next: Route, options?: { replace?: boolean }): void {
 export function adoptLocation(): void {
   route.value = locationRoute();
 }
+
+/** host の翻訳機に本文を渡す (`translate.run`)。呼ぶのは 1 段落ずつで、理由は
+ * `src/timeline/translators.ts` に書いてある。 */
+export async function runTranslate(texts: readonly string[]): Promise<TranslateRunResult> {
+  const reply = await connection.request("translate.run", { texts: [...texts] });
+  return reply as unknown as TranslateRunResult;
+}
+
+/** 本文を何で読むか。原文か、訳す人のどちらか。
+ *
+ * 画面ぜんぶで 1 つ。英語の transcript を読む人は「日本語で読む」と 1 度決める
+ * のであって、item ごとに決め直したいわけではない。訳が走るのは**描かれている
+ * item だけ**で、それは窓が描く範囲そのものなので、読んでいない所の訳に費用を
+ * 払うことはない。 */
+export const reading = signal<"original" | TranslateRoute>("original");
+
+/** 今使える訳の経路。host は instance の能力、browser はこのブラウザの持ち物で、
+ * どちらも無ければ画面は言語の選択肢を出さない。 */
+export const translateRoutes = computed<readonly TranslateRoute[]>(() => [
+  ...(can("translate") ? (["host"] as const) : []),
+  ...(hasBrowserTranslator() ? (["browser"] as const) : []),
+]);
+
+/** 選んでいた経路が無くなったら原文へ戻す (別の instance に繋ぎ直した時)。
+ * 消えた経路の訳をそのまま出し続けると、もう聞けない道具の答えが画面に残る。 */
+effect(() => {
+  const held = reading.value;
+  if (held !== "original" && !translateRoutes.value.includes(held)) reading.value = "original";
+});
 
 /** gateway に聞いた、credential ごとのクオータ。
  *

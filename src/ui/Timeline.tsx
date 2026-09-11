@@ -71,12 +71,16 @@ import {
   navigate,
   notifications,
   peers,
+  reading,
   sessionPaths,
   setTimelineDisplay,
   timelineFaces,
   timelineFolds,
   transcript,
+  translateRoutes,
 } from "../state.ts";
+import { ROUTE_LABELS } from "../timeline/translators.ts";
+import { useTranslated } from "../timeline/use-translated.ts";
 import {
   type MarkdownPathLinker,
   markdownPlainText,
@@ -480,6 +484,7 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                 セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
               </p>
             )}
+            <ReadingTabs />
             <DisplayPanel types={seenTypes} />
             <SearchBar search={search} matched={matched} onReveal={reveal} />
             <HeldList sid={view.sid} />
@@ -593,6 +598,45 @@ const SUBJECT_LABELS: Readonly<Record<Subject, string>> = {
  *
  * 表は主語ごとに 1 面。開いた時に出ているのは今読んでいる面で、もう一面は
  * タブで切り替える — worker の読み方を、worker を開く前に決められるように。 */
+/** 本文を何で読むか。
+ *
+ * 訳す道具が 1 つも無ければ何も出さない (対応していないブラウザで、押せない
+ * 選択肢が並ぶだけになる)。**訳す人の名前をそのまま並べる**のは、同じ段落でも
+ * 道具が違えば違う文が出るから — おかしな 1 文に出会った時、どの道具の仕業かが
+ * 読む人の判断材料になる。混ぜて 1 つにすると、それが消える。 */
+function ReadingTabs() {
+  const routes = translateRoutes.value;
+  if (routes.length === 0) return null;
+  const held = reading.value;
+  return (
+    <p class="tl-display-tabs" role="group" aria-label="本文の言語">
+      <button
+        type="button"
+        class={held === "original" ? "on" : undefined}
+        aria-pressed={held === "original"}
+        onClick={() => {
+          reading.value = "original";
+        }}
+      >
+        原文
+      </button>
+      {routes.map((route) => (
+        <button
+          key={route}
+          type="button"
+          class={held === route ? "on" : undefined}
+          aria-pressed={held === route}
+          onClick={() => {
+            reading.value = route;
+          }}
+        >
+          {ROUTE_LABELS[route]}
+        </button>
+      ))}
+    </p>
+  );
+}
+
 function DisplayPanel({ types }: { types: Readonly<Record<Subject, ReadonlySet<string>>> }) {
   const editing = useSignal<Subject>("main");
   const subject = editing.value;
@@ -801,6 +845,36 @@ function messageBrief(item: TranscriptItem): string {
   return brief(isTyped(item) ? prose : markdownPlainText(prose));
 }
 
+/** item の文。読み方の設定に従って、原文か訳のどちらかを描く。
+ *
+ * 訳すのは**文だけ**で、道具の引数も code も通らない — 訳して意味が変わらない
+ * のは散文だけで、識別子やパスは訳された瞬間に別のものを指す。訳が届くのは
+ * 段落ごとなので、途中は「訳した段落 + まだ原文の段落」が並ぶ。 */
+function Prose({
+  text,
+  restricted,
+  linker,
+  words,
+}: {
+  text: string;
+  restricted?: boolean;
+  linker: MarkdownPathLinker | undefined;
+  words: readonly SearchWord[];
+}) {
+  const shown = useTranslated(text);
+  return (
+    <>
+      {shown.pending && <span class="tl-translating">訳しています…</span>}
+      <MarkdownView
+        source={shown.text}
+        {...(restricted === undefined ? {} : { restricted })}
+        pathLinker={linker}
+        highlight={words}
+      />
+    </>
+  );
+}
+
 /** 1 通。名乗りは畳んでも見えたままで、畳むのは本文の側 — 誰が言ったかは並びを
  * 追うのに要るが、何を言ったかは読み手が開く時に要る。 */
 function MessageView({ item }: { item: TranscriptItem }) {
@@ -836,12 +910,7 @@ function MessageView({ item }: { item: TranscriptItem }) {
         {prose === undefined || prose === "" ? (
           <p class="tl-note">{itemDetail(item)}</p>
         ) : (
-          <MarkdownView
-            source={prose}
-            restricted={isTyped(item)}
-            pathLinker={pathLinker}
-            highlight={words}
-          />
+          <Prose text={prose} restricted={isTyped(item)} linker={pathLinker} words={words} />
         )}
       </div>
     </Fold>
@@ -861,7 +930,7 @@ function ThinkingView({ item }: { item: TranscriptItem }) {
       summary={`思考 (${text.length} 文字)`}
     >
       <div class="tl-text">
-        <MarkdownView source={text} pathLinker={pathLinker} highlight={words} />
+        <Prose text={text} linker={pathLinker} words={words} />
       </div>
     </Fold>
   );
