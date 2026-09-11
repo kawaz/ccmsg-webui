@@ -127,6 +127,17 @@ export const endpoint: string | undefined = endpointFromLocation(location.origin
  * other route (the person's eyes, from a terminal). */
 export const registration = signal<Registration | undefined>(undefined);
 export const status = signal<ConnectionStatus>("idle");
+
+/** この画面が instance から一覧を**一度でも**受け取ったか。
+ *
+ * 「繋がっている」とは別に持つ。socket が開いた瞬間はまだ何も聞いていないので、
+ * そこで一覧を出すと**空の一覧**が一度描かれる。空の一覧は「セッションが 1 つも
+ * 無い」という嘘で、「繋がっていない」とは違うことを言ってしまう。
+ *
+ * 切断で false には戻らない。回線が切れただけなら、最後に聞いた行は次の
+ * snapshot が上書きするまで読む価値がある (古いことは帯が言う)。戻るのは人が
+ * 明示的に切断した時だけで、それは持っているものを捨てる操作そのもの。 */
+export const listed = signal(false);
 export const statusDetail = signal<string | undefined>(undefined);
 export const hello = signal<HelloResult | undefined>(undefined);
 /** Set once the instance and this build disagree about the contract. There is
@@ -305,13 +316,12 @@ export const connection = new Connection({
     // so a dropped connection empties the lists rather than leaving them to be
     // read as live.
     if (next === "closed" || next === "idle") {
-      peerSlots.value = [];
-      agentSlots.value = [];
-      errorSlots.value = [];
-      instanceSlots.value = [];
-      llmStatusSlots.value = [];
-      llmRequestSlots.value = [];
-      hello.value = undefined;
+      // **意図しない切断では、聞いたものを捨てない**。回線が切れただけの端末が
+      // 画面まで空になるのは、持ち歩いて読む道具としては失いすぎで、次の
+      // snapshot が同じ行を上書きするまでの間、最後に聞いた内容には読む価値が
+      // ある。古いことはバーと帯が言う (`Stale`)。
+      //
+      // 捨てるのはここで意味を失うものだけ。
       // 期限は「この接続がいつまで許されているか」なので、接続と一緒に消える。
       // access token 自体はまだ生きているかもしれないので手を付けない。
       connectionExpiresAt.value = undefined;
@@ -348,6 +358,7 @@ export const connection = new Connection({
     }
     switch (message.topic) {
       case "peers":
+        if (message.snapshot) listed.value = true;
         peerSlots.value = peerRows.push(
           message.instance,
           (message.data as PeersData).peers,
@@ -633,12 +644,39 @@ export async function resume(): Promise<void> {
   openSocket();
 }
 
+/** 人が「切断」を押した時に手放すもの。
+ *
+ * ログアウトに相当する操作なので、**この画面がメモリに持っているものは全部
+ * 捨てる** — 一覧も、読んでいた transcript も、畳みの開閉も、access token も。
+ * 残すのは localStorage に書いてある人の好み (並び順・表示属性・下書き) だけ:
+ * それは接続の産物ではなく、この人がこのブラウザに書いた設定。
+ *
+ * 意図しない切断はこれを通らない (`status` の closed はここを呼ばない)。切れた
+ * だけで持ち物まで消えるなら、電波の悪い所を歩いた人は毎回ログインし直すことに
+ * なる。 */
 export function disconnect(): void {
   wanted.value = false;
   needsSignIn.value = false;
   needsRegistration.value = false;
   authProblem.value = undefined;
   connection.close();
+  peerSlots.value = [];
+  agentSlots.value = [];
+  errorSlots.value = [];
+  instanceSlots.value = [];
+  llmStatusSlots.value = [];
+  llmRequestSlots.value = [];
+  folds.clear();
+  peerRows.clear();
+  agentRows.clear();
+  hello.value = undefined;
+  listed.value = false;
+  transcript.value = undefined;
+  timelineFolds.value = new FoldOpen();
+  notifications.value = [];
+  toast.value = undefined;
+  heldMessages.value = [];
+  forgetSession();
 }
 
 /** Prove a passkey and hold what it minted.

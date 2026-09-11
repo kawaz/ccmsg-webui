@@ -5,6 +5,7 @@ import { type Tab, visibleTabs } from "../route.ts";
 import {
   dismissToast,
   generationWarning,
+  listed,
   navigate,
   registration,
   route,
@@ -13,6 +14,7 @@ import {
   toast,
 } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
+import { Disconnected, Stale } from "./Disconnected.tsx";
 import { Files } from "./Files.tsx";
 import { Register } from "./Register.tsx";
 import { SessionList } from "./SessionList.tsx";
@@ -77,9 +79,21 @@ export function App() {
       </div>
     );
   }
+  // 一覧も transcript も「instance が今そう言っていること」なので、一度も
+  // 聞いていない間は何も描かない。切れただけなら聞いたものは出したまま、
+  // 古いことを帯が言う (`Disconnected` を読む)。
+  if (!listed.value) {
+    return (
+      <div class="app">
+        <ConnectionBar />
+        <Disconnected />
+      </div>
+    );
+  }
   return (
     <div class="app">
       <ConnectionBar />
+      <Stale />
       {toast.value !== undefined && (
         <p class="toast">
           <span class="toast-who">{toast.value.notification.sid_label}</span>

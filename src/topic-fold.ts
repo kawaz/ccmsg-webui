@@ -46,6 +46,13 @@ export class TopicFold<T> {
     return this.#slots;
   }
 
+  /** 聞いたものを手放す。人が明示的に切断した時に呼ぶ — 畳んだ写しは接続の
+   * 産物なので、接続を捨てる操作がこれを残せば、次に繋いだ人の画面に前の人の
+   * 行が出る。 */
+  clear(): void {
+    this.#slots = [];
+  }
+
   /** Take one frame. Answers the slots after it, so a caller assigns the result
    * rather than reading a field it has to know was just mutated. */
   push(instance: InstanceId, data: T): readonly Slot<T>[] {
@@ -111,6 +118,11 @@ export class ElementFold<E, R extends E = E> {
 
   get slots(): readonly Slot<readonly R[]>[] {
     return this.#held.map((one) => ({ instance: one.instance, data: [...one.rows.values()] }));
+  }
+
+  /** 聞いた行を手放す (`TopicFold.clear` と同じ理由)。 */
+  clear(): void {
+    this.#held = [];
   }
 
   /** Take one frame: its rows over what that instance already held, or in place

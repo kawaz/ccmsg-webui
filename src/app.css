@@ -1726,3 +1726,18 @@ select {
     animation-timing-function: linear;
   }
 }
+
+/* 出ているものが「最後に聞いた内容」であることを言う帯。行の側には、いつの
+   ものかが書いていない。 */
+.stale-band {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--waiting);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--waiting) 12%, var(--surface));
+  color: var(--waiting);
+}
