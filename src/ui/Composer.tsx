@@ -67,16 +67,15 @@ export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: str
         ref={box}
         rows={3}
         value={text.value}
-        placeholder="このセッションに話しかける (Enter で送信、Shift+Enter で改行)"
+        placeholder="このセッションに話しかける (Enter で改行、⌘/Ctrl+Enter で送信)"
         aria-label="セッションへのメッセージ"
         disabled={sending.value}
         onInput={(event) => {
           remember(event.currentTarget.value);
         }}
         onKeyDown={(event) => {
-          const action = composerAction(event);
-          if (action === "ignore") return;
-          if (action === "newline") return;
+          if (composerAction(event) !== "send") return;
+          // 改行は textarea 自身の仕事なので、送る時だけ打鍵を取り上げる。
           event.preventDefault();
           send();
         }}

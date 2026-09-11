@@ -15,18 +15,19 @@ const KEY = {
 };
 
 describe("composerAction", () => {
-  test("Enter は送信、⌘Enter と Ctrl+Enter も送信", () => {
-    expect(composerAction(KEY)).toBe("send");
+  test("Enter は改行、Shift+Enter も改行", () => {
+    expect(composerAction(KEY)).toBe("newline");
+    expect(composerAction({ ...KEY, shiftKey: true })).toBe("newline");
+  });
+
+  test("⌘Enter と Ctrl+Enter が送信", () => {
     expect(composerAction({ ...KEY, metaKey: true })).toBe("send");
     expect(composerAction({ ...KEY, ctrlKey: true })).toBe("send");
   });
 
-  test("Shift+Enter は改行", () => {
-    expect(composerAction({ ...KEY, shiftKey: true })).toBe("newline");
-  });
-
-  test("変換確定中の Enter は何もしない", () => {
+  test("変換確定中は、修飾キーが付いていても送らない", () => {
     expect(composerAction({ ...KEY, isComposing: true })).toBe("ignore");
+    expect(composerAction({ ...KEY, isComposing: true, metaKey: true })).toBe("ignore");
   });
 
   test("Enter 以外の打鍵は何もしない", () => {

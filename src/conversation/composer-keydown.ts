@@ -1,8 +1,10 @@
 /** 打鍵から「送る / 改行する / 何もしない」を決める、DOM を持たない判定。
  *
- * 送信は Enter。⌘Enter (Windows/Linux では Ctrl+Enter) も送信で、下書きが
- * 複数行になったあとも手が同じ形のまま送れる。Shift+Enter は改行 — 段落を
- * 書いてから送りたいときの逃げ道で、これが無いと 1 行しか書けない画面になる。
+ * **Enter は改行**。書いている途中の改行は打った通りに入るのが当たり前で、
+ * 手のひらのソフトキーボードでは特にそう — Enter が送信だと、段落を分ける手が
+ * そのまま送信になる。送るのは ⌘Enter (Windows/Linux では Ctrl+Enter) と送信
+ * ボタンで、送るという意思をもう一方の手が言う形にしてある。
+ *
  * IME の変換確定中 (`isComposing`) は打鍵が確定の Enter なので何もしない。 */
 
 export interface ComposerKey {
@@ -20,6 +22,5 @@ export function composerAction(event: ComposerKey): ComposerAction {
   if (event.key !== "Enter") return "ignore";
   if (event.isComposing) return "ignore";
   if (event.altKey) return "ignore";
-  if (event.shiftKey) return "newline";
-  return "send";
+  return event.metaKey || event.ctrlKey ? "send" : "newline";
 }
