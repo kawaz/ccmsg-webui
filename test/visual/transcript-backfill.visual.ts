@@ -37,8 +37,8 @@ test("末尾から始まり、遡ると手前が頁ずつ足される", async ({
   await expect(heading).toHaveText(/200 item/);
 
   const top = async () => {
-    await page.locator(".tl-scroll").evaluate((element) => {
-      element.scrollTop = 0;
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
     });
   };
   await top();

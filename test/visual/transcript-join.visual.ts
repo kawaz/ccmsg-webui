@@ -67,8 +67,8 @@ test("頁をまたいで並んだ呼び出しと答えは、遡ると 1 行に�
    * 増えた」ことで待つ (この file の前に走った test も同じ transcript に書き足す)。 */
   const top = async () => {
     const before = (await heading.textContent()) ?? "";
-    await page.locator(".tl-scroll").evaluate((element) => {
-      element.scrollTop = 0;
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
     });
     await expect(heading).not.toHaveText(before);
   };

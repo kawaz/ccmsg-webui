@@ -250,10 +250,12 @@ select {
   min-height: 0;
 }
 
-.tl-scroll {
-  height: 70vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+/* 窓が置かれている所。動かすのは頁そのものなので、ここは高さも持たず溢れも
+   受けない。仮想化で DOM の中身が入れ替わる以上、ブラウザ自身の scroll
+   anchoring は当てにできない (消える行を掴む) ので、ここでは切って、錨は
+   Timeline が自分で打つ。 */
+.tl-pane {
+  overflow-anchor: none;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -751,11 +753,18 @@ select {
   border-width: 0 0 0 3px;
 }
 
+/* 話しかける所は画面の下に留まる。頁ぜんぶが動く以上、留めないと transcript を
+   遡った人は打つために末尾まで戻ることになる。 */
 .composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-top: var(--gap);
+  padding-top: 6px;
+  background: var(--bg);
 }
 
 .composer > textarea {
@@ -1186,12 +1195,19 @@ select {
 /* 表示中のものを探す窓 (DR-0022)。行 (= OR 節) ごとに色を変え、同じ行の
  * AND ワードは同じ色にする。色は地の文の上に載るので、文字の色は変えず
  * 背景だけを塗る。 */
+/* 探す窓は画面の上に留まる。何件目かを見ながら ↑↓ で渡り歩くものなので、頁が
+   動いた先で見えていなければ、探している最中に操作する所を失う。 */
 .search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin: 0 0 var(--gap);
+  padding: 4px 0;
+  background: var(--bg);
   font-size: 12px;
 }
 
