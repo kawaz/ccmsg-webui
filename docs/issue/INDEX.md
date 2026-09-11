@@ -4,7 +4,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
-| 2026-09-12 | request | open | [composer-enter-newline](./2026-09-12-composer-enter-newline.md) | Composer で Enter が改行、送信は修飾キー + Enter / ボタンにする |
 | 2026-09-12 | task | open | [v1-parity-for-migration](./2026-09-12-v1-parity-for-migration.md) | kawaz が v1 webui から v2 に移るために要るものの棚卸し。画面が無いだけの機能が上位 |
 | 2026-09-12 | design | open | [color-system-three-layers](./2026-09-12-color-system-three-layers.md) | 色システムを 3 層構造 (入力 / scale / 意味名) で v2 webui に導入する |
 | 2026-09-12 | bug | open | [first-connect-flow](./2026-09-12-first-connect-flow.md) | スマホからの初回アクセスで接続・認証の導線が悪い |

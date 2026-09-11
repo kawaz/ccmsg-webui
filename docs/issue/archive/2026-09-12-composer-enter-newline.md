@@ -1,6 +1,6 @@
 ---
 title: Composer で Enter が改行、送信は修飾キー + Enter / ボタンにする
-status: open
+status: resolved
 category: request
 created: 2026-09-12T07:52:32+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-12T08:11:20+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: webui v0.8.0 で修正 (2026-09-12): Enter / Shift+Enter は改行、⌘ / Ctrl+Enter と送信ボタンで送信、IME 変換中は修飾キー付きでも無視。placeholder を「Enter で改行、⌘/Ctrl+Enter で送信」に"]
 blocked_by:
 origin: v1-parity-for-migration (束 0)
 ---
