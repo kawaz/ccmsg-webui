@@ -135,6 +135,9 @@ export async function startInstance(): Promise<Instance> {
       dir: home,
       entry: { host: "127.0.0.1", port: DAEMON_PORT },
       upstream: {
+        // 本物の helper と同じ行を話す使い捨て (`translate-helper.ts`)。翻訳の
+        // 経路そのものは daemon の実装をそのまま通る。
+        translate_helper: fileURLToPath(new URL("translate-helper.ts", import.meta.url)),
         gateway_url: `http://127.0.0.1:${String(GATEWAY_PORT)}`,
         gateway_webhook_source: WEBHOOK_SOURCE,
         gateway_webhook_token_file: join(configDir, "webhook.token"),

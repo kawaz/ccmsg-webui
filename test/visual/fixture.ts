@@ -216,6 +216,16 @@ function agentTranscript(): string {
   ].join("");
 }
 
+/** 翻訳の基準が読む英文。思考と返事の 2 つで、段落は 2 つ — 段落ごとに訳が
+ * 届くことと、段落の境が保たれることの両方が 1 枚に写る。 */
+const ENGLISH_THINKING = `The fold is read from the contract rather than from a table written here, so a topic that changes granularity changes one place.
+
+What is left to decide is the window: only an appending topic has one, and its bounds are the same bytes the reader pages by.`;
+
+const ENGLISH_REPLY = `Only \`append\` carries a window, and it is filled from both ends.
+
+A hole refuses to pretend it is joined, which is what keeps a partial read from reading as a whole one.`;
+
 /** 狭い画面の基準が読む transcript。
  *
  * SID のものと分けてあるのは、あちらが**書き足される**から (追記が届くこと・
@@ -230,8 +240,24 @@ function phoneTranscript(): string {
     rows.push(assistant([{ type: "text", text: `頁をまたぐための行 ${String(n)}` }]));
   }
   rows.push(assistant([{ type: "text", text: PROSE }]));
+  // 英語の思考と返事を 1 つずつ。翻訳の基準はここを訳す — 日本語の段落は
+  // そもそも訳しに回らないので、日本語だけの transcript では経路が動かない。
+  rows.push(
+    assistant([
+      {
+        type: "thinking",
+        thinking: ENGLISH_THINKING,
+      },
+      { type: "text", text: ENGLISH_REPLY },
+    ]),
+  );
   // 遡り切った先頭に幅を決めるものが来るよう、長い方を後ろに積む。
-  return [rows[0] as string, rows.at(-1) as string, ...rows.slice(1, -1)].join("");
+  // 先頭に「幅を決めるもの」と「英語の本文」を置く: どちらも遡り切った所で
+  // 撮るので、間に詰め物を挟まない。
+  const first = rows[0] as string;
+  const prose = rows.at(-2) as string;
+  const english = rows.at(-1) as string;
+  return [first, prose, english, ...rows.slice(1, -2)].join("");
 }
 
 export interface Fixture {
