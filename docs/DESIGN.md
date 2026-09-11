@@ -170,6 +170,62 @@ There is no separate screen for talking to a session. **The session's own transc
 
 Both directions reach the screen as one type, `message.session.in` and `message.session.out`. Reading the envelope back, and taking the body out of the Bash command a reply is sent with, are the instance's work — it holds the file, and a second copy of the same grammar here would keep reading the old spelling after the contract moved.
 
+## The quota is the gateway's, the ring is the session's
+
+Everything about the LLM gateway is decided by `hello`'s `capabilities`. Without
+`llm_usage` the quota op is never called; without `llm_status` or `llm_events`
+those topics are never subscribed to — asking an instance for what it does not
+have earns a refusal, and a refusal is not worth putting on screen. On an
+instance with no gateway in front of it, the entry in the connection bar is not
+there either.
+
+The screen is in two layers.
+
+- **Always there**: the entry in the connection bar, coloured and marked only
+  when there is **a known problem** upstream (`llm.status`'s
+  `overall.severity`). Healthy and unknown say nothing — a mark that is always
+  showing stops meaning anything by showing, and turning the bar red for
+  "unknown" would let one provider that publishes no status page make the whole
+  host look broken
+- **The detail** (`/usage`): the upstream services first and the quota after.
+  When the numbers stop moving, upstream is the first thing asked, and how the
+  quota below reads depends on the answer
+
+**Every verdict is the gateway's.** No severity is re-derived here from the
+official signal (what the provider says) or the observed one (what this gateway
+saw when it called) — a second opinion would disagree with every other reader of
+the same report. What this build owns is the wording and the order, and the two
+signals keep separate columns: "稼働中" is a claim, "疎通" is something that was
+done.
+
+**The probe goes out only when someone presses it.** As the contract states, only
+a `refresh` asks upstream again, and only it can spend upstream rate limit (an
+account already at its limit answers the probe with that credential's error). The
+periodic read touches nothing but the snapshot the gateway keeps — which is why
+a credential's limits appear only after the press: they ride on no other answer.
+
+A bar draws **what has been spent over how much of the window has passed**. The
+share alone cannot be read for overspending: 50% with a fifth of the window gone
+and 50% with nine tenths gone are different situations, and the difference is
+only on the clock. Running ahead earns a colour past five points of it — usage is
+bursty, and a strict comparison would light half the rows half the time and stop
+meaning anything. A reading from a window that has since rolled over gets no
+colour at all: the provider has said the counter reset, so a `rejected` from
+before that is not a statement about now.
+
+The prompt-cache ring (`src/llm/cache-ring.ts`) is **one CSS animation**, started
+mid-flight with a negative `animation-delay`. Ticked from JavaScript it would
+cost one piece of work per second per session. A full sweep is the whole window
+rather than a fixed five minutes: the gateway asks for five-minute and hour-long
+caches alike, and a ring that always drained in 300s would read as "expired" for
+the 55 minutes an hour-long window still has. What the ring says is the
+**fraction remaining**; an exact duration belongs to text. The window the
+conversation built and the chain the keepalives have been rebuilding get
+different colours, because what is running down is a different thing — and the
+chain is drawn **only while the window is still alive**, since `cache_until_at`
+is a projection of keepalives yet to be sent and a gateway that stops sending
+them must not leave a ring running for the hours that projection reached.
+
 ## The terminal is borrowed, not built
 
 A session's own terminal can be opened from here. **Drawing it is not this build's job**: the page borrows the screen of the gateway the instance names in `hello` (`terminal_gateway`) in an iframe, and holds neither the rendering nor the input. Holding them would be a second implementation of the same thing.
