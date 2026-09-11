@@ -7,6 +7,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | 2026-09-12 | task | open | [composer-autogrow-and-touch-targets](./2026-09-12-composer-autogrow-and-touch-targets.md) | Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性) |
 | 2026-09-12 | task | open | [v1-parity-for-migration](./2026-09-12-v1-parity-for-migration.md) | kawaz が v1 webui から v2 に移るために要るものの棚卸し。画面が無いだけの機能が上位 |
 | 2026-09-12 | design | open | [color-system-three-layers](./2026-09-12-color-system-three-layers.md) | 色システムを 3 層構造 (入力 / scale / 意味名) で v2 webui に導入する |
+| 2026-09-12 | bug | open | [disconnected-shows-no-lists](./2026-09-12-disconnected-shows-no-lists.md) | 未接続時にセッション一覧などが出てしまう。接続画面のみにすべき |
 | 2026-09-11 | request | open | [team-overview-view](./2026-09-11-team-overview-view.md) | teammate 同士の会話を俯瞰する view (team overview) |
 | 2026-09-11 | bug | open | [anchor-snapshot-one-frame-stale](./2026-09-11-anchor-snapshot-one-frame-stale.md) | Timeline 遡り読みの錨が scroll 事象 1 フレーム分だけ古くなる |
 
