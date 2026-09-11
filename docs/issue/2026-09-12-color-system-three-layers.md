@@ -41,6 +41,16 @@ v1 (plugin claude-ccmsg) の `docs/decisions/DR-0033-webui-color-system.md` (Pro
 
 v1 の DR 本文は `~/.claude-personal/plugins/cache/claude-ccmsg/claude-ccmsg/0.152.4/docs/decisions/DR-0033-webui-color-system.md` (plugin cache に置かれており消える前に必要部分をこのリポの DR に写す必要がある)。
 
+### 出典の訂正
+
+v1 の設計は v1 リポ `~/.local/share/repos/github.com/kawaz/claude-ccmsg/main/` の以下 3 文書で、v1 の `color-system` workspace で作られ全て v1 main に land 済み (2026-09-12 確認)。CSS 実装は未着手。plugin cache のコピーではなくこのリポを出典にする。
+
+- `docs/decisions/DR-0033-webui-color-system.md` (199 行)
+- `docs/research/2026-09-08-color-theme-derivation.md` (319 行、導出の研究)
+- `docs/design/design-tokens.md` (167 行、トークン規約)
+
+取り込み時は 3 文書を v2 webui の `docs/decisions/` / `docs/design/` に写し、v2 の現状 (トークン 10 個、hex 24 種) に合わせて棚卸しを引き直す。
+
 ### 段階
 
 1. 意味名の語彙表を `docs/design/color-tokens.md` に置き、hex を全て層 2 経由に置き換える (visual 基準 14 枚で差分確認)
