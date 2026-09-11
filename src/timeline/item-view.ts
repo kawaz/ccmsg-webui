@@ -1,13 +1,5 @@
 import { TRANSCRIPT_ITEM_TYPES, type TranscriptItem } from "@ccmsg/protocol";
-import {
-  field,
-  type ItemCategory,
-  itemCategory,
-  type ItemRow,
-  ownFields,
-  textField,
-  typeTail,
-} from "./items.ts";
+import { field, type ItemRow, ownFields, textField, typeTail } from "./items.ts";
 
 /** 型 1 つ 1 つが画面で何と名乗り、何を出すか。
  *
@@ -55,6 +47,22 @@ export function itemLabel(item: TranscriptItem): string {
       return `→ ${textField(item, "name") ?? textField(item, "subagent_type") ?? "agent"}`;
     case "message:sub:in":
       return `← ${textField(item, "agent_id") ?? "agent"}`;
+    // 主語から見た上と横。worker を主語にすると `parent` が自分を起動した所を
+    // 指し、`team` は名前を持って立ち続けている相手との往復になる。
+    //
+    // 名乗るのは `harness_name` — 型が言うのは**主語から見た関係**なので、
+    // 相手そのものの名前は型に出ない。harness が付けた名前 (`main`、lead の
+    // 名前、teammate 名) が分かればそれを出し、分からない時だけ関係の名で
+    // 呼ぶ (agent が開口一番に受け取る指示書には、上から来たとしか書かれて
+    // いない)。
+    case "message:parent:in":
+      return `← ${textField(item, "harness_name") ?? "親"}`;
+    case "message:parent:out":
+      return `→ ${textField(item, "harness_name") ?? "親"}`;
+    case "message:team:in":
+      return `← ${textField(item, "harness_name") ?? textField(item, "agent_id") ?? "teammate"}`;
+    case "message:team:out":
+      return `→ ${textField(item, "harness_name") ?? "teammate"}`;
     case "thinking":
       return "思考";
     case "notice:slash":
@@ -195,25 +203,12 @@ function itemText(item: TranscriptItem): string {
   return words(itemLabel(item), itemProse(item) ?? itemDetail(item));
 }
 
-/** 畳みの見出し。中に何が畳まれているかを、軸ごとの数で決まった順に並べる。
+/** 畳みの見出し。何行畳まれていて、そのうち幾つをこの build が読めていないか。
  *
- * 汎用形は別に数える: 「item が 3 つ」と「そのうち 2 つはこの build が読めて
- * いない」は、開くかどうかを決める時に別の話になる。 */
+ * 汎用形を別に数えるのは、「item が 3 つ」と「そのうち 2 つは型名と field を
+ * 並べているだけ」が、開くかどうかを決める時に別の話になるから。 */
 export function foldLabel(rows: readonly ItemRow[]): string {
-  const names: readonly [ItemCategory | "generic", string][] = [
-    ["thinking", "思考"],
-    ["ccmsg", "ccmsg"],
-    ["agent", "agent 通信"],
-    ["other", "item"],
-    ["generic", "汎用形"],
-  ];
-  const counts = new Map<ItemCategory | "generic", number>();
-  for (const row of rows) {
-    const key = isGeneric(row.item) ? "generic" : itemCategory(row.item);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return names
-    .filter(([key]) => (counts.get(key) ?? 0) > 0)
-    .map(([key, name]) => `${String(counts.get(key))} ${name}`)
-    .join(" + ");
+  const generic = rows.filter((row) => isGeneric(row.item)).length;
+  const head = `${rows.length} item`;
+  return generic === 0 ? head : `${head} (${generic} 汎用形)`;
 }

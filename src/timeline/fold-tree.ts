@@ -5,7 +5,7 @@
 // item" cannot start by looking the element up: the element does not exist
 // until its enclosing folds are open. These keys name the folds to open first,
 // and match the keys Timeline registers them under.
-import { foldNeedsOuterFold, type ItemRow, type TimelineNode } from "./items.ts";
+import type { ItemRow, TimelineNode } from "./items.ts";
 import type { FoldOpen } from "./fold-open.ts";
 
 /** Keyed by the first item's id, the same value Timeline uses as the
@@ -19,6 +19,19 @@ export function foldGroupKey(rows: readonly ItemRow[]): string {
 /** The key of one thinking item's fold. */
 export function thinkFoldKey(id: string): string {
   return `think:${id}`;
+}
+
+/** The key of one message's own fold — the label above it, which closes the
+ * body down to a line. */
+export function messageFoldKey(id: string): string {
+  return `msg:${id}`;
+}
+
+/** The fold an item carries itself, when it has a body of its own to close.
+ * A line naming what happened has none: there is nothing under it to hide. */
+export function ownFoldKey(type: string, id: string): string | undefined {
+  if (type === "thinking") return thinkFoldKey(id);
+  return type.startsWith("message:") ? messageFoldKey(id) : undefined;
 }
 
 /** The key of one record's raw line, shown under any item read from it. Keyed
@@ -46,22 +59,28 @@ export function forgetFoldsOutside(folds: FoldOpen, held: ReadonlySet<string>): 
 function foldKeyNames(key: string): string | undefined {
   const at = key.indexOf(":");
   const kind = key.slice(0, at);
-  if (kind !== "fold" && kind !== "think" && kind !== "raw") return undefined;
+  if (kind !== "fold" && kind !== "think" && kind !== "msg" && kind !== "raw") return undefined;
   return key.slice(at + 1);
 }
 
-/** For every item, the folds enclosing it from outermost to innermost. Empty
- * for one that is always drawn (a message, or a hoisted single-item group).
+/** For every item, the folds enclosing it from outermost to innermost — the
+ * group's fold when it is in one, then the fold the item carries itself.
  *
- * Mirrors Timeline's own render decision exactly (`foldNeedsOuterFold`): a
- * group that draws no `<details>` encloses nothing, and a key listed here that
- * never gets a fold in the DOM would strand a search hit as un-openable. */
+ * Mirrors Timeline's own render decision: a key listed here that never gets a
+ * fold in the DOM would strand a search hit as un-openable. */
 export function foldPathsById(nodes: readonly TimelineNode[]): Map<string, string[]> {
   const paths = new Map<string, string[]>();
+  const place = (row: ItemRow, outer: readonly string[]) => {
+    const own = ownFoldKey(row.item.type, row.item.id);
+    paths.set(row.item.id, own === undefined ? [...outer] : [...outer, own]);
+  };
   for (const node of nodes) {
-    if (node.kind !== "fold") continue;
-    const path = foldNeedsOuterFold(node.rows) ? [foldGroupKey(node.rows)] : [];
-    for (const row of node.rows) paths.set(row.item.id, path);
+    if (node.kind === "row") {
+      place(node.row, []);
+      continue;
+    }
+    const outer = [foldGroupKey(node.rows)];
+    for (const row of node.rows) place(row, outer);
   }
   return paths;
 }

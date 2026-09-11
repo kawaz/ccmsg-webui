@@ -44,7 +44,7 @@ test("末尾から始まり、遡ると手前が頁ずつ足される", async ({
   await top();
   await expect(heading).toHaveText(/400 item/);
   await top();
-  // fixture の 8 item ごと、transcript ぜんぶ。`prev` が返らなくなった所が始まり。
-  await expect(heading).toHaveText(/508 item/);
+  // fixture の 11 item ごと、transcript ぜんぶ。`prev` が返らなくなった所が始まり。
+  await expect(heading).toHaveText(/511 item/);
   await expect(page.locator(".tl-edge").first()).toHaveText("— 先頭 —");
 });

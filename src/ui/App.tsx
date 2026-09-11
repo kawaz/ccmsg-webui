@@ -128,6 +128,26 @@ export function App() {
           )}
         </>
       )}
+      {at.at === "agent" && (
+        <>
+          <nav class="tabs" aria-label="セッションの見方">
+            <a
+              href={href({ at: "session", sid: at.sid, tab: "timeline" })}
+              onClick={(event: MouseEvent) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+                event.preventDefault();
+                navigate({ at: "session", sid: at.sid, tab: "timeline" });
+              }}
+            >
+              ← 親のセッション
+            </a>
+            <a class="on" aria-current="page" href={href(at)}>
+              worker {at.agentId}
+            </a>
+          </nav>
+          <Timeline sid={at.sid} />
+        </>
+      )}
       {at.at === "unknown" && (
         <section class="section">
           <h2>404</h2>

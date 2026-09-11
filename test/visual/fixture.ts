@@ -12,6 +12,10 @@ import { join } from "node:path";
 
 export const SID = "11111111-2222-4333-8444-555555555555";
 export const OTHER_SID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+/** The worker the session starts, which the agent screen reads as its subject.
+ * Spelled the way the harness spells one, because the instance checks the shape
+ * before it opens a file by that name. */
+export const AGENT_ID = "a471372f2";
 
 const AT = "2026-03-01T04:05:06.000Z";
 
@@ -102,6 +106,36 @@ function transcript(): string {
       },
     ]),
     line({ type: "なにか", timestamp: AT, note: "読み手が置けなかった行" }),
+    // worker への依頼と、返ってきた答え。親に残るのはこの 2 行だけで、worker が
+    // 何を叩いたかは worker 自身の transcript にしか無い — その入口が画面に出る。
+    assistant([
+      {
+        type: "tool_use",
+        id: "tu_agent",
+        name: "Agent",
+        input: {
+          name: "fold-scout",
+          subagent_type: "Explore",
+          description: "畳み方の実装を読む",
+          prompt: "topic-fold.ts の畳み方を読んで、窓を持つ topic を挙げて。",
+        },
+      },
+    ]),
+    line({
+      type: "user",
+      timestamp: AT,
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "tu_agent",
+            content: "窓を持つのは append だけでした。",
+          },
+        ],
+      },
+      toolUseResult: { agentId: AGENT_ID, status: "ok" },
+    }),
     assistant([
       {
         type: "text",
@@ -132,6 +166,56 @@ just visual
 \`\`\`
 `;
 
+/** The worker's own transcript: the brief it was given, what it thought, what
+ * it ran, and the answer it returned. Every line is its own, which is the whole
+ * point of reading it as a subject. */
+function agentTranscript(): string {
+  return [
+    user("topic-fold.ts の畳み方を読んで、窓を持つ topic を挙げて。"),
+    assistant([{ type: "thinking", thinking: "まず isFoldable を読んで、粒度ごとの分岐を見る。" }]),
+    assistant([
+      {
+        type: "tool_use",
+        id: "tu_agent_grep",
+        name: "Grep",
+        input: { pattern: "granularity", path: "src" },
+      },
+    ]),
+    line({
+      type: "user",
+      timestamp: AT,
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "tu_agent_grep", content: "3 hits" }],
+      },
+      toolUseResult: { numFiles: 1, numLines: 3 },
+    }),
+    assistant([
+      {
+        type: "tool_use",
+        id: "tu_agent_read",
+        name: "Read",
+        input: { file_path: "src/topic-fold.ts", limit: 40 },
+      },
+    ]),
+    line({
+      type: "user",
+      timestamp: AT,
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "tu_agent_read",
+            content: "     1\texport function isFoldable",
+          },
+        ],
+      },
+    }),
+    assistant([{ type: "text", text: "窓を持つのは `append` だけでした。" }]),
+  ].join("");
+}
+
 export interface Fixture {
   readonly transcriptPath: string;
 }
@@ -142,6 +226,9 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(project, { recursive: true });
   const transcriptPath = join(project, `${SID}.jsonl`);
   writeFileSync(transcriptPath, transcript());
+  const agents = join(project, SID, "subagents");
+  mkdirSync(agents, { recursive: true });
+  writeFileSync(join(agents, `agent-${AGENT_ID}.jsonl`), agentTranscript());
 
   mkdirSync(join(cwd, "src"), { recursive: true });
   writeFileSync(join(cwd, "src", "topic-fold.ts"), CODE);

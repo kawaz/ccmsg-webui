@@ -1,4 +1,4 @@
-import { computed, signal } from "@preact/signals";
+import { computed, type ReadonlySignal, signal } from "@preact/signals";
 import type {
   Sid,
   TopicName,
@@ -6,6 +6,7 @@ import type {
   TranscriptItemsReadResult,
   TranscriptReadResult,
 } from "@ccmsg/protocol";
+import type { DisplayFace } from "./display.ts";
 import { buildTimeline, recordRange, type TimelineNode } from "./items.ts";
 
 /** One session's transcript as the screen holds it: the items an instance read
@@ -61,7 +62,9 @@ interface Held {
 export class TranscriptItemsView {
   readonly #port: TranscriptPort;
   readonly #sid: Sid;
-  readonly #topic: TopicName;
+  readonly #topic: TopicName | undefined;
+  readonly #agentId: string | undefined;
+  readonly #display: ReadonlySignal<DisplayFace>;
   #held: readonly Held[] = [];
   #ids = new Set<string>();
   #reading = false;
@@ -77,20 +80,47 @@ export class TranscriptItemsView {
   readonly failure = signal<string | undefined>(undefined);
   readonly records = signal<ReadonlyMap<string, RawRecord>>(new Map());
 
-  readonly groups = computed<readonly TimelineNode[]>(() => buildTimeline(this.items.value));
+  /** 並びは item だけでは決まらない: どの型がトップ層に立つかは読み手の設定
+   * なので、設定が変われば同じ item が別の並びになる。 */
+  readonly groups: ReadonlySignal<readonly TimelineNode[]>;
 
-  constructor(port: TranscriptPort, sid: Sid) {
+  constructor(
+    port: TranscriptPort,
+    sid: Sid,
+    display: ReadonlySignal<DisplayFace>,
+    agentId?: string,
+  ) {
     this.#port = port;
     this.#sid = sid;
-    this.#topic = `transcript_items:${sid}`;
+    this.#agentId = agentId;
+    // An agent has no topic. `transcript_items:<sid>` carries the session's own
+    // items, so subscribing to it while reading an agent would mix the parent's
+    // transcript into the agent's. What an agent can be asked for is a read,
+    // which is why its screen does not follow a tail.
+    this.#topic = agentId === undefined ? `transcript_items:${sid}` : undefined;
+    this.#display = display;
+    this.groups = computed<readonly TimelineNode[]>(() =>
+      buildTimeline(this.items.value, this.#display.value),
+    );
   }
 
   get sid(): Sid {
     return this.#sid;
   }
 
-  get topic(): TopicName {
+  get topic(): TopicName | undefined {
     return this.#topic;
+  }
+
+  /** The agent this reads, when it reads one below the session. What says the
+   * screen is following nothing: there is no topic for an agent. */
+  get agentId(): string | undefined {
+    return this.#agentId;
+  }
+
+  /** Whether new items can still arrive on their own. */
+  get follows(): boolean {
+    return this.#topic !== undefined;
   }
 
   /** The ids held now, which is what says whose fold state is still about
@@ -108,7 +138,7 @@ export class TranscriptItemsView {
    * Asking is idempotent — a read is skipped while one is in flight or items
    * are already held — so the two cost one read. */
   open(): void {
-    this.#port.subscribe(this.#topic);
+    if (this.#topic !== undefined) this.#port.subscribe(this.#topic);
     this.ensureFirstPage();
   }
 
@@ -119,13 +149,14 @@ export class TranscriptItemsView {
 
   close(): void {
     this.#closed = true;
-    this.#port.unsubscribe(this.#topic);
+    if (this.#topic !== undefined) this.#port.unsubscribe(this.#topic);
   }
 
   /** Take one `transcript_items:<sid>` frame: the tail the subscription opens
    * with, or what has since been classified. Both are appended by the same
    * rule, because both are items that come after what is held. */
   take(data: { sid: Sid; items?: readonly TranscriptItem[] }): void {
+    if (this.#topic === undefined) return;
     if (data.sid !== this.#sid || data.items === undefined) return;
     this.#append(data.items);
   }
@@ -148,6 +179,7 @@ export class TranscriptItemsView {
       const oldest = this.#held[0]?.item;
       const reply = (await this.#port.request("transcript_items_read", {
         sid: this.#sid,
+        ...(this.#agentId === undefined ? {} : { agent_id: this.#agentId }),
         limit: PAGE_ITEMS,
         ...(oldest === undefined ? {} : { until_id: oldest.id }),
       })) as unknown as TranscriptItemsReadResult;
@@ -172,6 +204,7 @@ export class TranscriptItemsView {
     try {
       const reply = (await this.#port.request("transcript_read", {
         sid: this.#sid,
+        ...(this.#agentId === undefined ? {} : { agent_id: this.#agentId }),
         ...recordRange(item),
       })) as unknown as TranscriptReadResult;
       if (this.#closed) return;

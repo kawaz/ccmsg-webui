@@ -1,4 +1,4 @@
-import { OTHER_SID, SID } from "./fixture.ts";
+import { AGENT_ID, OTHER_SID, SID } from "./fixture.ts";
 import { expect, shot, test } from "./harness.ts";
 
 /** What the screens look like, screen by screen.
@@ -63,6 +63,29 @@ test("timeline-raw-record", async ({ ui: page, instance }) => {
   await raw.click();
   await expect(page.locator("details.tl-raw[open] pre")).toContainText("uuid");
   await shot(page, "timeline-raw-record.png");
+});
+
+// 型ごとの表示属性。並ぶのは組み込みが名乗っている型と、この画面が実際に見た型
+// (とその上の型) で、継いでいる値は薄く出る。
+test("timeline-display", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
+  await page.locator("details.tl-display > summary").click();
+  await expect(page.getByRole("row", { name: /system:unknown/ })).toBeVisible();
+  await shot(page, "timeline-display.png");
+});
+
+// worker を主語にして開いた画面。並びは sub の面の既定 — 道具がトップ層に
+// 1 行ずつ並び、本文は閉じている。
+test("timeline-agent", async ({ ui: page, instance }) => {
+  // 親から降りる: 起動した所がそのまま入口になっているかを、URL を打つのでは
+  // なく押して確かめる。
+  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  await page.getByRole("link", { name: "この worker を開く" }).first().click();
+  await expect(page).toHaveURL(new RegExp(`/agent/${AGENT_ID}/timeline$`));
+  await expect(page.getByRole("heading", { name: new RegExp(`worker ${AGENT_ID}`) })).toBeVisible();
+  await expect(page.getByText("窓を持つのは")).toBeVisible();
+  await shot(page, "timeline-agent.png");
 });
 
 test("timeline-search", async ({ ui: page, instance }) => {

@@ -5,8 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildTimeline,
-  foldNeedsOuterFold,
-  itemCategory,
+  foldShouldOpen,
   nodeKey,
   nodeRows,
   ownFields,
@@ -20,17 +19,24 @@ import {
   itemProse,
   rowText,
 } from "../src/timeline/item-view.ts";
+import type { DisplayFace } from "../src/timeline/display.ts";
 import { item, result, use } from "./item.ts";
+
+/** 何も付けていない main の面 = 組み込みの既定だけ。 */
+const MAIN: DisplayFace = { subject: "main", settings: {} };
 
 describe("buildTimeline", () => {
   test("会話と思考はそれ自身で 1 つ、続いたそれ以外は 1 つの畳みになる", () => {
-    const nodes = buildTimeline([
-      item("message:user:in", { text: "やって" }),
-      item("thinking", { text: "考える" }),
-      use("tool:Bash", { tool_use_id: "t1", command: "ls" }),
-      use("tool:Read", { tool_use_id: "t2", file_path: "a.ts" }),
-      item("message:user:out", { text: "やった" }),
-    ]);
+    const nodes = buildTimeline(
+      [
+        item("message:user:in", { text: "やって" }),
+        item("thinking", { text: "考える" }),
+        use("tool:Bash", { tool_use_id: "t1", command: "ls" }),
+        use("tool:Read", { tool_use_id: "t2", file_path: "a.ts" }),
+        item("message:user:out", { text: "やった" }),
+      ],
+      MAIN,
+    );
     expect(nodes.map((node) => node.kind)).toEqual(["row", "row", "fold", "row"]);
     expect(nodeRows(nodes[2]!).length).toBe(2);
   });
@@ -38,11 +44,11 @@ describe("buildTimeline", () => {
   test("直後に来た答えは呼び出しの中に畳まれ、離れた答えは来た所に残る", () => {
     const call = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
     const answer = result("tool:Bash", call, { stdout: "a\nb" });
-    const near = buildTimeline([call, answer]);
+    const near = buildTimeline([call, answer], MAIN);
     expect(near.length).toBe(1);
     expect(nodeRows(near[0]!)[0]?.result).toBe(answer);
 
-    const far = buildTimeline([call, item("message:user:out", { text: "待つ" }), answer]);
+    const far = buildTimeline([call, item("message:user:out", { text: "待つ" }), answer], MAIN);
     expect(far.length).toBe(3);
     expect(nodeRows(far[0]!)[0]?.result).toBeUndefined();
   });
@@ -50,7 +56,7 @@ describe("buildTimeline", () => {
   test("agent への依頼の答えは、何を挟んでも依頼の中に畳まれる", () => {
     const brief = use("message:sub:out", { prompt: "調べて", name: "scout" });
     const answer = result("message:sub:in", brief, { text: "調べた", agent_id: "a1" });
-    const nodes = buildTimeline([brief, item("thinking", { text: "待つ" }), answer]);
+    const nodes = buildTimeline([brief, item("thinking", { text: "待つ" }), answer], MAIN);
     expect(nodes.length).toBe(2);
     expect(nodeRows(nodes[0]!)[0]?.result).toBe(answer);
   });
@@ -62,7 +68,7 @@ describe("buildTimeline", () => {
       parent_tool_use_id: "t9",
       stdout: "x",
     });
-    const nodes = buildTimeline([orphan]);
+    const nodes = buildTimeline([orphan], MAIN);
     expect(nodes.length).toBe(1);
     expect(nodeKey(nodes[0]!)).toBe(orphan.id);
   });
@@ -71,30 +77,52 @@ describe("buildTimeline", () => {
     const call = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
     // instance が呼び出しを読めていない答えは `tool:unknown` として届く。
     const answer = result("tool:unknown", { tool_use_id: "t1" }, { result: { stdout: "a" } });
-    const nodes = buildTimeline([call, answer]);
+    const nodes = buildTimeline([call, answer], MAIN);
     expect(nodes.length).toBe(1);
     expect(nodeRows(nodes[0]!)[0]?.result).toBe(answer);
   });
 });
 
-describe("畳みの見た目", () => {
-  test("中身が 1 つの item だけなら外側の畳みは出さない", () => {
-    const alone = [{ item: use("tool:Bash", { tool_use_id: "t", command: "ls" }) }];
-    expect(foldNeedsOuterFold(alone)).toBe(false);
-    expect(foldNeedsOuterFold([...alone, ...alone])).toBe(true);
-    // agent 通信は 1 つでも畳みを出す: 何が畳まれているかが見出しに要る。
-    expect(
-      foldNeedsOuterFold([{ item: use("tool:Agent", { tool_use_id: "t", prompt: "p" }) }]),
-    ).toBe(true);
+describe("表示属性が並びを決める", () => {
+  const rows = [
+    item("message:user:in", { text: "やって" }),
+    use("tool:Bash", { tool_use_id: "t1", command: "ls" }),
+  ];
+
+  test("トップ層から外した型は、隣の畳みに入る", () => {
+    const nodes = buildTimeline(rows, {
+      subject: "main",
+      settings: { "message:user:in": { top: false } },
+    });
+    expect(nodes.map((node) => node.kind)).toEqual(["fold"]);
+    expect(nodeRows(nodes[0]!).length).toBe(2);
   });
 
-  test("見出しは軸ごとの数を決まった順で並べる", () => {
+  test("トップ層に上げた型は、畳みから出て自分で立つ", () => {
+    const nodes = buildTimeline(rows, { subject: "main", settings: { tool: { top: true } } });
+    expect(nodes.map((node) => node.kind)).toEqual(["row", "row"]);
+  });
+
+  test("畳みは、中に開く型が 1 つでも居れば開く", () => {
+    const bash = [{ item: use("tool:Bash", { tool_use_id: "t", command: "ls" }) }];
+    expect(foldShouldOpen(bash, MAIN)).toBe(false);
+    expect(
+      foldShouldOpen(bash, { subject: "main", settings: { "tool:Bash": { open: true } } }),
+    ).toBe(true);
+    // 上の型に付けた値も効く。
+    expect(foldShouldOpen(bash, { subject: "main", settings: { tool: { open: true } } })).toBe(
+      true,
+    );
+  });
+});
+
+describe("畳みの見出し", () => {
+  test("何行畳まれているか", () => {
     const rows = [
-      { item: item("thinking", { text: "a" }) },
       { item: use("tool:Agent", { tool_use_id: "t", prompt: "p" }) },
       { item: use("tool:Bash", { tool_use_id: "u", command: "ls" }) },
     ];
-    expect(foldLabel(rows)).toBe("1 思考 + 1 agent 通信 + 1 item");
+    expect(foldLabel(rows)).toBe("2 item");
   });
 
   test("汎用形は別に数える (読めていない item が中に居ることが見出しで分かる)", () => {
@@ -102,18 +130,26 @@ describe("畳みの見た目", () => {
       { item: use("tool:Bash", { tool_use_id: "t", command: "ls" }) },
       { item: item("system:unknown", { record: {} }) },
     ];
-    expect(foldLabel(rows)).toBe("1 item + 1 汎用形");
+    expect(foldLabel(rows)).toBe("2 item (1 汎用形)");
   });
 });
 
-describe("itemCategory", () => {
-  test("4 つの軸は型の名前から決まる", () => {
-    expect(itemCategory(item("thinking", { text: "" }))).toBe("thinking");
-    expect(itemCategory(item("message:session:in", { text: "" }))).toBe("ccmsg");
-    expect(itemCategory(use("message:sub:out", { prompt: "" }))).toBe("agent");
-    expect(itemCategory(use("tool:Agent", { tool_use_id: "t", prompt: "" }))).toBe("agent");
-    expect(itemCategory(use("tool:Bash", { tool_use_id: "t", command: "ls" }))).toBe("other");
-    expect(itemCategory(item("message:user:in", { text: "" }))).toBe("other");
+// 型が言うのは主語から見た関係 (親・teammate) で、相手そのものの名前は型に
+// 出ない。名乗りに出すのは harness が付けた名前の方。
+describe("会話の相手の名乗り", () => {
+  test("harness が名前を付けていればそれを出す", () => {
+    expect(itemLabel(item("message:team:out", { text: "", harness_name: "impl-greedy" }))).toBe(
+      "→ impl-greedy",
+    );
+    expect(itemLabel(item("message:parent:in", { text: "", harness_name: "team-lead" }))).toBe(
+      "← team-lead",
+    );
+  });
+
+  test("名前が無ければ、主語から見た関係で呼ぶ", () => {
+    expect(itemLabel(item("message:parent:in", { text: "" }))).toBe("← 親");
+    expect(itemLabel(item("message:parent:out", { text: "" }))).toBe("→ 親");
+    expect(itemLabel(item("message:team:out", { text: "" }))).toBe("→ teammate");
   });
 });
 

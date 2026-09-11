@@ -1212,6 +1212,49 @@ export function parseMarkdownSource(source: string): Root {
   return root;
 }
 
+/** The document as a line of prose: what it says, with the marks that say how
+ * to draw it taken off.
+ *
+ * For a summary of something folded away. Reading it off the parsed tree rather
+ * than stripping the source with patterns is what makes it right about the
+ * cases that matter — a `#` that starts a heading disappears while a `#` inside
+ * a word stays, a link shows its text instead of its target, a fence shows the
+ * code instead of the backticks.
+ *
+ * Blocks are walked in order and the first one with anything to say wins: the
+ * summary stands for the message, and the message begins where its first words
+ * are. A table or a bare image has no prose of its own, so the walk moves past
+ * it rather than answering with an empty line. */
+export function markdownPlainText(source: string): string {
+  for (const block of parseMarkdownSource(source).children) {
+    const said = nodeText(block).replaceAll(/\s+/g, " ").trim();
+    if (said !== "") return said;
+  }
+  return "";
+}
+
+/** Nodes whose children are separate pieces rather than a run of one sentence:
+ * the items of a list, the cells of a row. Their parts need a gap between them,
+ * where a run of inline nodes already carries its own spacing and would gain a
+ * space in the middle of a word from one. */
+const SEPARATE_PARTS = new Set([
+  "list",
+  "listItem",
+  "blockquote",
+  "table",
+  "tableRow",
+  "tableCell",
+  "footnoteDefinition",
+]);
+
+function nodeText(node: unknown): string {
+  const held = node as { type?: unknown; value?: unknown; children?: unknown };
+  if (typeof held.value === "string") return held.value;
+  if (!Array.isArray(held.children)) return "";
+  const parts = held.children.map((child) => nodeText(child));
+  return parts.join(typeof held.type === "string" && SEPARATE_PARTS.has(held.type) ? " " : "");
+}
+
 /** `parseMarkdownSource` plus the `<details>` fold. Separate from the parse
  * seam so the fold can be unit-tested against hand-built trees, and so the
  * `<summary>` re-parse above can call the unfolded parse without recursing

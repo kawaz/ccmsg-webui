@@ -58,12 +58,17 @@ import {
 import { FoldOpen } from "./timeline/fold-open.ts";
 import { forgetFoldsOutside } from "./timeline/fold-tree.ts";
 import {
-  defaultTimelineAutoOpen,
-  parseTimelineAutoOpenSettings,
-  type TimelineAutoOpenSettings,
-  timelineAutoOpenStorageKey,
-  toggleTimelineAutoOpen,
-} from "./timeline/timeline-auto-open.ts";
+  clearDisplay,
+  type DisplayAxis,
+  type DisplayFace,
+  type DisplaySettings,
+  displayStorageKey,
+  formatDisplaySettings,
+  parseDisplaySettings,
+  setDisplay,
+  type Subject,
+  SUBJECTS,
+} from "./timeline/display.ts";
 import { TranscriptItemsView } from "./timeline/items-view.ts";
 import { type Slot, TopicFold, union } from "./topic-fold.ts";
 
@@ -168,38 +173,61 @@ const NOTIFICATION_LIMIT = 50;
 
 let notificationCounter = 0;
 
-/** Which kinds of fold open by themselves, and the open/closed state of each
- * individual fold in the timeline being read.
+/** 型ごとの表示属性と、今読んでいる TL の畳み 1 つ 1 つの開閉。
  *
- * The settings are the *default* every fold falls back to, so changing them
- * takes effect by dropping what the reader had overridden rather than by
- * rewriting each fold — which is also what lets a fold nobody has touched
- * follow the settings without the store knowing what its default is. */
-export const timelineAutoOpen = signal<TimelineAutoOpenSettings>(defaultTimelineAutoOpen(false));
+ * 表示属性は各 fold が落ちる**既定**なので、変更は各 fold を書き換えるのでは
+ * なく読み手の上書きを捨てることで効く — store が各 fold の既定を知らないまま、
+ * 誰も触っていない fold が設定に従う、という形。 */
+const displayFaces = signal<Readonly<Record<Subject, DisplaySettings>>>(loadDisplayFaces());
 export const timelineFolds = signal(new FoldOpen());
 
-/** Where one session's auto-open settings are kept.
- *
- * A session id names a session on one instance, and a browser reaches several
- * instances from the one store, so what is kept per session is keyed by both.
- * Nothing is stored until an instance has answered — before that there is no
- * name to key on, and the defaults are what a first look at a session gets. */
-function autoOpenKey(): string | undefined {
-  const instance = hello.value?.instance;
-  const at = route.value;
-  if (instance === undefined || at.at !== "session") return undefined;
-  return timelineAutoOpenStorageKey(instance, at.sid, undefined);
+/** 今読んでいる主語。URL が決める — sid だけなら main、agent を名指していれば
+ * その worker。画面が主語を覚えるのではなく、開いている所がそのまま主語。 */
+export const timelineSubject = computed<Subject>(() =>
+  route.value.at === "agent" ? "sub" : "main",
+);
+
+/** 今の画面に効いている面。 */
+export const timelineDisplay = computed<DisplayFace>(() => ({
+  subject: timelineSubject.value,
+  settings: displayFaces.value[timelineSubject.value],
+}));
+
+/** 設定画面が編集する側の面 (今読んでいる面とは限らない — もう一面はタブで
+ * 切り替えて触れる)。 */
+export function displayFace(subject: Subject): DisplayFace {
+  return { subject, settings: displayFaces.value[subject] };
 }
 
-export function toggleTimelineAutoOpenSetting(key: keyof TimelineAutoOpenSettings): void {
-  const next = toggleTimelineAutoOpen(timelineAutoOpen.value, key);
-  timelineAutoOpen.value = next;
-  // Every fold goes back to its own default, which is what the new settings
-  // just changed. What the reader opened by hand was an answer to the old
-  // defaults, so it is not carried over.
+/** 覚えていた読み方。instance にもセッションにも依らないので、繋ぐ前に — この
+ * module が読まれた所で — 1 度読めば足りる。 */
+function loadDisplayFaces(): Record<Subject, DisplaySettings> {
+  const read = { main: {}, sub: {} } as Record<Subject, DisplaySettings>;
+  for (const subject of SUBJECTS) {
+    read[subject] = parseDisplaySettings(localStore.get(displayStorageKey(subject)));
+  }
+  return read;
+}
+
+function writeDisplay(subject: Subject, next: DisplaySettings): void {
+  displayFaces.value = { ...displayFaces.value, [subject]: next };
+  // どの fold も自分の既定に戻る — その既定を今変えたところなので。手で開いた
+  // 分は古い既定への答えなので持ち越さない。
   timelineFolds.value.reset();
-  const key_ = autoOpenKey();
-  if (key_ !== undefined) localStore.set(key_, JSON.stringify(next));
+  localStore.set(displayStorageKey(subject), formatDisplaySettings(next));
+}
+
+export function setTimelineDisplay(
+  subject: Subject,
+  type: string,
+  axis: DisplayAxis,
+  value: boolean,
+): void {
+  writeDisplay(subject, setDisplay(displayFaces.value[subject], type, axis, value));
+}
+
+export function clearTimelineDisplay(subject: Subject, type: string): void {
+  writeDisplay(subject, clearDisplay(displayFaces.value[subject], type));
 }
 
 const folds = new Map<string, TopicFold<unknown>>();
@@ -295,20 +323,22 @@ export const connection = new Connection({
   },
 });
 
-// Which session's transcript is being followed is decided by the URL and by
-// nothing else, so entering, leaving, and moving between sessions are one rule
-// rather than three call sites that have to agree.
+// Which transcript is being read is decided by the URL and by nothing else, so
+// entering, leaving, and moving between sessions are one rule rather than three
+// call sites that have to agree. An agent route names the same session and one
+// agent below it, which is a different transcript and so a different view.
 effect(() => {
   const at = route.value;
-  const wanted = at.at === "session" ? at.sid : undefined;
+  const wanted = at.at === "session" || at.at === "agent" ? at.sid : undefined;
+  const agentId = at.at === "agent" ? at.agentId : undefined;
   const held = transcript.peek();
-  if (held?.sid === wanted) return;
+  if (held?.sid === wanted && held?.agentId === agentId) return;
   held?.close();
   if (wanted === undefined) {
     transcript.value = undefined;
     return;
   }
-  const view = new TranscriptItemsView(connection, wanted);
+  const view = new TranscriptItemsView(connection, wanted, timelineDisplay, agentId);
   // A fold's state is about the transcript being read, so moving to another
   // session starts from that session's own settings and no held overrides.
   timelineFolds.value = new FoldOpen();
@@ -390,19 +420,6 @@ export function sessionPaths(sid: Sid): { cwd?: string; root?: string } {
   if (peer === undefined) return {};
   return { cwd: peer.cwd, ...(peer.repo_root === undefined ? {} : { root: peer.repo_root }) };
 }
-
-// The settings a session was last read with, once there is an instance to key
-// them on. Read rather than written here: a look at a session neither creates
-// nor migrates a stored value.
-effect(() => {
-  const key = autoOpenKey();
-  const fallback = defaultTimelineAutoOpen(false);
-  timelineAutoOpen.value =
-    key === undefined
-      ? fallback
-      : parseTimelineAutoOpenSettings(localStore.get(key) ?? null, fallback);
-  timelineFolds.peek().reset();
-});
 
 /** The person's other tabs at this endpoint: who refreshes, and what they all
  * hold once one of them has (DR-0001 §2.4). Absent when there is no endpoint to

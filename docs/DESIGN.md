@@ -45,7 +45,7 @@ A transcript is fetched, read, and drawn, and those are three layers.
 | Layer | File | Responsibility |
 |---|---|---|
 | fetch | `src/timeline/items-view.ts` | the `transcript_items:<sid>` subscription, the backwards `transcript_items_read`, and the `transcript_read` that fetches a raw record |
-| model | `src/timeline/items.ts` `src/timeline/item-view.ts` | typed items to `TimelineNode` — joining a call with its answer, gathering a run into a fold — and what each type is called and says. Pure functions only |
+| model | `src/timeline/items.ts` `src/timeline/item-view.ts` `src/timeline/display.ts` | typed items to `TimelineNode` — joining a call with its answer, gathering a run into a fold — what each type is called and says, and each type's display attributes. Pure functions only |
 | draw | `src/ui/Timeline.tsx`, `src/markdown/` | reading the nodes, what a scroll position means, how Markdown is read, and how a fold looks |
 
 **The classifying is the instance's, the contract is the vocabulary of types, and this build never reads jsonl.** A transcript is a file a harness writes in whatever shape it settles on, so deciding which record is which item belongs to whoever holds the file. What arrives here is the classified item, and the shape of a record is written nowhere in this layer — which is what lets the harness change its file, or a second harness be read at all, without this moving.
@@ -56,7 +56,7 @@ A transcript is fetched, read, and drawn, and those are three layers.
 
 **Subscribe first, read second.** The other order loses whatever is classified between the end of the read and the start of the subscription. The subscription opens with the last 200 items, and an item that arrives twice is counted once: what identifies it is its id.
 
-**A screen holds the last mebibyte's worth.** What it follows only grows, so without a bound a tab left open holds all of it. What is weighed is the items themselves, and the floor is the 200 the snapshot carries — a window that let go of what it was just given would ask for it forever. They are let go of only where the window grows at its end, so a page someone scrolled up for is never taken back out from under them by the read that fetched it. The open/closed state of a fold on an item that went (`fold:<item id>`, `think:<item id>`, `raw:<record id>`) goes at the same moment: a fold whose item is gone means nothing, and an item paged back in starts from the reader's default.
+**A screen holds the last mebibyte's worth.** What it follows only grows, so without a bound a tab left open holds all of it. What is weighed is the items themselves, and the floor is the 200 the snapshot carries — a window that let go of what it was just given would ask for it forever. They are let go of only where the window grows at its end, so a page someone scrolled up for is never taken back out from under them by the read that fetched it. The open/closed state of a fold on an item that went (`fold:<item id>`, `msg:<item id>`, `think:<item id>`, `raw:<record id>`) goes at the same moment: a fold whose item is gone means nothing, and an item paged back in starts from the reader's default.
 
 **Every read names no lower bound.** A read without one answers the **newest** of its range, with `prev` naming what stands before it, which is what lets a screen walk back a page at a time from the end. The upper bound is the **oldest item held** (`until_id`, which the read excludes) — the same item a reply hands back as `prev`, and taking it from what is held keeps it right once the window has let go of its front, where a remembered `prev` would name something dropped and leave a hole behind it. The first read, with nothing held, names no bound at all: that is the transcript's tail. A reply with no `prev` is the transcript's beginning.
 
@@ -67,6 +67,33 @@ The scroll position is what separates following from reading. At the bottom a pe
 **Either the view is stuck to the end, or it is anchored to one line.** While following, the end is taken again whenever the end moves — a guess replaced by a measurement moves a spacer, so placing it once is not enough. It is not taken again when the end has not moved, because a finger on its way up out of the few pixels that count as the end is in there too. While reading, what is held is the name of the first line a person can see and the distance from its top, and that line is put back where it was both when a page is added above and when a line above it is measured for the first time. It is held by name rather than by index because the window grows at both ends, and an index names a different line each time it does. A height is forgotten when the window lets go of its line — the same moment that line's folds are forgotten.
 
 **What could already reach a hidden line still reaches one.** Counting is about what is held rather than what is drawn, as it already is for a folded line, and moving to a match works the way opening the enclosing folds does: the line's place is taken from the remembered heights, the window is moved there, and once the element exists it is centred. That the line is there to be centred is what the spacers guarantee — the height they carry and the place moved to come from the same table.
+
+## A type's display attributes
+
+**Where an item is drawn, and how far open, is decided by its type** (`src/timeline/display.ts`). There are two axes and no more:
+
+- **top** — whether it stands on the timeline's top level. An item that does not joins the run beside it, and a run becomes one fold (`N item`)
+- **open** — whether it is open by default. For an item inside a fold that decides whether the enclosing fold opens; for an item with a body of its own (a message, a thinking block) it decides whether that body is open
+
+**The table has two faces, one per subject** (`main` / `sub`). The same `tool:Bash` is something that happened beside the conversation when the subject is the session, and is **what the worker did** when the subject is a worker — two reasons to read, so not one default. The built-in defaults come in two faces as well: main stands the conversation and the thinking up with their bodies and folds the tools away; sub stands the tools on the top level one line each and keeps their bodies closed (a worker is opened to follow what it ran and read, and opening the bodies fills the screen with one of them). Which face applies is decided by **the subject of the transcript being read** — a sid alone is main, an agent named is sub. Inheritance is closed within a face; nothing is inherited across one.
+
+**A setting is inherited down the type name.** Names are `:`-separated, so a value set on `tool` reaches `tool:Bash`, and a value set on `tool:Bash` overrides that one alone. A type with nothing set falls to the built-in default. **Each axis is set independently**, so `tool:Bash` can move one axis while still inheriting the other. Types are an open set the harness keeps adding to, and a flat list has nothing to say about a name it has never seen — a hierarchy always has an answer, the one its root gives.
+
+**The values are kept per face** (`ccmsg.timeline.display:<main|sub>`). "Fold the thinking away" is how a reader reads, so it is split by neither instance nor session (see the key discipline below). A stored value that will not parse is dropped entry by entry: one type's value being unreadable is no reason to lose what was set on the others.
+
+**The panel opens on the face in use and switches to the other with a tab**, so how a worker reads can be decided before one is opened. What it lists is the types the built-in defaults name, plus the types this screen has actually seen (and the types above them). Listing types ahead of seeing them would be rows for what this instance never emits. An inherited value is drawn faint, clicking it sets it on that type, and "継ぐ" drops it back to whatever the type above — or the built-in default — says.
+
+## Reading one agent as the subject
+
+What the parent's transcript holds of a worker is the brief and the answer; **what it ran and what it read is only in the worker's own transcript**. `/s/<sid>/agent/<agentId>/timeline` reads that one as the subject.
+
+**Reading is `transcript_items_read` with `agent_id` added** and nothing else: the item types and the way a range is cut are the session's. Types are defined relative to the subject (`message:user:in` is the brief its parent gave it), so the vocabulary stays and only the subject moves. The raw record is reached the same way, by `agent_id` on `transcript_read`.
+
+**The tail is not followed.** What carries appended items is `transcript_items:<sid>`, and that topic is **the session's**. The contract has no topic for an agent, so an agent's screen opens no subscription and only reads — subscribing would mix the parent's transcript into the worker's. The screen says so, and says that re-reading shows what has since been written.
+
+**Only the timeline is under an agent.** The files, the terminal and the state are the session's, and an agent has none of its own. A URL naming another tab under an agent is a 404 rather than a silent fall back to the timeline, which would lose what the link that was sent actually pointed at.
+
+**The way down and the way back are both drawn.** A row whose `message:sub:out` / `message:sub:in` / `tool:Agent` carries an `agent_id` offers to open that worker, and the worker's screen offers its parent. Which of the two items the id was written on is not the question, so both ends of the row are looked at.
 
 ## Drawing: Markdown and highlighting
 
@@ -84,7 +111,7 @@ Whether a fold is open is held **outside** the component drawing it (`src/timeli
 
 **One signal per key**, not one signal holding a map. A component reads the key it draws, so opening one fold leaves the rest of the timeline alone — which is the reason the state is out there at all.
 
-**Only folds the reader touched are recorded.** Absent means "still at the caller's default", which is how a change to the auto-open settings takes effect without the store knowing what any fold's default is: changing them drops the overrides.
+**Only folds the reader touched are recorded.** Absent means "still at the caller's default", which is how a change to a type's display attributes takes effect without the store knowing what any fold's default is: changing them drops the overrides.
 
 **A closed fold's body is not drawn, but a body once drawn stays.** Most of a transcript lives inside a fold, so drawing every closed body would mean rendering — and highlighting — a whole session to show the few lines anyone is reading. Discarding a body on close would instead make closing a fold mean throwing away the work of having opened it.
 
@@ -194,10 +221,12 @@ Names carry **the endpoint and the subject** (`ccmsg.auth.refresh:<endpoint>:<su
 
 ## localStorage keys name what they belong to
 
-A browser holds one store for the site while one person reaches several instances through it, so **anything belonging to an instance names it**.
+A browser holds one store for the site while one person reaches several instances through it, so what a key names is decided by **whose the value is**.
 
 - **Neither a secret nor the endpoint is kept here** (above)
-- anything kept per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). A session id only names a session on one instance. The Timeline's auto-open settings (`ccmsg.tl.autoOpen:...`) an unsent draft (`ccmsg.draft:<instance>:<sid>`) and what the files tab remembers (`ccmsg.files:<instance>:<sid>`) are this
+- **What would collide names its instance (and its sid)**: a lock, a channel, a session's state — values where the same name on another instance means something else. One store reaches both, so without the names apart one would read the other's.
+  - per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). An unsent draft (`ccmsg.draft:<instance>:<sid>`) and what the files tab remembers (`ccmsg.files:<instance>:<sid>`) are this
+- **A preference about reading is one for all of it**: a type's display attributes (`ccmsg.timeline.display:<main|sub>`) name neither an instance nor a sid. "Fold the thinking away", "stand the tools on the top level" is **how this person reads**, not a fact about which instance or session is open — splitting it per instance would mean deciding how to read again every time the same person opens another instance. What it does split by is the subject's face (main / worker), because there the reason for reading differs
 
 ## The contract validates its own frames
 

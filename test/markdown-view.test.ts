@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { VNode } from "preact";
 import type { Root } from "mdast";
 import {
+  markdownPlainText,
   extractMarkdownHeadings,
   foldMarkdownSections,
   extractTaskStates,
@@ -1705,3 +1706,33 @@ describe("renderMarkdownAst with sections", () => {
 // separate mdast node types, link children are marked while walking), so they
 // are pinned here through the real parser rather than against the recognizer,
 // which issue-ref.test.ts covers on its own.
+
+// 畳んだ 1 通が名乗りの隣で言うこと。読み手が見るのは畳んだ中身の代わりなので、
+// 描き方を決めている記法は要約に残らない。
+describe("markdownPlainText", () => {
+  test("見出しの印は落ち、見出しの文が残る", () => {
+    expect(markdownPlainText("## 畳んだ値の読み方\n\n本文です。")).toBe("畳んだ値の読み方");
+  });
+
+  test("強調とコード span は中の文だけになる", () => {
+    expect(markdownPlainText("topic frame は **スロット** に畳まれ、`union` が足す。")).toBe(
+      "topic frame は スロット に畳まれ、union が足す。",
+    );
+  });
+
+  test("link は宛先ではなく読む文を出す", () => {
+    expect(markdownPlainText("詳しくは [DESIGN-ja.md](./docs/DESIGN-ja.md) を読んで。")).toBe(
+      "詳しくは DESIGN-ja.md を読んで。",
+    );
+  });
+
+  test("言うことを持たない block は飛ばして、最初に文のある所を出す", () => {
+    expect(markdownPlainText("| a | b |\n|---|---|\n| 1 | 2 |\n\n表の通りです。")).toContain("a");
+    expect(markdownPlainText("\n\n\n最初の段落。\n\n次の段落。")).toBe("最初の段落。");
+  });
+
+  test("何も言っていない文は空になる (名乗りだけが残る)", () => {
+    expect(markdownPlainText("")).toBe("");
+    expect(markdownPlainText("   \n\n  ")).toBe("");
+  });
+});

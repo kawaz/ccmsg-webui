@@ -26,6 +26,27 @@ describe("the URL grammar", () => {
     expect(visibleTabs(false)).toEqual(visibleTabs(true).filter((tab) => tab !== "terminal"));
   });
 
+  // 親の transcript に出るのは worker への指示と返ってきた答えだけなので、その
+  // worker が何を叩いたかは worker を主語にして開く。
+  test("an agent below a session is its own address", () => {
+    expect(parseRoute(`/s/${SID}/agent/a471372f2/timeline`)).toEqual({
+      at: "agent",
+      sid: SID,
+      agentId: "a471372f2",
+    });
+    expect(routePath({ at: "agent", sid: SID, agentId: "a471372f2" })).toBe(
+      `/s/${SID}/agent/a471372f2/timeline`,
+    );
+  });
+
+  // timeline しか無い所へ別のタブ名を書いた URL は、黙って timeline に落とさ
+  // ない: 送られてきた link が何を指していたかが分からなくなる。
+  test("only the timeline is under an agent", () => {
+    expect(parseRoute(`/s/${SID}/agent/a471372f2/files`).at).toBe("unknown");
+    expect(parseRoute(`/s/${SID}/agent/a471372f2`).at).toBe("unknown");
+    expect(parseRoute(`/s/${SID}/agent`).at).toBe("unknown");
+  });
+
   test("anything else is a 404 rather than a guess", () => {
     expect(parseRoute("/s/not-a-sid").at).toBe("unknown");
     expect(parseRoute(`/s/${SID}/nonsense`).at).toBe("unknown");
@@ -82,6 +103,7 @@ describe("the grammar under a base", () => {
         { at: "sessions" },
         { at: "session", sid: SID, tab: "status" },
         { at: "session", sid: SID, tab: "files", path: "src/a.ts", lines: { start: 3, end: 9 } },
+        { at: "agent", sid: SID, agentId: "a471372f2" },
       ] as const) {
         const printed = routePath(route, base);
         const cut = printed.indexOf("?");

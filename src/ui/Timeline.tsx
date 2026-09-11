@@ -4,8 +4,15 @@ import { useSignal } from "@preact/signals";
 import type { Sid, TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { href } from "../base.ts";
-import { foldGroupKey, foldPathsById, rawFoldKey, thinkFoldKey } from "../timeline/fold-tree.ts";
 import {
+  foldGroupKey,
+  foldPathsById,
+  messageFoldKey,
+  rawFoldKey,
+  thinkFoldKey,
+} from "../timeline/fold-tree.ts";
+import {
+  brief,
   foldLabel,
   isGeneric,
   isTyped,
@@ -13,7 +20,22 @@ import {
   itemLabel,
   itemProse,
 } from "../timeline/item-view.ts";
-import { foldNeedsOuterFold, type ItemRow, nodeKey, type TimelineNode } from "../timeline/items.ts";
+import {
+  foldShouldOpen,
+  type ItemRow,
+  nodeKey,
+  textField,
+  type TimelineNode,
+} from "../timeline/items.ts";
+import {
+  DISPLAY_AXES,
+  type DisplayAxis,
+  displayRows,
+  isOwnValue,
+  resolveDisplay,
+  type Subject,
+  SUBJECTS,
+} from "../timeline/display.ts";
 import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { groupIndexByUnitKey, timelineSearchUnits } from "../search/timeline-units.ts";
 import {
@@ -28,12 +50,12 @@ import {
   totalHeight,
   visibleRange,
 } from "../timeline/virtual-window.ts";
-import { foldShouldAutoOpen } from "../timeline/timeline-auto-open.ts";
-import type { TimelineAutoOpenSettings } from "../timeline/timeline-auto-open.ts";
 import type { TranscriptItemsView } from "../timeline/items-view.ts";
 import { heldFor } from "../conversation/held-messages.ts";
 import { describeUndelivered } from "../conversation/send-outcome.ts";
 import {
+  clearTimelineDisplay,
+  displayFace,
   dropHeld,
   heldMessages,
   lastLive,
@@ -41,12 +63,17 @@ import {
   notifications,
   peers,
   sessionPaths,
-  timelineAutoOpen,
+  setTimelineDisplay,
+  timelineDisplay,
+  timelineSubject,
   timelineFolds,
-  toggleTimelineAutoOpenSetting,
   transcript,
 } from "../state.ts";
-import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
+import {
+  type MarkdownPathLinker,
+  markdownPlainText,
+  MarkdownView,
+} from "../markdown/markdown-view.tsx";
 import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
@@ -140,7 +167,8 @@ export function Timeline({ sid }: { sid: Sid }) {
     return <p class="empty">接続すると transcript を読みます。</p>;
   }
   // 覚えているもの (測った高さ・読んでいる item) は 1 つの transcript のもの。
-  return <TimelineBody key={view.sid} view={view} />;
+  // worker は同じ sid の別 transcript なので、名前に主語まで含める。
+  return <TimelineBody key={`${view.sid}/${view.agentId ?? ""}`} view={view} />;
 }
 
 /** 送れる相手か、送れないならなぜか。
@@ -188,6 +216,9 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   const units = useMemo(() => timelineSearchUnits(nodes), [nodes]);
   const matched = useMemo(() => matchingKeys(units, words), [units, words]);
   const nodesByUnit = useMemo(() => groupIndexByUnitKey(nodes), [nodes]);
+  // 設定画面に並べる型は、この画面が実際に見たもの。窓が手放した分は消えるが、
+  // 付けた値は型名で覚えているので、同じ型が戻ってくれば同じ行に戻る。
+  const seenTypes = useMemo(() => [...new Set(held.map((item) => item.type))], [held]);
 
   const book = useMemo(() => new HeightBook(ESTIMATE_PX), []);
   const keys = useMemo(() => nodes.map(nodeKey), [nodes]);
@@ -386,7 +417,10 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     const element = scroller.current;
     if (element === null) return;
     // A transcript shorter than its own viewport never scrolls, so the first
-    // page cannot be reached by scrolling to ask for the next.
+    // page cannot be reached by scrolling to ask for the next. Nothing drawn
+    // is not that case: the first page is already on its way, and reading past
+    // it here would fetch a second page nobody has scrolled towards.
+    if (nodes.length === 0) return;
     if (element.scrollHeight <= element.clientHeight) void view.readOlder();
   }, [nodes, view]);
 
@@ -399,13 +433,22 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   };
 
   const pathLinker = useTimelinePathLinker(view.sid);
+  const agent = view.agentId;
   return (
     <ViewContext.Provider value={view}>
       <PathLinkerContext.Provider value={pathLinker}>
         <SearchWordsContext.Provider value={words}>
           <section class="section timeline">
-            <h2>transcript — {held.length} item</h2>
-            <AutoOpenBar />
+            <h2>
+              {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
+            </h2>
+            {agent !== undefined && (
+              <p class="tl-note">
+                worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
+                セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
+              </p>
+            )}
+            <DisplayPanel types={seenTypes} />
             <SearchBar search={search} matched={matched} onReveal={reveal} />
             <HeldList sid={view.sid} />
             {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
@@ -429,31 +472,38 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
               {nodes.length === 0 && !view.loading.value && (
                 <p class="empty">まだ transcript がありません。</p>
               )}
-              {notifications.value
-                .filter((one) => one.notification.sid === view.sid)
-                .map((one) => (
-                  <div key={one.key} class="tl-bubble notice">
-                    <span class="tl-who">通知</span>
-                    <div class="tl-body">
-                      <MarkdownView
-                        source={one.notification.text}
-                        pathLinker={pathLinker}
-                        highlight={words}
-                      />
-                      <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+              {agent === undefined &&
+                notifications.value
+                  .filter((one) => one.notification.sid === view.sid)
+                  .map((one) => (
+                    <div key={one.key} class="tl-bubble notice">
+                      <span class="tl-who">通知</span>
+                      <div class="tl-body">
+                        <MarkdownView
+                          source={one.notification.text}
+                          pathLinker={pathLinker}
+                          highlight={words}
+                        />
+                        <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
             </div>
-            <Composer sid={view.sid} {...sendability(view.sid)} />
+            {/* worker には送り先が無い: 話しかける相手は worker を起動した
+                セッションで、worker 自身は instance に繋いでいない。 */}
+            {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
             <p class="footer">
               <button
                 type="button"
                 onClick={() => {
-                  navigate({ at: "sessions" });
+                  navigate(
+                    agent === undefined
+                      ? { at: "sessions" }
+                      : { at: "session", sid: view.sid, tab: "timeline" },
+                  );
                 }}
               >
-                一覧に戻る
+                {agent === undefined ? "一覧に戻る" : "親のセッションに戻る"}
               </button>
             </p>
           </section>
@@ -493,49 +543,122 @@ function HeldList({ sid }: { sid: Sid }) {
   );
 }
 
-/** Which kinds of fold open by themselves. The four are the categories a fold
- * can be about, so a reader who cares about one of them sets it once rather
- * than opening the same kind of fold over and over. */
-const AUTO_OPEN_LABELS: Readonly<Record<keyof TimelineAutoOpenSettings, string>> = {
-  thinking: "思考",
-  ccmsg: "ccmsg",
-  agent: "agent 通信",
-  items: "その他",
+const AXIS_LABELS: Readonly<Record<DisplayAxis, string>> = {
+  top: "トップ",
+  open: "開く",
 };
 
-function AutoOpenBar() {
-  const settings = timelineAutoOpen.value;
+const SUBJECT_LABELS: Readonly<Record<Subject, string>> = {
+  main: "セッション",
+  sub: "worker",
+};
+
+/** 型ごとの表示属性を決める所。
+ *
+ * 並ぶのは組み込みが名乗っている型と、この画面で実際に見た型 (とその上の型)。
+ * 継いでいる値は薄く出し、押せばこの型に付く。付けた値を外せば、また上の型か
+ * 組み込みが答える。
+ *
+ * 表は主語ごとに 1 面。開いた時に出ているのは今読んでいる面で、もう一面は
+ * タブで切り替える — worker の読み方を、worker を開く前に決められるように。 */
+function DisplayPanel({ types }: { types: readonly string[] }) {
+  const editing = useSignal<Subject>(timelineSubject.value);
+  const subject = editing.value;
+  const face = displayFace(subject);
+  const rows = displayRows(face, subject === timelineSubject.value ? types : []);
   return (
-    <p class="tl-autoopen">
-      <span class="tl-autoopen-label">自動で開く</span>
-      {(Object.keys(AUTO_OPEN_LABELS) as (keyof TimelineAutoOpenSettings)[]).map((key) => (
-        <label key={key}>
-          <input
-            type="checkbox"
-            checked={settings[key]}
-            onChange={() => {
-              toggleTimelineAutoOpenSetting(key);
+    <details class="tl-display">
+      <summary>表示</summary>
+      <p class="tl-display-tabs">
+        {SUBJECTS.map((one) => (
+          <button
+            key={one}
+            type="button"
+            class={one === subject ? "on" : undefined}
+            aria-pressed={one === subject}
+            onClick={() => {
+              editing.value = one;
             }}
-          />
-          {AUTO_OPEN_LABELS[key]}
-        </label>
-      ))}
-    </p>
+          >
+            {SUBJECT_LABELS[one]}
+            {one === timelineSubject.value ? " (今)" : ""}
+          </button>
+        ))}
+      </p>
+      <p class="tl-display-note">
+        トップ = TL のトップ層に立てる (外すと続いた分が 1 つの畳みに入る)。開く =
+        既定で開いた状態にする。薄い印は上の型か組み込みから継いだ値。
+      </p>
+      <table class="tl-display-table">
+        <thead>
+          <tr>
+            <th scope="col">型</th>
+            {DISPLAY_AXES.map((axis) => (
+              <th key={axis} scope="col">
+                {AXIS_LABELS[axis]}
+              </th>
+            ))}
+            <th scope="col">
+              <span class="visually-hidden">上書き</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((type) => {
+            const resolved = resolveDisplay(face, type);
+            const own = DISPLAY_AXES.some((axis) => isOwnValue(face.settings, type, axis));
+            return (
+              <tr key={type}>
+                <th scope="row" class="mono">
+                  {type}
+                </th>
+                {DISPLAY_AXES.map((axis) => (
+                  <td key={axis}>
+                    <input
+                      type="checkbox"
+                      aria-label={`${type} の${AXIS_LABELS[axis]}`}
+                      class={isOwnValue(face.settings, type, axis) ? undefined : "inherited"}
+                      checked={resolved[axis]}
+                      onChange={(event) => {
+                        setTimelineDisplay(
+                          subject,
+                          type,
+                          axis,
+                          (event.currentTarget as HTMLInputElement).checked,
+                        );
+                      }}
+                    />
+                  </td>
+                ))}
+                <td>
+                  <button
+                    type="button"
+                    disabled={!own}
+                    onClick={() => {
+                      clearTimelineDisplay(subject, type);
+                    }}
+                  >
+                    継ぐ
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </details>
   );
 }
 
 function NodeView({ node }: { node: TimelineNode }) {
   if (node.kind === "row") return <RowView row={node.row} />;
-  // A group that is one plain item has nothing worth folding: opening "1 item"
-  // to reach the item is a step that answers nothing.
-  if (!foldNeedsOuterFold(node.rows)) return <RowView row={node.rows[0] as ItemRow} />;
   return (
     <Fold
       class="tl-fold"
       folds={timelineFolds.value}
       foldKey={foldGroupKey(node.rows)}
-      fallback={foldShouldAutoOpen(node.rows, timelineAutoOpen.value)}
-      summary={`${foldLabel(node.rows)} (${node.rows.length})`}
+      fallback={foldShouldOpen(node.rows, timelineDisplay.value)}
+      summary={foldLabel(node.rows)}
     >
       {node.rows.map((row) => (
         <RowView key={row.item.id} row={row} />
@@ -551,8 +674,57 @@ function NodeView({ node }: { node: TimelineNode }) {
  * else is a line naming what happened. A type with no picture of its own still
  * lands in the third, under its own name and carrying its own fields, so a
  * newcomer to the vocabulary appears rather than disappears. */
+/** worker を名指しうる型。ここに無い型の `agent_id` を入口にしないのは、同じ
+ * 名前の field が「起動した相手」ではなく「自分」を指す型があるため。 */
+const NAMES_AN_AGENT = new Set([
+  "message:sub:out",
+  "message:sub:in",
+  "message:team:out",
+  "message:team:in",
+  "tool:Agent",
+]);
+
+/** その行が名指している worker。呼び出し側と答えのどちらが id を持っているかは
+ * 型によるので、行の両方を見る — 起動した所からその worker の transcript へ
+ * 降りられることが要るのであって、id がどちらに書かれていたかは関心ではない。 */
+function agentOf(row: ItemRow): string | undefined {
+  const named = [row.item, row.result].filter((one) => one !== undefined);
+  for (const one of named) {
+    if (!NAMES_AN_AGENT.has(one.type)) continue;
+    const id = textField(one, "agent_id");
+    if (id !== undefined && id !== "") return id;
+  }
+  return undefined;
+}
+
+/** その worker を主語にして開くリンク。親の transcript に出るのは指示と返って
+ * きた答えだけで、その worker が何を叩いたかは worker 自身の transcript にしか
+ * 無い。 */
+function AgentLink({ sid, agentId }: { sid: Sid; agentId: string }) {
+  const to = { at: "agent", sid, agentId } as const;
+  return (
+    <a
+      class="tl-agent-link"
+      href={href(to)}
+      onClick={(event: MouseEvent) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        navigate(to);
+      }}
+    >
+      この worker を開く
+    </a>
+  );
+}
+
 function RowView({ row }: { row: ItemRow }) {
   const { item } = row;
+  const view = useContext(ViewContext);
+  const agent = agentOf(row);
+  const link =
+    agent === undefined || view === undefined || view.agentId === agent ? undefined : (
+      <AgentLink sid={view.sid} agentId={agent} />
+    );
   if (item.type === "thinking") {
     return (
       <div class="tl-line thinking" data-search-key={item.id}>
@@ -571,6 +743,7 @@ function RowView({ row }: { row: ItemRow }) {
             <RawFold item={row.result} />
           </div>
         )}
+        {link}
         <RawFold item={item} />
       </div>
     );
@@ -579,20 +752,55 @@ function RowView({ row }: { row: ItemRow }) {
     <div class={`tl-line item${isGeneric(item) ? " generic" : ""}`} data-search-key={item.id}>
       <ItemLine item={item} />
       {row.result !== undefined && <ItemLine item={row.result} />}
+      {link}
       <RawFold item={item} />
     </div>
   );
 }
 
+/** 畳んだ 1 通が名乗りの隣で言うこと。
+ *
+ * 書き手が markdown のつもりで書いた文は、記法を落とした素文にする — 要約に
+ * `## ` や `**` が残っていても、そこは畳んだ中身の代わりにならない。人が打った
+ * 文はそのまま出す: 打った通りに読むのが restricted の約束で (`#3 の件` は見出し
+ * ではない)、記法として剥がすと打っていない文が要約に出る。 */
+function messageBrief(item: TranscriptItem): string {
+  const prose = itemProse(item);
+  if (prose === undefined || prose === "") return brief(itemDetail(item));
+  return brief(isTyped(item) ? prose : markdownPlainText(prose));
+}
+
+/** 1 通。名乗りは畳んでも見えたままで、畳むのは本文の側 — 誰が言ったかは並びを
+ * 追うのに要るが、何を言ったかは読み手が開く時に要る。 */
 function MessageView({ item }: { item: TranscriptItem }) {
   const pathLinker = useContext(PathLinkerContext);
   const words = useContext(SearchWordsContext);
   const prose = itemProse(item);
   // 会話の 2 方向を色で分ける: 届いたものと、このセッションが出したもの。
   const way = item.type.endsWith(":in") ? "incoming" : "reply";
+  const key = messageFoldKey(item.id);
+  // 要約は閉じている間だけ出す。開いた本文の上に同じ文を残すと、探す所も読み
+  // 上げる所も同じ文を 2 度数える。
+  const open = timelineFolds.value.isOpen(
+    key,
+    resolveDisplay(timelineDisplay.value, item.type).open,
+  );
   return (
-    <div class={`tl-bubble ${way}`}>
-      <span class="tl-who">{itemLabel(item)}</span>
+    <Fold
+      class={`tl-bubble ${way}`}
+      folds={timelineFolds.value}
+      foldKey={key}
+      fallback={resolveDisplay(timelineDisplay.value, item.type).open}
+      summary={
+        <>
+          <span class="tl-mark" aria-hidden="true">
+            {open ? "▼" : "▶"}
+          </span>
+          <span class="tl-who">{itemLabel(item)}</span>
+          {!open && <span class="tl-brief">{messageBrief(item)}</span>}
+        </>
+      }
+    >
       <div class="tl-body">
         {prose === undefined || prose === "" ? (
           <p class="tl-note">{itemDetail(item)}</p>
@@ -605,7 +813,7 @@ function MessageView({ item }: { item: TranscriptItem }) {
           />
         )}
       </div>
-    </div>
+    </Fold>
   );
 }
 
@@ -618,7 +826,7 @@ function ThinkingView({ item }: { item: TranscriptItem }) {
       class="tl-aside"
       folds={timelineFolds.value}
       foldKey={thinkFoldKey(item.id)}
-      fallback={timelineAutoOpen.value.thinking}
+      fallback={resolveDisplay(timelineDisplay.value, item.type).open}
       summary={`思考 (${text.length} 文字)`}
     >
       <div class="tl-text">

@@ -1,4 +1,5 @@
 import type { TranscriptItem } from "@ccmsg/protocol";
+import { type DisplayFace, resolveDisplay } from "./display.ts";
 
 /** 型付き item を画面の並びに読むところ。
  *
@@ -6,9 +7,9 @@ import type { TranscriptItem } from "@ccmsg/protocol";
  * transcript の record の形はここに書かれていないし、書けない — 届くのは
  * 分類された item であって、harness の file ではない。
  *
- * ここでやるのは 3 つだけ: 呼び出しと答えを結ぶこと、続けて
- * 並んだ「会話でないもの」を 1 つの畳みにまとめること、そして知らない型が来て
- * も必ず 1 行として出すこと。 */
+ * ここでやるのは 3 つだけ: 呼び出しと答えを結ぶこと、トップ層に立たない型が
+ * 続いた分を 1 つの畳みにまとめること、そして知らない型が来ても必ず 1 行として
+ * 出すこと。どの型がトップ層に立つかは `display.ts` が答える。 */
 
 /** 呼び出しと、その答え。答えが手元に無い呼び出しは `result` を持たない
  * (範囲の外に居るだけで、壊れた指し先ではない)。 */
@@ -23,37 +24,16 @@ export type TimelineNode =
   | { readonly kind: "row"; readonly row: ItemRow }
   | { readonly kind: "fold"; readonly rows: readonly ItemRow[] };
 
-/** 自動で開く設定が効く 4 つの軸。 */
-export type ItemCategory = "thinking" | "ccmsg" | "agent" | "other";
-
-/** item が読まれる場所。会話と思考は畳みの外に立ち、それ以外は畳みに入る。 */
-type Lane = "conversation" | "thinking" | "aside";
-
-function lane(item: TranscriptItem): Lane {
-  if (item.type === "thinking") return "thinking";
-  return item.type.startsWith("message:") ? "conversation" : "aside";
-}
-
-export function itemCategory(item: TranscriptItem): ItemCategory {
-  if (item.type === "thinking") return "thinking";
-  if (item.type.startsWith("message:session:")) return "ccmsg";
-  if (
-    item.type.startsWith("message:sub:") ||
-    item.type === "tool:Agent" ||
-    item.type === "tool:SendMessage"
-  ) {
-    return "agent";
-  }
-  return "other";
-}
-
 /** 型付き item の並びを、画面が描く並びにする。
  *
  * 答えを呼び出しの中へ入れるのは 2 つの場合だけ: 直後に来た答え (道具は呼んだ
  * 所で結果まで読めた方がよい) と、agent への依頼の答え (何ターン後に返ってきて
  * も 1 つのやりとり)。それ以外の答えは来た所に置いて、どの呼び出しの答えかを
  * 名前で指す — 間に挟まったものを飛ばして畳むと、間の時間が消える。 */
-export function buildTimeline(items: readonly TranscriptItem[]): readonly TimelineNode[] {
+export function buildTimeline(
+  items: readonly TranscriptItem[],
+  display: DisplayFace,
+): readonly TimelineNode[] {
   const at = new Map<string, number>();
   const calls = new Map<string, number>();
   for (const [index, item] of items.entries()) {
@@ -82,7 +62,7 @@ export function buildTimeline(items: readonly TranscriptItem[]): readonly Timeli
     const answer = child.get(index);
     const row: ItemRow =
       answer === undefined ? { item } : { item, result: items[answer] as TranscriptItem };
-    if (lane(item) === "aside") {
+    if (!resolveDisplay(display, item.type).top) {
       run.push(row);
       continue;
     }
@@ -123,10 +103,10 @@ export function nodeRows(node: TimelineNode): readonly ItemRow[] {
   return node.kind === "row" ? [node.row] : node.rows;
 }
 
-/** 畳みの外側を出すか。1 つしか無く、思考でも会話でもない行は、畳みを開いて
- * 1 行に辿り着くだけの手数になるので、そのまま出す。 */
-export function foldNeedsOuterFold(rows: readonly ItemRow[]): boolean {
-  return rows.length > 1 || rows.some((row) => itemCategory(row.item) !== "other");
+/** 畳みが既定で開いているか。中の 1 つでも `open` の型が居れば開く — 読み手が
+ * 気にしている型を 1 度決めれば、同じ畳みを何度も開かずに済む。 */
+export function foldShouldOpen(rows: readonly ItemRow[], display: DisplayFace): boolean {
+  return rows.some((row) => resolveDisplay(display, row.item.type).open);
 }
 
 /** item が出しているうち、その item だけのもの。

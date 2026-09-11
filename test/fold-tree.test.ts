@@ -5,39 +5,54 @@
 // The contract that matters is agreement with what Timeline actually renders:
 // a path naming a fold that never appears would leave a match un-reachable,
 // and a missing path would leave the search thinking a hidden item was already
-// on screen. Timeline's one "no fold here after all" shortcut is covered below
-// (a group that is a single plain item is drawn on its own instead).
+// on screen. An item can be inside two: the group's fold and the one it carries
+// itself (a message's label, a thinking block).
 import { describe, expect, test } from "bun:test";
 import { buildTimeline } from "../src/timeline/items.ts";
 import {
   foldGroupKey,
   foldPathsById,
   forgetFoldsOutside,
+  messageFoldKey,
   rawFoldKey,
   thinkFoldKey,
 } from "../src/timeline/fold-tree.ts";
 import { FoldOpen } from "../src/timeline/fold-open.ts";
+import type { DisplayFace } from "../src/timeline/display.ts";
 import { item, use } from "./item.ts";
+
+const MAIN: DisplayFace = { subject: "main", settings: {} };
 
 describe("foldPathsById", () => {
   test("畳みの中の item は、それを開く名前で引ける", () => {
     const first = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
     const second = use("tool:Read", { tool_use_id: "t2", file_path: "a.ts" });
-    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), first, second]);
+    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), first, second], MAIN);
     const paths = foldPathsById(nodes);
     expect(paths.get(first.id)).toEqual([foldGroupKey([{ item: first }])]);
     expect(paths.get(second.id)).toEqual([foldGroupKey([{ item: first }])]);
   });
 
-  test("会話は畳みの中に居ないので、開くものが無い", () => {
+  test("会話はトップ層に立つが、本文は自分の畳みの中に居る", () => {
     const said = item("message:user:in", { text: "やって" });
-    expect(foldPathsById(buildTimeline([said])).get(said.id)).toBeUndefined();
+    expect(foldPathsById(buildTimeline([said], MAIN)).get(said.id)).toEqual([
+      messageFoldKey(said.id),
+    ]);
   });
 
-  test("1 つだけの item は畳まれずに出るので、開く名前も空", () => {
+  test("畳みの中の会話は、外側と自分の畳みの順で引ける", () => {
+    const said = item("message:user:in", { text: "やって" });
+    const nodes = buildTimeline([said], { subject: "main", settings: { message: { top: false } } });
+    expect(foldPathsById(nodes).get(said.id)).toEqual([
+      foldGroupKey([{ item: said }]),
+      messageFoldKey(said.id),
+    ]);
+  });
+
+  test("本文を持たない item は、外側の畳みだけ", () => {
     const alone = use("tool:Bash", { tool_use_id: "t", command: "ls" });
-    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), alone]);
-    expect(foldPathsById(nodes).get(alone.id)).toEqual([]);
+    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), alone], MAIN);
+    expect(foldPathsById(nodes).get(alone.id)).toEqual([foldGroupKey([{ item: alone }])]);
   });
 });
 

@@ -21,7 +21,9 @@ export function Fold({
   foldKey: string;
   /** Open unless the reader has said otherwise for this fold. */
   fallback: boolean;
-  summary: string;
+  /** 閉じていても出ているもの。文字列 1 つで足りる所が多いが、会話のように
+   * 「名乗りはそのまま置いて本文だけ畳む」形もあるので、中身を受ける。 */
+  summary: ComponentChildren;
   children: ComponentChildren;
 }) {
   const open = folds.isOpen(foldKey, fallback);
