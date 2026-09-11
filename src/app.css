@@ -689,10 +689,15 @@ select {
   overflow-wrap: anywhere;
 }
 
-/* 会話の 2 方向を色で分ける: 届いたものと、このセッションが返したもの。 */
+/* 会話の 2 方向を色で分ける: 届いたものと、このセッションが返したもの。
+ *
+ * 名乗りは本文の**上**に置く。横に並べると本文の左に名乗りの幅だけ余白が立ち、
+ * 狭い画面では読む所が窓の半分になる。縦に積めば本文は吹き出しの左端から始まり、
+ * 名乗りと同じ所で揃う。 */
 .tl-bubble {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 2px;
   padding: 6px 8px;
   margin: 4px 0;
   border-left: 3px solid var(--border);
@@ -700,11 +705,10 @@ select {
   background: var(--surface);
 }
 
-/* 名乗りは畳みの取っ手そのもの。開いている間は名乗りと本文が横に並ぶ今までの
- * 形で、閉じると名乗りの隣に 1 行の要約が出る。 */
+/* 名乗りは畳みの取っ手そのもの。閉じている間は名乗りの隣に 1 行の要約が出る。 */
 .tl-bubble > summary {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
   cursor: pointer;
   list-style: none;
@@ -731,10 +735,6 @@ select {
   white-space: nowrap;
   color: var(--muted);
   font-size: 12px;
-}
-
-.tl-bubble[open] > summary {
-  flex: none;
 }
 
 .tl-bubble.incoming {

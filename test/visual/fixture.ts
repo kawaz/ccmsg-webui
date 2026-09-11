@@ -216,8 +216,28 @@ function agentTranscript(): string {
   ].join("");
 }
 
+/** 狭い画面の基準が読む transcript。
+ *
+ * SID のものと分けてあるのは、あちらが**書き足される**から (追記が届くこと・
+ * 遡れることを見る test が同じ file を伸ばす)。狭い画面の絵は「何 item あるか」
+ * まで写すので、誰も足さない file の上に置く。
+ *
+ * 中身は幅を決めるもの — 表、コード、長い 1 行 — と、頁 (200) をまたぐだけの
+ * 長さ。遡って頁が足された後に幅が崩れるので、1 頁では足りない。 */
+function phoneTranscript(): string {
+  const rows = [user("この instance の topic の畳み方を、表と一緒に説明して。")];
+  for (let n = 0; n < 260; n += 1) {
+    rows.push(assistant([{ type: "text", text: `頁をまたぐための行 ${String(n)}` }]));
+  }
+  rows.push(assistant([{ type: "text", text: PROSE }]));
+  // 遡り切った先頭に幅を決めるものが来るよう、長い方を後ろに積む。
+  return [rows[0] as string, rows.at(-1) as string, ...rows.slice(1, -1)].join("");
+}
+
 export interface Fixture {
   readonly transcriptPath: string;
+  /** 狭い画面の基準が読む方 (OTHER_SID)。 */
+  readonly phoneTranscriptPath: string;
 }
 
 /** Lay the fixture down under this run's config home and working directory. */
@@ -226,6 +246,8 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(project, { recursive: true });
   const transcriptPath = join(project, `${SID}.jsonl`);
   writeFileSync(transcriptPath, transcript());
+  const phoneTranscriptPath = join(project, `${OTHER_SID}.jsonl`);
+  writeFileSync(phoneTranscriptPath, phoneTranscript());
   const agents = join(project, SID, "subagents");
   mkdirSync(agents, { recursive: true });
   writeFileSync(join(agents, `agent-${AGENT_ID}.jsonl`), agentTranscript());
@@ -233,5 +255,5 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(join(cwd, "src"), { recursive: true });
   writeFileSync(join(cwd, "src", "topic-fold.ts"), CODE);
   writeFileSync(join(cwd, "NOTES.md"), NOTES);
-  return { transcriptPath };
+  return { transcriptPath, phoneTranscriptPath };
 }

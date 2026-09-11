@@ -25,6 +25,7 @@ import { type FakeSession, greetAsSession } from "./session.ts";
 export interface Fixtures {
   instance: Instance;
   ui: Page;
+  phone: Page;
 }
 
 export const test = base.extend<object, Fixtures>({
@@ -51,7 +52,7 @@ export const test = base.extend<object, Fixtures>({
           await greetAsSession(instance.stateDir, {
             sid: OTHER_SID,
             cwd: instance.cwd,
-            transcriptPath: fixture.transcriptPath,
+            transcriptPath: fixture.phoneTranscriptPath,
             title: "基準画像の置き場を決める",
             repo: "kawaz/ccmsg-webui",
             branch: "main",
@@ -79,9 +80,71 @@ export const test = base.extend<object, Fixtures>({
     },
     { scope: "worker" },
   ],
+  // The same browser at the size most of these screens are actually read at.
+  // A context of its own rather than the desktop one resized, because who a
+  // browser is lives in its context: resizing would make the phone screens
+  // depend on a viewport a failing test could leave behind.
+  phone: [
+    async ({ browser, instance }, use) => {
+      const context = await browser.newContext({
+        viewport: PHONE,
+        deviceScaleFactor: 1,
+        isMobile: false,
+      });
+      const page = await context.newPage();
+      await addAuthenticator(page);
+      const { url, code } = await instance.passkey();
+      await page.goto(url);
+      await register(page, code);
+      await use(page);
+      await context.close();
+    },
+    { scope: "worker" },
+  ],
 });
 
 export { expect };
+
+/** The narrow screen these are read on. 375 css px is the width of the phones
+ * this is carried on, and the one number a layout that fits nothing else has
+ * to fit. */
+export const PHONE = { width: 375, height: 667 } as const;
+
+/** Nothing on the page is wider than the window.
+ *
+ * The assertion the width bugs are really about: a picture shows a layout that
+ * broke, and this says which element broke it. Reported by name rather than as
+ * a boolean, so a failure names the thing to fix. */
+export async function nothingOverflows(page: Page): Promise<void> {
+  const wide = await page.evaluate(() => {
+    const room = document.documentElement.clientWidth;
+    // What is inside something that scrolls sideways is allowed to be wide —
+    // that is what the scroll is for, and a code block wider than the phone is
+    // the point of putting one there. What has to fit is the scroller itself.
+    const scrolls = (one: Element): boolean => {
+      const how = getComputedStyle(one).overflowX;
+      return how === "auto" || how === "scroll";
+    };
+    const inside = (one: Element): boolean => {
+      for (let at = one.parentElement; at !== null; at = at.parentElement) {
+        if (scrolls(at)) return true;
+      }
+      return false;
+    };
+    const over: string[] = [];
+    for (const one of document.querySelectorAll("*")) {
+      const box = one.getBoundingClientRect();
+      if (box.right <= room + 0.5 && box.width <= room + 0.5) continue;
+      if (inside(one)) continue;
+      over.push(
+        `${one.tagName.toLowerCase()}.${one.className.toString().split(" ").join(".")} ${String(Math.round(box.width))}px @${String(Math.round(box.left))}`,
+      );
+    }
+    return { room, over: over.slice(0, 12), scrollWidth: document.documentElement.scrollWidth };
+  });
+  expect(wide.over, `window ${String(wide.room)}px を超えている要素`).toEqual([]);
+  expect(wide.scrollWidth).toBeLessThanOrEqual(wide.room + 1);
+}
 
 /** Give this browser a passkey it can answer with, without a person touching
  * anything.
