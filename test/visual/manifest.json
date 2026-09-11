@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.4.1",
+  "webui_version": "0.5.0",
   "screens": {
     "conversation": {
       "darwin": "46c7bc153830482c59b6f8b56060ec2367ef28a25d42cdcc4ad164eb7e05cbf7",
@@ -23,7 +23,7 @@
     },
     "sessions": {
       "darwin": "6d63a5df70be0f23594e1751cd7c06ccdebf3b475207b05cba4489c6452e9808",
-      "linux": "b81213ca3a5ab01e9f12268aafe2adf2cb0d1437c67b190d128dd254bab54a15"
+      "linux": "93f47ced5324d6e8201b85795ea25e59f85993e61d2199ca6be3f38982a09dd4"
     },
     "sign-in": {
       "darwin": "4297b6863f22f12641fa55ce844e43dbdbe19ba008a1ce7f4c4b006c577aaa74",
