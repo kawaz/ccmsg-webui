@@ -74,6 +74,14 @@ The scroll position is what separates following from reading. At the bottom a pe
 
 **What could already reach a hidden line still reaches one.** Counting is about what is held rather than what is drawn, as it already is for a folded line, and moving to a match works the way opening the enclosing folds does: the line's place is taken from the remembered heights, the window is moved there, and once the element exists it is centred. That the line is there to be centred is what the spacers guarantee — the height they carry and the place moved to come from the same table.
 
+## Nothing is wider than the window
+
+The window decides the reading width. **What can grow sideways scrolls inside itself and never outside**: a code block and a table each own a scroll container (`.md-code`, `.md-table-scroll`), and prose wraps on `overflow-wrap`.
+
+A `<details>` inside a flex layout has a trap in it. The browser puts an open element's contents in a `::details-content` box, and that box is a flex item carrying `min-width: auto` — an automatic minimum of min-content, so **one unbreakable thing inside it (a table, a long single line) stops it shrinking and pushes the parent wide**. The conversation bubble hit exactly this, by placing the name beside the body. The two are stacked now, so the body takes the window's width as it is given; the left gutter disappearing, and the text starting at the bubble's own edge, is the visible half of the same change.
+
+It shows up only after scrolling back, because what pushes (a table, a code block) is in an earlier page — not because of anything the window computes. So the baseline is drawn **on a narrow screen after scrolling back** (`test/visual/phone.visual.ts`), and it measures, beside the picture, that no element is wider than the window: a broken layout is indistinguishable from an intended one in a picture, while the name of the element that overflowed says who broke it.
+
 ## A type's display attributes
 
 **Where an item is drawn, and how far open, is decided by its type** (`src/timeline/display.ts`). There are two axes and no more:
@@ -157,6 +165,8 @@ There is no separate screen for talking to a session. **The session's own transc
 
 - **person to session**: `message.send { to: sid, text }`. One sid is the whole address; there is no room. What arrives shows up in the session's own user turn, wrapped in a `<cross-session-message>` envelope
 - **session to person**: the `ccmsg reply <mid> <text>` the session runs. A reply with no `--to` is for the person, and the instance turns it into a notification
+
+**Enter is a newline; sending is ⌘/Ctrl+Enter and the button** (`src/conversation/composer-keydown.ts`). A newline going in where it was typed matters in more places than sending in one keystroke does — on a soft keyboard most of all, where Enter-to-send turns the hand that starts a paragraph into the hand that sends. An Enter that ends an IME composition does not send even with a modifier held: it is the keystroke that settled the characters, not one that meant to send.
 
 Both directions reach the screen as one type, `message.session.in` and `message.session.out`. Reading the envelope back, and taking the body out of the Bash command a reply is sent with, are the instance's work — it holds the file, and a second copy of the same grammar here would keep reading the old spelling after the contract moved.
 
