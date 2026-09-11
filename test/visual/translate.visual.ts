@@ -46,8 +46,46 @@ test("言語を選ぶと、段落ごとに訳が届いて本文が入れ替わ�
   await page.getByText("【host の訳】The fold is read").first().scrollIntoViewIfNeeded();
   await shot(page, "timeline-translated.png");
 
-  // 原文へ戻すと、訳は消えて元の文が出る。
-  await page.getByRole("button", { name: "原文" }).click();
+  // 原文へ戻すと、訳は消えて元の文が出る (上の行の選択肢。item の側にも同じ
+  // 名前の入口があるので、押す所を名指しする)。
+  await page
+    .getByRole("group", { name: "本文の言語" })
+    .getByRole("button", { name: "原文" })
+    .click();
   await expect(page.getByText("【host の訳】The fold is read")).toHaveCount(0);
   await expect(page.getByText("The fold is read").first()).toBeVisible();
+});
+
+test("読んでいる所で切り替えても、読んでいる行は動かない", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${OTHER_SID}/timeline`);
+  const english = page.getByText("The fold is read from the contract").first();
+  await toBeginning(page, english);
+  // 読んでいる文を画面の真ん中に置く。端に居る要素を押すとブラウザがそれを
+  // 見える所へ入れるので、そこで測ると「押したから動いた」と「入口が遠いから
+  // 動いた」が混ざる。
+  await english.evaluate((node) => {
+    node.scrollIntoView({ block: "center" });
+  });
+  await page.waitForTimeout(300);
+  const at = async (): Promise<number> => Math.round((await english.boundingBox())?.y ?? -1);
+  const before = await at();
+  const scrolledBefore = await page.evaluate(() => window.scrollY);
+
+  // item の側の入口を押す。**上端まで戻らずに押せる**ことがこの test の主題なので、
+  // 押すのは Playwright の click — 画面内に無ければ動かしてしまうので、動かな
+  // かったことがそのまま結果に出る。
+  await english
+    .locator("xpath=ancestor::div[contains(@class,'tl-line')][1]")
+    .getByRole("button", { name: "訳" })
+    .click();
+  await expect(page.getByText("【host の訳】The fold is read").first()).toBeVisible();
+
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolledBefore);
+  // 訳で高さが変わっても、読んでいた行は同じ高さに居る (錨は Timeline が打つ)。
+  expect(Math.abs((await at()) - before)).toBeLessThan(2);
+
+  await page
+    .getByRole("group", { name: "本文の言語" })
+    .getByRole("button", { name: "原文" })
+    .click();
 });

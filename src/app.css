@@ -1750,3 +1750,22 @@ select {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* item の側の入口。読んでいる所で押せることが要点なので、本文の頭に小さく置き、
+   触れている間だけ前に出る (読む邪魔をしない)。 */
+.tl-reading {
+  float: right;
+  margin: 0 0 2px 8px;
+  padding: 0 5px;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  opacity: 0.45;
+}
+
+.tl-line:hover .tl-reading,
+.tl-reading:focus-visible {
+  opacity: 1;
+  border-color: var(--border);
+}

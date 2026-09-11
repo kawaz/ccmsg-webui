@@ -71,14 +71,17 @@ import {
   navigate,
   notifications,
   peers,
+  preferredRoute,
   reading,
   sessionPaths,
   setTimelineDisplay,
   timelineFaces,
   timelineFolds,
+  toggleReading,
   transcript,
   translateRoutes,
 } from "../state.ts";
+import { needsNoTranslation } from "../timeline/translate.ts";
 import { ROUTE_LABELS } from "../timeline/translators.ts";
 import { useTranslated } from "../timeline/use-translated.ts";
 import {
@@ -862,8 +865,22 @@ function Prose({
   words: readonly SearchWord[];
 }) {
   const shown = useTranslated(text);
+  const route = preferredRoute.value;
+  // 入口は**訳す所を持っている文にだけ**出す。日本語だけの文に付けても、押して
+  // 何も変わらないものが並ぶだけで、どれを押せば変わるのかが読めなくなる。
+  const offered = route !== undefined && !needsNoTranslation(text);
   return (
     <>
+      {offered && (
+        <button
+          type="button"
+          class="tl-reading"
+          title={`${ROUTE_LABELS[route]} と原文を行き来する (画面ぜんぶ)`}
+          onClick={toggleReading}
+        >
+          {reading.value === "original" ? "訳" : "原文"}
+        </button>
+      )}
       {shown.pending && <span class="tl-translating">訳しています…</span>}
       <MarkdownView
         source={shown.text}

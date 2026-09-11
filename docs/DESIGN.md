@@ -129,6 +129,19 @@ The choice is one for the screen. Someone reading an English transcript decides
 items the window is drawing**, so scrolling back does not send hundreds of items
 nobody is reading.
 
+**The way in is also where the reading is.** One setting does not mean one place
+to press it: with the control only at the top of the transcript, someone reading
+the end has to travel there and arrives having lost the place they were reading.
+So each item's prose carries a small entry of its own, and pressing it moves the
+whole screen's setting (it is not a per-item translation). It appears only on
+prose that **has something to translate** — an entry on a Japanese paragraph
+would be one more thing that does nothing when pressed, and a row of those hides
+which one does something.
+
+The line being read does not move when the setting changes, because the Timeline
+anchors itself (`remember` / `place`): when translation changes the heights, the
+first row in view is put back at the height it was.
+
 Only an item's **prose** is translated — never a tool's arguments, never a fenced
 block. Prose is the only thing that means the same after translation; an
 identifier or a path names something else the moment it is translated. So a body

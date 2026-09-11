@@ -831,11 +831,37 @@ export const translateRoutes = computed<readonly TranslateRoute[]>(() => [
   ...(hasBrowserTranslator() ? (["browser"] as const) : []),
 ]);
 
+/** 最後に使った訳す人。item の側の入口は「原文 ⇄ この人の訳」を往復するので、
+ * どの人かをここが覚えている。まだ誰も選んでいなければ、使えるうちの最初の
+ * 1 人 — 経路が 1 つしか無い環境では、それが唯一の答えになる。 */
+const preferred = signal<TranslateRoute | undefined>(undefined);
+
+export const preferredRoute = computed<TranslateRoute | undefined>(
+  () => preferred.value ?? translateRoutes.value[0],
+);
+
+/** item の側から、原文と訳を往復する。**画面ぜんぶの設定を動かす** — 1 つの
+ * item だけ訳す設定ではないので、押した所以外も一緒に切り替わる。読んでいる行が
+ * 動かないのは錨が打ってあるから (`src/ui/Timeline.tsx` の `remember` / `place`)。 */
+export function toggleReading(): void {
+  if (reading.value !== "original") {
+    reading.value = "original";
+    return;
+  }
+  const route = preferredRoute.value;
+  if (route !== undefined) reading.value = route;
+}
+
 /** 選んでいた経路が無くなったら原文へ戻す (別の instance に繋ぎ直した時)。
  * 消えた経路の訳をそのまま出し続けると、もう聞けない道具の答えが画面に残る。 */
 effect(() => {
   const held = reading.value;
-  if (held !== "original" && !translateRoutes.value.includes(held)) reading.value = "original";
+  if (held === "original") return;
+  if (!translateRoutes.value.includes(held)) {
+    reading.value = "original";
+    return;
+  }
+  preferred.value = held;
 });
 
 /** gateway に聞いた、credential ごとのクオータ。
