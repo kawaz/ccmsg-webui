@@ -22,6 +22,9 @@ import { createServer, type ViteDevServer } from "vite";
  * held config home both refuse loudly. */
 const ROOT = join(tmpdir(), "ccmsg-webui-visual");
 const DAEMON_PORT = 45_871;
+/** The instance these screens are of. Fixed for the same reason the paths and
+ * the ports are: it is text on the screens being compared. */
+const INSTANCE_ID = "00112233445566778899aabbccddeeff";
 const PAGE_PORT = 45_872;
 
 export interface Instance {
@@ -103,27 +106,36 @@ export async function startInstance(): Promise<Instance> {
   // typed: the CLI refuses to run an instance for one without it.
   writeFileSync(join(home, "settings.json"), "{}\n");
 
+  // The settings as a person writes them: one shared file, the mesh, which
+  // instances this host starts, and one file for the instance itself. The id
+  // is stated rather than made, because it is on screen — the connection bar
+  // names it — and a baseline can only match an instance called the same thing
+  // every run.
   const configDir = join(ROOT, "config");
-  mkdirSync(configDir, { recursive: true });
+  mkdirSync(join(configDir, "instances"), { recursive: true });
+  const settings = (fields: Record<string, unknown>): string =>
+    `export default ({ config }: { config: Record<string, unknown> }) => Object.assign(config, ${JSON.stringify(fields)});\n`;
+  writeFileSync(join(configDir, "config_v2.ts"), settings({}));
   writeFileSync(
-    join(configDir, "config.json"),
-    `${JSON.stringify(
-      {
-        defaults: {},
-        instances: [{ dir: home, entry: { host: "127.0.0.1", port: DAEMON_PORT } }],
-      },
-      null,
-      2,
-    )}\n`,
+    join(configDir, `instances/instance-${INSTANCE_ID}.ts`),
+    settings({ name: "visual", dir: home, entry: { host: "127.0.0.1", port: DAEMON_PORT } }),
+  );
+  writeFileSync(
+    join(configDir, "endpoints.json"),
+    `${JSON.stringify([{ id: INSTANCE_ID, endpoint: `http://127.0.0.1:${String(DAEMON_PORT)}/` }], null, 2)}\n`,
+  );
+  writeFileSync(
+    join(configDir, "supervisor.json"),
+    `${JSON.stringify({ instances: [INSTANCE_ID] }, null, 2)}\n`,
   );
 
-  // The id an instance makes for itself is random, and it is on screen: the
-  // connection bar names it. Written before the daemon starts, because the
-  // daemon adopts an id it finds and only makes one when there is none — so
-  // the same instance is named the same thing in every run's baseline.
+  // The id is the instance's own, read from its state directory and made there
+  // the first time it is asked for. Written before the daemon starts, so that
+  // it is the one the files above name — and so that every run's baseline says
+  // the same thing where the id is on screen.
   const stateDir = join(ROOT, "state");
   mkdirSync(stateDir, { recursive: true });
-  writeFileSync(join(stateDir, "instance.id"), "00112233445566778899aabbccddeeff\n");
+  writeFileSync(join(stateDir, "instance.id"), `${INSTANCE_ID}\n`);
 
   const env: NodeJS.ProcessEnv = {
     HOME: ROOT,
