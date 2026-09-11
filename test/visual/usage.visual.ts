@@ -69,3 +69,54 @@ test("狭い画面でも、帯と数字が窓に収まる", async ({ usage: page
   await nothingOverflows(page);
   await shot(page, "phone-usage.png");
 });
+
+/** 切断の 2 つの顔。撮らずに DOM で見る: 「消えた」は絵にすると「何も無い
+ * 画面」で、繋がっていて中身が空なのか、話し相手が居ないのかを区別できない。 */
+test("回線が切れただけなら、聞いたものは帯付きで残る", async ({ usage: page, instance }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  // socket そのものを落とす道を先に用意しておく。人は何も押しておらず、
+  // 端末が網から外れただけ、という切断を実際に起こすため — ページの中の
+  // 仕掛けではなく、繋がっている socket を外から閉じる。
+  let drop: (() => void) | undefined;
+  await page.routeWebSocket(/\/ws$/, (ws) => {
+    const instanceSide = ws.connectToServer();
+    ws.onMessage((message) => {
+      instanceSide.send(message);
+    });
+    instanceSide.onMessage((message) => {
+      ws.send(message);
+    });
+    drop = () => {
+      instanceSide.close();
+    };
+  });
+  await page.goto(instance.endpoint);
+  await expect(page.locator(".row").first()).toBeVisible();
+  expect(drop).toBeDefined();
+
+  drop?.();
+  await expect(page.locator(".stale-band")).toBeVisible();
+  // 行は残ったまま: 切れただけの端末から、最後に聞いた内容まで消さない。
+  await expect(page.locator(".row").first()).toBeVisible();
+
+  // 繋ぎ直すと、同じ行が snapshot で置き換わって帯が消える。
+  await expect(page.locator(".stale-band")).toBeHidden({ timeout: 30_000 });
+  await expect(page.locator(".row").first()).toBeVisible();
+  await page.unrouteAll();
+});
+
+test("人が切断したら持ち物ごと畳み、繋ぎ直すと snapshot で戻る", async ({
+  usage: page,
+  instance,
+}) => {
+  await page.goto(instance.endpoint);
+  await expect(page.locator(".row").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "切断" }).click();
+  await expect(page.getByRole("heading", { name: "接続していません" })).toBeVisible();
+  await expect(page.locator(".row")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "接続" }).first().click();
+  await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
+  await expect(page.locator(".row").first()).toBeVisible();
+});

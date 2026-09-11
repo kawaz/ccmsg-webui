@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.8.0",
+  "webui_version": "0.9.0",
   "screens": {
     "conversation": {
       "darwin": "a1777b2ea35bd44a95f22cf3306b41df95af1b61e5d2d7095132164e7bf33594",
@@ -14,7 +14,7 @@
       "linux": "47d8fd3787964174380cd07930efe8dd07b03768599a29291ef730d53afce62c"
     },
     "first-connect": {
-      "darwin": "dcf20aa494a80bbec24abc47fc0a4232688979435504c8b53532419b4e8e5cb3",
+      "darwin": "2c156b783b057a10ce5332dcb07e294aaab10a0ace9f964ec36b70450e2953da",
       "linux": "f55706c1a793a2e29c66925b5d2ba215f0971c34524de953f27380b8d790a08c"
     },
     "notification": {
