@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.9.1",
+  "webui_version": "0.10.0",
   "screens": {
     "conversation": {
       "darwin": "a1777b2ea35bd44a95f22cf3306b41df95af1b61e5d2d7095132164e7bf33594",
@@ -7,15 +7,15 @@
     },
     "files-code": {
       "darwin": "3b6d37ca7486fb8e64a725d99b866ed520c7342a4b55eca0ff489424ca6f099a",
-      "linux": "cedef35654bb981974bf82637fbda350db99e28f5cc756eed8a89e2426c0f065"
+      "linux": "18b71cdd107ca789d93f2f96b9d9933aaf3dcf4c14a82bc0b8a3591e95cc10ac"
     },
     "files-markdown": {
       "darwin": "69ee8cb8851dee387c524534ab77645d686d5ef7cf9f22f3966c6b86cc3db6d8",
-      "linux": "47d8fd3787964174380cd07930efe8dd07b03768599a29291ef730d53afce62c"
+      "linux": "38bf9b7192a7702e291271b2ed3df04817bec1e6f51a8b243c1cb836097ecbbe"
     },
     "first-connect": {
       "darwin": "2c156b783b057a10ce5332dcb07e294aaab10a0ace9f964ec36b70450e2953da",
-      "linux": "f55706c1a793a2e29c66925b5d2ba215f0971c34524de953f27380b8d790a08c"
+      "linux": "1cd23c6e062c2058f6391fd924f2326213201532a63e4775ec2892116f9b060f"
     },
     "notification": {
       "darwin": "0eab5b7d8177817716b982edcfb6d4890913b3115f4bd265c0dd12026b612f9c",
@@ -23,10 +23,11 @@
     },
     "phone-timeline": {
       "darwin": "cecc9254f08184dde4c9491db655544e4d60531e877eeceb604ef90032ec111f",
-      "linux": "f40cb8c77ae15d044b70209e416e3f853fe186723854ec7c4806a81068e9ca17"
+      "linux": "00323323f2cc511dbd8eec985a3da8742fef28ab106921654f9ee1d9e5eac63d"
     },
     "phone-usage": {
-      "darwin": "51b54ec05f5b0850fcf3fa58f984eb0957039184705c8cd967e74edec1edd94f"
+      "darwin": "51b54ec05f5b0850fcf3fa58f984eb0957039184705c8cd967e74edec1edd94f",
+      "linux": "0c271b4f9c365794f18d605fda0e69a05020a86378a82595d985b5349200a8aa"
     },
     "register": {
       "darwin": "41e7fc7db742458ed72d4bf3e2143998ba4149162bbc8f78acbe37bcfead01ba",
@@ -34,10 +35,11 @@
     },
     "sessions": {
       "darwin": "0d1fd8a33ed2dd8ad7288662617fa7c3d4a3a33d7c63918befe7b8bd3779b280",
-      "linux": "0ea1e62387a96976b3418bd727070888456157762ea2d85ba3cc70036f6fb282"
+      "linux": "b067e03f69a599f904c29186d185aec3185c4d7197f36ed570e97d9e6ae0041b"
     },
     "sessions-cache-ring": {
-      "darwin": "c32765a80f085bbbdf82a176fc8e170e512103c1d2d72e576dc29f06615e2aa7"
+      "darwin": "c32765a80f085bbbdf82a176fc8e170e512103c1d2d72e576dc29f06615e2aa7",
+      "linux": "ddacdac3e609fbc004295411dc34f8635268d3bc92be0fdd3b6c7a922836813d"
     },
     "sign-in": {
       "darwin": "2e6b62796d2a37ae25bc5fbee4629f2f0b791d0e4d8c009553bac893866a9986",
@@ -53,11 +55,11 @@
     },
     "timeline-agent": {
       "darwin": "b36c389b52299a4508daacdc8d1f819de6eac89b485de681eeafc975dda8ed19",
-      "linux": "3a2a4071b6db531ec1f50c890ae404faa9fbabe64acad4693419e8151acee289"
+      "linux": "783a56bc43a0768735f3a05a179f8106d82cc2c089251eface0ac8bc5e463c22"
     },
     "timeline-display": {
       "darwin": "483171e316afac45b3c08aebc70ca492b81b976633d507331f4c194b3cd7f980",
-      "linux": "6905873c083b552e08394119091de074f2d0e0148eb21fd046dbfe7978f97499"
+      "linux": "39c3e14675a8272cee080f72ad92aa913a19dac306572d5dd1e59bde305388b2"
     },
     "timeline-fold-open": {
       "darwin": "4bcbd3acf75eab6228e19a9ae33e286821b950f6c30b1ffec4844f6b079ce1b9",
@@ -72,13 +74,16 @@
       "linux": "abf1db4c243a0b836e8e4c05df8442ceecff3be0ed75ce13d73a57d87758ff29"
     },
     "timeline-translated": {
-      "darwin": "fc677890cf38545ad3095a4027bac5dbf8f64e6ff567b3f7ddf9017f6f3819d8"
+      "darwin": "fc677890cf38545ad3095a4027bac5dbf8f64e6ff567b3f7ddf9017f6f3819d8",
+      "linux": "11d9e57239a7457c43f3815f63ee8cd7f89746d703eac774ff674f7d8f94a10b"
     },
     "usage": {
-      "darwin": "75c25788af556a5d459cee173fb1f31e3e98661dc87d9b1013cd6a8456e2c9d5"
+      "darwin": "75c25788af556a5d459cee173fb1f31e3e98661dc87d9b1013cd6a8456e2c9d5",
+      "linux": "a63f9af25b7c9914c4594fc704c5696044a245c18b7ea620d2e81aca2ad30355"
     },
     "usage-probed": {
-      "darwin": "d56e23d5cc79a6941d8383160dd96de6ba017f6848e5bf208d17e7c5a913f1f1"
+      "darwin": "d56e23d5cc79a6941d8383160dd96de6ba017f6848e5bf208d17e7c5a913f1f1",
+      "linux": "88bfa40dfa1d9fb8a9220abb5f298726b56168104ea1c9b99b68ae2232066c81"
     }
   }
 }
