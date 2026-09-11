@@ -1,6 +1,6 @@
 ---
 title: 未接続時にセッション一覧などを描かない
-status: open
+status: resolved
 category: bug
 created: 2026-09-12T08:28:51+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-12T08:38:32+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: webui v0.9.1 で修正 (2026-09-12)","(1) listed=false の間は一覧・TL・mesh 行を描かず接続画面のみ (snapshot 未受信で行0件の嘘を通さない)","(2) 意図しない切断は行を残し「切断中 / 表示は最後に受け取った内容です」の帯を被せ、再接続の snapshot で置き換え","(3) 明示的な切断は in-memory 全クリア(slots/fold/hello/transcript/開閉/通知/控え/token)、localStorage は残す","visual: first-connect 基準で一覧 DOM 無しを assert、意図しない切断は routeWebSocket で instance 側から閉じて再現"]
 blocked_by:
 origin: kawaz (2026-09-12、実機)
 ---
