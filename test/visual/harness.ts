@@ -26,6 +26,7 @@ export interface Fixtures {
   instance: Instance;
   ui: Page;
   phone: Page;
+  usage: Page;
 }
 
 export const test = base.extend<object, Fixtures>({
@@ -71,6 +72,24 @@ export const test = base.extend<object, Fixtures>({
     async ({ browser, instance }, use) => {
       const context = await browser.newContext();
       const page = await context.newPage();
+      await addAuthenticator(page);
+      const { url, code } = await instance.passkey();
+      await page.goto(url);
+      await register(page, code);
+      await use(page);
+      await context.close();
+    },
+    { scope: "worker" },
+  ],
+  // 時計を留めたブラウザ。使用量の画面に出ているのは残り時間と齢なので、
+  // 走った時刻が基準画像に写らないよう、ページの `Date.now()` を gateway の
+  // 文書が刻むのと同じ instant に固定する。留めた時計は文脈ごと分けて持つ:
+  // 共有のページに仕込むと、後から撮る画面の時計まで止まる。
+  usage: [
+    async ({ browser, instance }, use) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await pinClock(page, instance.gatewayBase);
       await addAuthenticator(page);
       const { url, code } = await instance.passkey();
       await page.goto(url);
@@ -146,6 +165,28 @@ export async function nothingOverflows(page: Page): Promise<void> {
   expect(wide.scrollWidth).toBeLessThanOrEqual(wide.room + 1);
 }
 
+/** このページの「今」を 1 点に留める。
+ *
+ * `Date.now()` と引数無しの `new Date()` だけを差し替える: 画面が時刻を読むのは
+ * その 2 つで、日付の算術 (差の計算・書式) は本物のまま動く。留める先を本物の
+ * 今から遠ざけないのは、daemon が出す期限と噛み合わせたままにするため。 */
+async function pinClock(page: Page, at: number): Promise<void> {
+  await page.addInitScript((pinned: number) => {
+    const Original = Date;
+    const Pinned = class extends Original {
+      constructor(...args: unknown[]) {
+        if (args.length === 0) super(pinned);
+        else super(...(args as []));
+      }
+
+      static override now(): number {
+        return pinned;
+      }
+    };
+    (globalThis as { Date: unknown }).Date = Pinned;
+  }, at);
+}
+
 /** Give this browser a passkey it can answer with, without a person touching
  * anything.
  *
@@ -190,6 +231,12 @@ export async function register(page: Page, code: string): Promise<void> {
 /** Take one screenshot, with what the page cannot draw the same way twice
  * covered over.
  *
+ * `animations: "allow"` is for the one screen whose subject IS an animation:
+ * the cache ring is drawn by a CSS animation, and the default (finishing every
+ * finite animation before the shot) would draw it as the empty ring it becomes
+ * when the window closes. Its window is an hour, so the fraction of it that
+ * passes between two runs' shots is far below one pixel of arc.
+ *
  * Two of the three are in the connection bar, and none is about a screen:
  *
  * - `.meta` carries who this browser is and **how long its access lasts**, and
@@ -207,10 +254,15 @@ export async function register(page: Page, code: string): Promise<void> {
  * Everything else on screen is deterministic by construction rather than by
  * being hidden: the instance id is seeded, the transcript is a fixture with
  * fixed instants, and the endpoint is this run's fixed port. */
-export async function shot(page: Page, name: string): Promise<void> {
+export async function shot(
+  page: Page,
+  name: string,
+  options: { readonly animations?: "allow" | "disabled" } = {},
+): Promise<void> {
   await fontsReady(page);
   await expect(page).toHaveScreenshot(name, {
     mask: [page.locator(".bar .meta"), page.locator(".bar .footer"), page.locator(".host")],
+    ...(options.animations === undefined ? {} : { animations: options.animations }),
   });
 }
 

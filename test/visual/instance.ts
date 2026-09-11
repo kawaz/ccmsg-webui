@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import { createServer, type ViteDevServer } from "vite";
+import { startGateway } from "./gateway.ts";
 
 /** The daemon a screenshot run talks to, and the origin the page is served from.
  *
@@ -22,12 +23,22 @@ import { createServer, type ViteDevServer } from "vite";
  * held config home both refuse loudly. */
 const ROOT = join(tmpdir(), "ccmsg-webui-visual");
 const DAEMON_PORT = 45_871;
+const GATEWAY_PORT = 45_873;
+/** gateway が posts に提示する合言葉。使い捨ての host のものなので、中身に
+ * 意味は無い — 合っていることだけが要る。 */
+const WEBHOOK_SOURCE = "llm-gateway";
+const WEBHOOK_TOKEN = "visual-gateway-token-0123456789";
 /** The instance these screens are of. Fixed for the same reason the paths and
  * the ports are: it is text on the screens being compared. */
 const INSTANCE_ID = "00112233445566778899aabbccddeeff";
 const PAGE_PORT = 45_872;
 
 export interface Instance {
+  /** gateway の文書が刻む基準の時刻。画面に出るのは全てここからの差なので、
+   * 撮る側はページの時計もここへ留める。 */
+  readonly gatewayBase: number;
+  /** gateway が見た要求を 1 件 post する (本物と同じ webhook の道)。 */
+  llmEvent(item: Record<string, unknown>): Promise<void>;
   /** Where the page is published — origin plus base, as the build reads it. */
   readonly endpoint: string;
   /** The config home the daemon answers for. */
@@ -116,9 +127,19 @@ export async function startInstance(): Promise<Instance> {
   const settings = (fields: Record<string, unknown>): string =>
     `export default ({ config }: { config: Record<string, unknown> }) => Object.assign(config, ${JSON.stringify(fields)});\n`;
   writeFileSync(join(configDir, "config_v2.ts"), settings({}));
+  writeFileSync(join(configDir, "webhook.token"), `${WEBHOOK_TOKEN}\n`);
   writeFileSync(
     join(configDir, `instances/instance-${INSTANCE_ID}.ts`),
-    settings({ name: "visual", dir: home, entry: { host: "127.0.0.1", port: DAEMON_PORT } }),
+    settings({
+      name: "visual",
+      dir: home,
+      entry: { host: "127.0.0.1", port: DAEMON_PORT },
+      upstream: {
+        gateway_url: `http://127.0.0.1:${String(GATEWAY_PORT)}`,
+        gateway_webhook_source: WEBHOOK_SOURCE,
+        gateway_webhook_token_file: join(configDir, "webhook.token"),
+      },
+    }),
   );
   writeFileSync(
     join(configDir, "endpoints.json"),
@@ -146,6 +167,12 @@ export async function startInstance(): Promise<Instance> {
     CLAUDE_CONFIG_DIR: home,
   };
 
+  // 分単位に丸めた「今」。画面に出るのは全てここからの差なので、基準画像は
+  // 走った時刻に依らない。丸めるだけで本物の今から離さないのは、daemon が
+  // 出す期限 (access token) と噛み合わせたままにするため。
+  const gatewayBase = Math.floor(Date.now() / 60_000) * 60_000;
+  const gateway = await startGateway(GATEWAY_PORT, gatewayBase);
+
   const daemon = spawn("bun", [cliPath(), "daemon", "run", home], {
     env: { ...process.env, ...env },
     stdio: ["ignore", "pipe", "pipe"],
@@ -153,6 +180,7 @@ export async function startInstance(): Promise<Instance> {
   let vite: ViteDevServer | undefined;
   const stop = async (): Promise<void> => {
     await vite?.close();
+    await gateway.stop();
     // By pid, and this run's own child: nothing else on the machine is asked to
     // leave on a visual run's behalf.
     const left = new Promise<void>((resolve) => daemon.once("exit", () => resolve()));
@@ -178,12 +206,29 @@ export async function startInstance(): Promise<Instance> {
     throw cause;
   }
 
+  const llmEvent = async (item: Record<string, unknown>): Promise<void> => {
+    const answer = await fetch(
+      `http://127.0.0.1:${String(DAEMON_PORT)}/webhook/${WEBHOOK_SOURCE}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${WEBHOOK_TOKEN}`,
+        },
+        body: JSON.stringify([item]),
+      },
+    );
+    if (!answer.ok) throw new Error(`gateway の webhook が断られました: ${String(answer.status)}`);
+  };
+
   const endpoint = `http://localhost:${String(PAGE_PORT)}/`;
   return {
     endpoint,
     home,
     cwd,
     stateDir,
+    gatewayBase,
+    llmEvent,
     stop,
     passkey: async () => {
       const said = (await cli(env, [
