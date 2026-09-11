@@ -74,11 +74,18 @@ test("狭い画面でも、帯と数字が窓に収まる", async ({ usage: page
  * 画面」で、繋がっていて中身が空なのか、話し相手が居ないのかを区別できない。 */
 test("回線が切れただけなら、聞いたものは帯付きで残る", async ({ usage: page, instance }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  // socket そのものを落とす道を先に用意しておく。人は何も押しておらず、
-  // 端末が網から外れただけ、という切断を実際に起こすため — ページの中の
-  // 仕掛けではなく、繋がっている socket を外から閉じる。
+  // socket を中継して、**網が落ちている間**を作れるようにする。切るだけでは
+  // 足りない: 画面は 500ms 後に繋ぎ直しに行くので、切断の姿はその間しか無く、
+  // 見に行った時にはもう戻っている (実測 509ms)。落ちている状態を保つには、
+  // 繋ぎ直しに来た socket も断り続ける必要がある。
+  let down = false;
   let drop: (() => void) | undefined;
   await page.routeWebSocket(/\/ws$/, (ws) => {
+    if (down) {
+      // 網の向こうに誰も居ない。繋ぎ直しはここで断られ、画面は切れたまま。
+      ws.close();
+      return;
+    }
     const instanceSide = ws.connectToServer();
     ws.onMessage((message) => {
       instanceSide.send(message);
@@ -94,12 +101,15 @@ test("回線が切れただけなら、聞いたものは帯付きで残る", as
   await expect(page.locator(".row").first()).toBeVisible();
   expect(drop).toBeDefined();
 
+  // 人は何も押していない。端末が網から外れただけ。
+  down = true;
   drop?.();
   await expect(page.locator(".stale-band")).toBeVisible();
   // 行は残ったまま: 切れただけの端末から、最後に聞いた内容まで消さない。
   await expect(page.locator(".row").first()).toBeVisible();
 
-  // 繋ぎ直すと、同じ行が snapshot で置き換わって帯が消える。
+  // 網が戻れば、繋ぎ直した snapshot が同じ行を置き換えて帯が消える。
+  down = false;
   await expect(page.locator(".stale-band")).toBeHidden({ timeout: 30_000 });
   await expect(page.locator(".row").first()).toBeVisible();
   await page.unrouteAll();
