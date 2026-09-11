@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.6.0",
+  "webui_version": "0.7.0",
   "screens": {
     "conversation": {
       "darwin": "46c7bc153830482c59b6f8b56060ec2367ef28a25d42cdcc4ad164eb7e05cbf7",
@@ -14,7 +14,8 @@
       "linux": "47d8fd3787964174380cd07930efe8dd07b03768599a29291ef730d53afce62c"
     },
     "first-connect": {
-      "darwin": "dcf20aa494a80bbec24abc47fc0a4232688979435504c8b53532419b4e8e5cb3"
+      "darwin": "dcf20aa494a80bbec24abc47fc0a4232688979435504c8b53532419b4e8e5cb3",
+      "linux": "f55706c1a793a2e29c66925b5d2ba215f0971c34524de953f27380b8d790a08c"
     },
     "notification": {
       "darwin": "6e0592f12007072220265e2cadbb3b1b167f0d8951cfcb1b28b81b8806e97374",
@@ -26,15 +27,15 @@
     },
     "sessions": {
       "darwin": "8c63e760332dc68cce52aacb69c07850db5ad8a0799e99f48fce38bd75dc905f",
-      "linux": "93f47ced5324d6e8201b85795ea25e59f85993e61d2199ca6be3f38982a09dd4"
+      "linux": "0ea1e62387a96976b3418bd727070888456157762ea2d85ba3cc70036f6fb282"
     },
     "sign-in": {
       "darwin": "2e6b62796d2a37ae25bc5fbee4629f2f0b791d0e4d8c009553bac893866a9986",
-      "linux": "c3c2e3fc8dde45cdeda26ba6c8b7295a4ab1525420d6fc7d31a5b17eedddf1cb"
+      "linux": "faa5fe1c027d9012c3f37520e238ee2a6a2b4ca68665e9a7ae1e477ae984ce28"
     },
     "terminal": {
       "darwin": "504c82d0c4102c1d022a570d3906fa797c1006c032d3a9387e13c6d4b7bb8d85",
-      "linux": "24df8ba3f112d8ca9cb795b30099c108865347f197236b331e27c9e7fe1e3480"
+      "linux": "9a0fe8d1abc56e5c44c949061e4db9268bdec215da7ed60a86544cf156eab383"
     },
     "timeline": {
       "darwin": "a12a72c162290223afc0adff779355b80a3c6996f8ebc15ee8a38ff0d3ddfe2b",
@@ -46,7 +47,7 @@
     },
     "timeline-display": {
       "darwin": "c00853dc9c2bf1cbd2d525f375d403d1d4b76c2ef83179696006ea2e96a08f16",
-      "linux": "50192485b77b34126297c9e573386f074d530d744c37ce9d807c70a992d3208f"
+      "linux": "6905873c083b552e08394119091de074f2d0e0148eb21fd046dbfe7978f97499"
     },
     "timeline-fold-open": {
       "darwin": "9d27e7582b159c6bbaed8059f617344c82e436fd4bdccaf8f9ce7a6bca850381",
