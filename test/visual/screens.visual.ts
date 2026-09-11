@@ -27,12 +27,12 @@ test("register", async ({ ui: page, instance }) => {
   // Put the app back in front, so the screens after this one are not drawn
   // behind a registration nobody finished.
   await page.getByRole("button", { name: "やめる" }).click();
-  await expect(page.getByRole("heading", { name: /稼働セッション/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
 });
 
 test("sessions", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
-  await expect(page.getByRole("heading", { name: /稼働セッション/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
   await expect(page.getByRole("button", { name: /topic の畳み方/ })).toBeVisible();
   await shot(page, "sessions.png");
 });

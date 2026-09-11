@@ -111,19 +111,22 @@ export async function register(page: Page, code: string): Promise<void> {
   await page.getByLabel("CLI が表示した 6 桁のコード").fill(code);
   await page.getByLabel("この端末の名前").fill("visual runner");
   await page.getByRole("button", { name: "登録する" }).click();
-  await expect(page.getByRole("heading", { name: /稼働セッション/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
 }
 
 /** Take one screenshot, with what the page cannot draw the same way twice
  * covered over.
  *
- * Both places are in the connection bar, and neither is about a screen:
+ * Two of the three are in the connection bar, and none is about a screen:
  *
  * - `.meta` carries who this browser is and **how long its access lasts**, and
  *   the second half of that counts down
  * - `.footer` names the **daemon's version**, which belongs to another
  *   repository's release cadence — left uncovered, every ccmsg release would
  *   redraw all of these baselines while nothing about the page had changed
+ * - `.host` on a mesh row is the **machine this ran on**, which is the one
+ *   thing on these screens the run cannot fix: a baseline drawn on one host
+ *   would fail on every other one
  *
  * A mask keeps the element's own box, so the bar moving or changing size still
  * fails; what is given up is the text inside those few hundred pixels.
@@ -134,7 +137,7 @@ export async function register(page: Page, code: string): Promise<void> {
 export async function shot(page: Page, name: string): Promise<void> {
   await fontsReady(page);
   await expect(page).toHaveScreenshot(name, {
-    mask: [page.locator(".bar .meta"), page.locator(".bar .footer")],
+    mask: [page.locator(".bar .meta"), page.locator(".bar .footer"), page.locator(".host")],
   });
 }
 
