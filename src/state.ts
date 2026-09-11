@@ -672,6 +672,9 @@ export function disconnect(): void {
   hello.value = undefined;
   listed.value = false;
   transcript.value = undefined;
+  // 読んでいた file の本文も instance から聞いたもの。木と本文の写しは捨て、
+  // どの file を開いていたかの記憶 (localStorage) は人の設定なので残す。
+  files.value = undefined;
   timelineFolds.value = new FoldOpen();
   notifications.value = [];
   toast.value = undefined;
