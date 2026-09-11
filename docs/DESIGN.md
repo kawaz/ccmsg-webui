@@ -82,6 +82,34 @@ A `<details>` inside a flex layout has a trap in it. The browser puts an open el
 
 It shows up only after scrolling back, because what pushes (a table, a code block) is in an earlier page — not because of anything the window computes. So the baseline is drawn **on a narrow screen after scrolling back** (`test/visual/phone.visual.ts`), and it measures, beside the picture, that no element is wider than the window: a broken layout is indistinguishable from an intended one in a picture, while the name of the element that overflowed says who broke it.
 
+## There are three disconnections, and they do three different things
+
+Every row on screen is **something the instance is saying now**, so what a
+disconnection does is a question of what is worth losing. There are three.
+
+| The disconnection | The screen |
+|---|---|
+| **Nothing has been heard yet** (a first visit) | no list, no transcript, no mesh row — the connecting screen alone (`src/ui/Disconnected.tsx`) |
+| **Nobody asked for it** (the network went, the instance left) | what was heard stays on screen, with a band saying it is no longer current. The next snapshot replaces the same rows |
+| **Someone pressed 切断** | the equivalent of logging out: everything held in memory goes (the lists, the transcript, the fold state, the access token). The preferences in localStorage stay |
+
+Nothing is framed before it is heard, because that frame is an **empty list** —
+a list of no rows says "this host has no sessions" rather than "you are not
+connected". So the screen arrives not when the socket opens but when **the
+list's snapshot does** (`listed`); at the moment a socket opens nothing has been
+heard yet.
+
+The other way round, a drop does not empty the screen. This is carried around
+and read on the move, and losing the page at every gap in the signal loses too
+much: until the next snapshot overwrites them, the rows last heard are worth
+reading. **Nothing on a row says when it was heard**, so the band says it. What
+is dropped is only what stops meaning anything — the connection's deadline, a
+notification that said something just happened, the receipt for a message sent
+on that connection.
+
+Only a press lets go of what is held. If a drop did that too, walking through a
+tunnel would mean signing in again.
+
 ## A type's display attributes
 
 **Where an item is drawn, and how far open, is decided by its type** (`src/timeline/display.ts`). There are two axes and no more:
