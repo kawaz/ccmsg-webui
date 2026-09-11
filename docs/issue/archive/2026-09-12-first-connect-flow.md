@@ -1,6 +1,6 @@
 ---
 title: スマホ初回アクセスの接続・認証導線を直す
-status: open
+status: resolved
 category: bug
 created: 2026-09-12T07:35:33+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-12T08:11:24+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:webui v0.7.0 で修正 (2026-09-12)。読み込み時は cookie がある時だけ resume、押下1回で token→refresh cookie→passkey、token 無ければ再ダイヤルせず authRequired で停止、passkey 未登録/拒否時は登録案内、接続/切断はボタン1本。根本原因は無条件 connect と拒否 handshake の永久 backoff 再ダイヤル。visual に first-connect 画面追加"]
 blocked_by:
 origin: v1-parity-for-migration (束 0 の先頭)
 ---
