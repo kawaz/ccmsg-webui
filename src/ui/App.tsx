@@ -27,7 +27,6 @@ const TAB_LABELS: Readonly<Record<Tab, string>> = {
   files: "ファイル",
   terminal: "端末",
   status: "状態",
-  rooms: "部屋",
 };
 
 function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {

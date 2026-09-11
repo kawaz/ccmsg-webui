@@ -17,7 +17,7 @@ import type { Sid } from "@ccmsg/protocol";
  * where a build lives is the build's own answer (`src/base.ts`), and the
  * grammar is the same one whether it hangs from `/` or from `/personal/`. */
 
-export const TABS = ["timeline", "files", "terminal", "status", "rooms"] as const;
+export const TABS = ["timeline", "files", "terminal", "status"] as const;
 export type Tab = (typeof TABS)[number];
 
 export const DEFAULT_TAB: Tab = "timeline";

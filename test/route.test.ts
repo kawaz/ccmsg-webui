@@ -35,10 +35,10 @@ describe("the URL grammar", () => {
   test("a route makes the path it was read from", () => {
     expect(routePath({ at: "sessions" })).toBe("/");
     expect(routePath({ at: "session", sid: SID, tab: "status" })).toBe(`/s/${SID}/status`);
-    expect(parseRoute(routePath({ at: "session", sid: SID, tab: "rooms" }))).toEqual({
+    expect(parseRoute(routePath({ at: "session", sid: SID, tab: "status" }))).toEqual({
       at: "session",
       sid: SID,
-      tab: "rooms",
+      tab: "status",
     });
   });
 });
@@ -80,7 +80,7 @@ describe("the grammar under a base", () => {
     for (const base of ["/", BASE]) {
       for (const route of [
         { at: "sessions" },
-        { at: "session", sid: SID, tab: "rooms" },
+        { at: "session", sid: SID, tab: "status" },
         { at: "session", sid: SID, tab: "files", path: "src/a.ts", lines: { start: 3, end: 9 } },
       ] as const) {
         const printed = routePath(route, base);
