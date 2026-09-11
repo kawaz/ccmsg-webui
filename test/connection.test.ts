@@ -61,6 +61,7 @@ const events = {
   status(_status: ConnectionStatus, _detail?: string): void {},
   greeted(): void {},
   topic(): void {},
+  authRequired(): void {},
   generationMismatch(): void {},
 };
 
@@ -148,14 +149,20 @@ describe("a refused handshake is answered by renewing the token, once", () => {
     connection.close();
   });
 
-  test("a refusal the refresh cannot answer stops at the sign-in screen", async () => {
+  test("a refusal the refresh cannot answer stops, and says so once", async () => {
     // Nothing to present is what a source with no session answers, and dialling
     // on that would be a busy loop against a door that authenticating opens.
+    // The attempt ends here rather than backing off: what comes next is the
+    // person authenticating, which is not something a timer brings about.
     const token = source(["stale", undefined]);
-    const said: (string | undefined)[] = [];
+    const said: ConnectionStatus[] = [];
+    let asked = 0;
     const connection = new Connection({
       ...events,
-      status: (status: ConnectionStatus, detail?: string) => said.push(detail ?? status),
+      status: (status: ConnectionStatus) => said.push(status),
+      authRequired: () => {
+        asked += 1;
+      },
     });
     connection.connect("ws://instance.example/ws", token.next);
     await settle();
@@ -163,8 +170,13 @@ describe("a refused handshake is answered by renewing the token, once", () => {
     await settle();
 
     expect(token.asked).toEqual([false, true]);
+    expect(asked).toBe(1);
+    expect(said.at(-1)).toBe("idle");
+
+    // And stays stopped: no backoff behind it dialling again on its own.
+    await new Promise((done) => setTimeout(done, 600));
     expect(FakeSocket.instances.length).toBe(1);
-    expect(said.at(-1)).toBe("認証が必要です");
+    expect(asked).toBe(1);
     connection.close();
   });
 });

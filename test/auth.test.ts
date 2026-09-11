@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { AuthSession } from "@ccmsg/protocol";
 import { fromBase64Url, toBase64Url } from "../src/auth/base64url.ts";
-import { refreshSession } from "../src/auth/client.ts";
-import { connectRefreshReason, forgetSession, holdSession } from "../src/auth/session.ts";
+import { AuthError, refreshSession } from "../src/auth/client.ts";
+import {
+  connectRefreshReason,
+  forgetSession,
+  holdSession,
+  isNoSession,
+  isSignInDeclined,
+} from "../src/auth/session.ts";
 import { defaultDeviceLabel } from "../src/auth/device-label.ts";
 import { authUrl, endpointFromLocation, isEndpoint, socketUrl } from "../src/auth/endpoint.ts";
 import {
@@ -216,5 +222,38 @@ describe("a registration link arriving in an open tab", () => {
     watchRegisterLinks(tab.port, (one) => held.push(one));
     expect(held).toHaveLength(0);
     expect(tab.state.cleared).toBe(1);
+  });
+});
+
+describe("telling a refusal apart from a screen to raise", () => {
+  test("a browser with no session meets a refusal that is not a failure", () => {
+    // What `/auth/refresh` answers a browser that has never signed in, and one
+    // whose refresh token no longer stands. Neither is worth a banner: nothing
+    // the person did went wrong.
+    expect(isNoSession(new AuthError("http_403", "Forbidden", 403))).toBe(true);
+    expect(isNoSession(new AuthError("http_401", "Unauthorized", 401))).toBe(true);
+    expect(isNoSession(new AuthError("auth_invalid", "no", 400))).toBe(true);
+    expect(isNoSession(new AuthError("auth_expired", "gone", 400))).toBe(true);
+  });
+
+  test("an instance that cannot be reached is not a session being over", () => {
+    expect(isNoSession(new AuthError("unreachable", "届きませんでした", 0))).toBe(false);
+    expect(isNoSession(new AuthError("internal_error", "boom", 500))).toBe(false);
+    expect(isNoSession(new Error("boom"))).toBe(false);
+  });
+
+  test("a passkey prompt that produced none is where registering is offered", () => {
+    // The browser says the same thing whether it was waved away or has no
+    // passkey for this domain, and both lead to the same place.
+    expect(isSignInDeclined(new DOMException("declined", "NotAllowedError"))).toBe(true);
+    expect(isSignInDeclined(new DOMException("gone", "AbortError"))).toBe(true);
+    expect(isSignInDeclined(new AuthError("aborted", "passkey が提示されませんでした", 0))).toBe(
+      true,
+    );
+  });
+
+  test("an instance refusing the assertion is the instance's own words", () => {
+    expect(isSignInDeclined(new AuthError("auth_invalid", "no", 400))).toBe(false);
+    expect(isSignInDeclined(new AuthError("unreachable", "届きませんでした", 0))).toBe(false);
   });
 });

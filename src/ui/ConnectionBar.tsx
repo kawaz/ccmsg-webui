@@ -1,6 +1,6 @@
 import { connectionExpiresAt, subject } from "../auth/session.ts";
 import { instanceLabel } from "../instance-label.ts";
-import { connect, disconnect, endpoint, hello, status, statusDetail } from "../state.ts";
+import { connect, disconnect, endpoint, hello, status, statusDetail, wanted } from "../state.ts";
 
 const WORDS: Record<string, string> = {
   idle: "未接続",
@@ -23,10 +23,12 @@ function untilWords(at: number): string {
  *
  * The instance is not chosen here: this page is served from under its endpoint,
  * so the address is shown rather than typed (DR-0001 §2.2). What is left to do
- * is stop and start it. Who is connected is answered by a passkey and shown
- * beside it. */
+ * is stop and start it, which is one button: it says the thing pressing it
+ * does, and what it is doing now is the word beside the dot. Who is connected
+ * is answered by a passkey and shown beside it. */
 export function ConnectionBar() {
   const state = status.value;
+  const on = wanted.value;
 
   return (
     <div class="bar">
@@ -37,13 +39,11 @@ export function ConnectionBar() {
         type="button"
         disabled={endpoint === undefined}
         onClick={() => {
-          connect();
+          if (on) disconnect();
+          else void connect();
         }}
       >
-        接続
-      </button>
-      <button type="button" onClick={disconnect}>
-        切断
+        {on ? "切断" : "接続"}
       </button>
       {subject.value !== undefined && (
         <span class="meta">

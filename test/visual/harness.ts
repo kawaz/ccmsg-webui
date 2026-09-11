@@ -18,9 +18,9 @@ import { type FakeSession, greetAsSession } from "./session.ts";
  * would quietly become the sign-in screen: one broken thing would be reported
  * as many. Setup that fails stops the run at the thing that is actually wrong.
  *
- * The one screen this cannot draw is the sign-in screen, which is what a
- * browser that has *not* registered sees. That test takes the built-in `page`
- * instead: a context of its own is an unregistered browser. */
+ * The screens this cannot draw are the two an unregistered browser sees — the
+ * one it opens on, and the one pressing 接続 leads to. Those tests take the
+ * built-in `page` instead: a context of its own is an unregistered browser. */
 
 export interface Fixtures {
   instance: Instance;
@@ -103,6 +103,16 @@ async function addAuthenticator(page: Page): Promise<void> {
       automaticPresenceSimulation: true,
     },
   });
+}
+
+/** Give this browser an authenticator holding nothing.
+ *
+ * What a phone that has never registered here is: asked for a passkey it
+ * answers that it has none, which is the refusal the page turns into the
+ * registration guidance. Without one at all the browser would be answering for
+ * a machine with no authenticator, which is not what anybody is carrying. */
+export async function emptyAuthenticator(page: Page): Promise<void> {
+  await addAuthenticator(page);
 }
 
 /** Finish the registration screen this page is on, and wait for the app behind

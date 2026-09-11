@@ -20,7 +20,7 @@ import type {
   TopicName,
   TranscriptItem,
 } from "@ccmsg/protocol";
-import { AuthError, assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
+import { assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
 import { endpointFromLocation, socketUrl } from "./auth/endpoint.ts";
 import type { Registration } from "./auth/register-link.ts";
@@ -32,6 +32,9 @@ import {
   describeAuthError,
   forgetSession,
   holdSession,
+  isNoSession,
+  isSignInDeclined,
+  needsRegistration,
   needsSignIn,
   subject,
   tokenIsLive,
@@ -337,6 +340,16 @@ export const connection = new Connection({
       }
     }
   },
+  authRequired() {
+    // Held while the socket was open and no longer accepted: the token ran out
+    // on the far side, or the session was ended elsewhere. The passkey is not
+    // asked for here — nobody pressed anything, and a browser refuses a passkey
+    // that no gesture is behind — so what is raised is the screen offering it.
+    wanted.value = false;
+    needsSignIn.value = true;
+    needsRegistration.value = false;
+    authProblem.value = "接続が許可されませんでした。passkey で認証し直してください。";
+  },
   generationMismatch(reason) {
     generationWarning.value = reason;
   },
@@ -495,51 +508,105 @@ async function accessToken(renew = false): Promise<string | undefined> {
     holdSession(await renewSession(endpoint, connectRefreshReason()));
     return access.peek()?.value;
   } catch (cause) {
-    const refused =
-      cause instanceof AuthError && (cause.code === "auth_invalid" || cause.status === 401);
     // The endpoint being unreachable is not the session being over. Keeping
     // what is held lets the socket's own retry ride a daemon restart out
     // instead of turning it into a sign-in screen.
-    if (!refused && renew && tokenIsLive()) {
+    if (!isNoSession(cause) && renew && tokenIsLive()) {
       authProblem.value = describeAuthError(cause);
       return access.peek()?.value;
     }
     forgetSession();
-    needsSignIn.value = true;
     // A first visit has no cookie, and being told so reads as a failure of
     // something the person did. Only a refusal that is not simply "no session
     // here" is worth saying out loud.
-    if (!refused) authProblem.value = describeAuthError(cause);
+    if (!isNoSession(cause)) authProblem.value = describeAuthError(cause);
     return undefined;
   }
 }
 
+/** Whether this page is meant to be connected just now.
+ *
+ * What the button says, and what says it: the status beside it is what the
+ * socket is doing, which passes through closed and back while a retry is
+ * running. Holding the intent apart from the state is what keeps a person from
+ * reading "切断" on a page that is still trying to come back, and what makes
+ * pressing the button always do the other thing from what it says. */
+export const wanted = signal(false);
+
 /** Open the socket under this page's endpoint and subscribe to what the list
- * needs. */
-export function connect(): void {
+ * needs. Called with a session in hand: what to do when there is none is
+ * decided before this, where the person's press is still live. */
+function openSocket(): void {
   if (endpoint === undefined) return;
   generationWarning.value = undefined;
   connection.connect(socketUrl(endpoint), accessToken);
   for (const topic of TOPICS) connection.subscribe(topic);
 }
 
+/** Whether there is a session to open a socket with, asking the cookie when
+ * memory has none. */
+async function haveSession(): Promise<boolean> {
+  return (await accessToken()) !== undefined;
+}
+
+/** Connect, and authenticate on the way if that is what it takes.
+ *
+ * One press is the whole of it: what is held is used, a refresh cookie is
+ * spent if that is what there is, and a browser with neither goes straight to
+ * its passkey — in the same turn as the press, because asking for a passkey is
+ * something a browser only allows while the person's gesture is still live. */
+export async function connect(): Promise<void> {
+  if (endpoint === undefined) return;
+  wanted.value = true;
+  needsSignIn.value = false;
+  needsRegistration.value = false;
+  authProblem.value = undefined;
+  if ((await haveSession()) || (await signIn())) openSocket();
+}
+
+/** Connect if it takes nothing from the person.
+ *
+ * What a reload does: a browser holding a refresh cookie is connected before
+ * the page is looked at, and one holding nothing is left at a screen offering
+ * to connect. Nothing about authenticating is said yet — there is nothing to
+ * say until an attempt has been made. */
+export async function resume(): Promise<void> {
+  if (endpoint === undefined || !(await haveSession())) return;
+  wanted.value = true;
+  openSocket();
+}
+
 export function disconnect(): void {
+  wanted.value = false;
+  needsSignIn.value = false;
+  needsRegistration.value = false;
+  authProblem.value = undefined;
   connection.close();
 }
 
-/** Prove a passkey and connect on what it minted.
+/** Prove a passkey and hold what it minted.
  *
  * No relying party is named: a passkey answers for the domain of the page
  * asking, which is the endpoint's own host — the one it was registered under
- * (DR-0001 §2.3). */
-export async function signIn(): Promise<void> {
-  if (endpoint === undefined) return;
+ * (DR-0001 §2.3). Answers whether there is a session now; what raises a screen
+ * is the refusal, which is where what the person can do next is known. */
+export async function signIn(): Promise<boolean> {
+  if (endpoint === undefined) return false;
   authProblem.value = undefined;
   try {
     holdSession(await assertPasskey(endpoint));
-    connect();
+    needsSignIn.value = false;
+    needsRegistration.value = false;
+    return true;
   } catch (cause) {
-    authProblem.value = describeAuthError(cause);
+    wanted.value = false;
+    needsSignIn.value = true;
+    // Declined or unregistered: registering is the way in, and this is the
+    // moment it becomes worth saying. Anything else is the instance's own
+    // words, which say what happened instead.
+    needsRegistration.value = isSignInDeclined(cause);
+    authProblem.value = needsRegistration.value ? undefined : describeAuthError(cause);
+    return false;
   }
 }
 
@@ -558,7 +625,8 @@ export async function completeRegistration(code: string, deviceLabel: string): P
     });
     holdSession(session);
     registration.value = undefined;
-    connect();
+    wanted.value = true;
+    openSocket();
   } catch (cause) {
     authProblem.value = describeAuthError(cause);
   }
@@ -569,7 +637,7 @@ export async function completeRegistration(code: string, deviceLabel: string): P
 export function dismissRegistration(): void {
   registration.value = undefined;
   authProblem.value = undefined;
-  connect();
+  void resume();
 }
 
 /** How much of a connection's remaining life to use before renewing it. The

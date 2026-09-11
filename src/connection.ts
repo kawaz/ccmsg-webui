@@ -49,6 +49,10 @@ export interface ConnectionEvents {
   status(status: ConnectionStatus, detail?: string): void;
   greeted(hello: HelloResult): void;
   topic(message: TopicMessage): void;
+  /** There is nothing left to present, so this connection stops rather than
+   * dials: the door opens by authenticating, and what happens next is the
+   * page's to decide. */
+  authRequired(): void;
   /** The contract's generation and this build's do not agree, or the instance
    * does not know an op this build calls. There is no compatibility path: the
    * page says so and the person reloads a build that matches. */
@@ -157,9 +161,13 @@ export class Connection {
     const token = await source(renew);
     if (this.#stopped) return;
     // Nothing to present. Dialling anyway would be refused, and retrying that
-    // is a busy loop against a door that opens by authenticating instead.
+    // is a busy loop against a door that opens by authenticating instead: this
+    // connection stops here, and the next attempt is the one the page makes
+    // once it holds a session again.
     if (token === undefined) {
-      this.#events.status("closed", "認証が必要です");
+      this.#stopped = true;
+      this.#events.status("idle");
+      this.#events.authRequired();
       return;
     }
     // A browser cannot put a header on a handshake, so the access token travels

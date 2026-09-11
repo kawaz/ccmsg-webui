@@ -1,5 +1,5 @@
 import { AGENT_ID, OTHER_SID, SID } from "./fixture.ts";
-import { expect, shot, test } from "./harness.ts";
+import { emptyAuthenticator, expect, shot, test } from "./harness.ts";
 
 /** What the screens look like, screen by screen.
  *
@@ -8,11 +8,31 @@ import { expect, shot, test } from "./harness.ts";
  * `harness.ts`), so a screen that fails to match fails alone. Playwright is
  * told not to parallelise — one daemon, one dev server, fixed ports. */
 
-test("sign-in", async ({ page, instance }) => {
-  // The built-in `page`, not `ui`: what this screen is is a browser that has
-  // not registered, and a context of its own is exactly that.
+// 初めて開いた画面。出来ることは「接続」だけで、認証の話はまだ出さない —
+// 押してみるまで、この端末に何があるかは分からない。
+test("first-connect", async ({ page, instance }) => {
+  // The built-in `page`, not `ui`: what these two screens are is a browser that
+  // has not registered, and a context of its own is exactly that.
   await page.goto(instance.endpoint);
-  await expect(page.getByRole("button", { name: "passkey で認証" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "接続" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "passkey で認証する" })).toBeHidden();
+  await shot(page, "first-connect.png");
+});
+
+test("sign-in", async ({ page, instance }) => {
+  // 何も登録していない端末に authenticator だけ持たせる: 「接続」を押すと
+  // passkey を訊かれ、答えられるものが無いことがその場で分かる。そこで初めて
+  // 登録の案内が出る、というのがこの画面。
+  await emptyAuthenticator(page);
+  // A link issued and not opened. The daemon answers `/auth/*` only to an
+  // origin it knows, and on a host where nobody has registered yet the only
+  // thing that makes this run's origin one is a registration waiting for it —
+  // which is the state a person is in when they have been sent a link.
+  await instance.passkey();
+  await page.goto(instance.endpoint);
+  await page.getByRole("button", { name: "接続" }).click();
+  await expect(page.getByRole("heading", { name: "passkey で認証する" })).toBeVisible();
+  await expect(page.getByText("登録 URL と 6 桁のコード")).toBeVisible();
   await shot(page, "sign-in.png");
 });
 

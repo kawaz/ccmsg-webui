@@ -22,6 +22,13 @@ export const connectionExpiresAt = signal<Timestamp | undefined>(undefined);
  * needed. The screen this raises is the only way back. */
 export const needsSignIn = signal(false);
 
+/** Set when asking for a passkey produced none: this browser has not been
+ * registered for this endpoint, or whoever is at it declined. Registering is
+ * what is offered then, and not before — it starts at a terminal, and putting
+ * it in front of someone who has a passkey is telling them to do work they
+ * have already done. */
+export const needsRegistration = signal(false);
+
 /** What went wrong the last time this page tried to authenticate, in words for
  * the person. Cleared when they try again. */
 export const authProblem = signal<string | undefined>(undefined);
@@ -62,6 +69,36 @@ const EXPIRY_MARGIN_MS = 5_000;
 export function tokenIsLive(at = Date.now()): boolean {
   const held = access.value;
   return held !== undefined && held.expires_at - EXPIRY_MARGIN_MS > at;
+}
+
+/** Whether a refusal means "no session here" rather than something going
+ * wrong. A browser that has never signed in, and one whose refresh token has
+ * been spent or revoked, both meet the same answer — and neither is worth
+ * putting on screen as an error, because nothing has failed that the person
+ * did. */
+export function isNoSession(cause: unknown): boolean {
+  if (!(cause instanceof AuthError)) return false;
+  return (
+    cause.status === 401 ||
+    cause.status === 403 ||
+    cause.code === "auth_invalid" ||
+    cause.code === "auth_expired"
+  );
+}
+
+/** Whether asking for a passkey ended without one.
+ *
+ * The browser answers the same way whether the person waved the prompt away or
+ * has no passkey for this domain at all — on purpose, since telling a page
+ * which it was would tell it who is registered here. Both lead to the same
+ * place: registering is the way in. */
+export function isSignInDeclined(cause: unknown): boolean {
+  if (cause instanceof AuthError) return cause.code === "aborted";
+  return (
+    typeof DOMException !== "undefined" &&
+    cause instanceof DOMException &&
+    (cause.name === "NotAllowedError" || cause.name === "AbortError")
+  );
 }
 
 /** What to tell the person about a refusal.
