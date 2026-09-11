@@ -1,3 +1,5 @@
+import type { TranscriptSubject } from "@ccmsg/protocol";
+
 /** 型ごとの表示属性 — その型の item を画面のどこに、どこまで開いて出すか。
  *
  * 型名は `:` 区切りの階層なので、設定も階層で読む: `tool` に付けた値は
@@ -24,10 +26,28 @@ export type Subject = "main" | "sub";
 
 export const SUBJECTS: readonly Subject[] = ["main", "sub"];
 
-/** 今読んでいる面。継ぎ方は主語ごとに閉じていて、面をまたいで継ぐことはない。 */
+/** 面ごとの設定を揃えたもの。主語は item が名乗るので、1 つの画面が両方の面を
+ * 使う — セッションの会話と、その下の worker がやったことが同じ並びに出る。 */
+export type DisplayFaces = Readonly<Record<Subject, DisplaySettings>>;
+
+/** 1 つの面。継ぎ方は面ごとに閉じていて、面をまたいで継ぐことはない。 */
 export interface DisplayFace {
   readonly subject: Subject;
   readonly settings: DisplaySettings;
+}
+
+/** その item をどの面で読むか。
+ *
+ * 契約の主語は 3 つ (`main` / `team` / `sub`) だが、読む理由は 2 つしかない:
+ * 人とのやりとりを読むか、持ち場を任された側の手つきを読むか。`team` は後者
+ * なので `sub` と同じ面で読む。 */
+export function faceSubject(subject: TranscriptSubject): Subject {
+  return subject === "main" ? "main" : "sub";
+}
+
+export function faceOf(faces: DisplayFaces, subject: TranscriptSubject): DisplayFace {
+  const one = faceSubject(subject);
+  return { subject: one, settings: faces[one] };
 }
 
 export type DisplayAxis = keyof Display;

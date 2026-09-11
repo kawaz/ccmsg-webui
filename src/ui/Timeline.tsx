@@ -32,6 +32,8 @@ import {
   type DisplayAxis,
   displayRows,
   isOwnValue,
+  faceOf,
+  faceSubject,
   resolveDisplay,
   type Subject,
   SUBJECTS,
@@ -66,14 +68,12 @@ import {
   displayFace,
   dropHeld,
   heldMessages,
-  lastLive,
   navigate,
   notifications,
   peers,
   sessionPaths,
   setTimelineDisplay,
-  timelineDisplay,
-  timelineSubject,
+  timelineFaces,
   timelineFolds,
   transcript,
 } from "../state.ts";
@@ -182,20 +182,26 @@ export function Timeline({ sid }: { sid: Sid }) {
 
 /** 送れる相手か、送れないならなぜか。
  *
- * 送れるのは instance が今つながっていると言っているセッションだけ。止まった
- * ものは last_live に残っているので、どう終わったかをそのまま理由にする。 */
+ * 送れるのは instance が今つながっていると言っているセッションだけ。行はどちら
+ * も同じ一覧に居て、立ち方は `state` が言うので、それをそのまま理由にする。 */
 function sendability(sid: Sid): { live: boolean; why: string } {
   const peer = peers.value.find((one) => one.sid === sid);
-  if (peer !== undefined) {
-    if (peer.state === "live_unmanaged") {
+  switch (peer?.state) {
+    case "live_unmanaged":
       return { live: false, why: "instance からも端末からも操作できない状態です" };
-    }
-    return { live: true, why: "" };
+    case "paused":
+      return { live: false, why: "セッションは終了しています" };
+    case "disappeared":
+      return { live: false, why: "セッションは居なくなりました" };
+    case undefined:
+      // 行そのものが無いか、instance が分類を名乗っていないか。前者なら届かず、
+      // 後者は「届かないと決めつけない」— どちらも送ってみるより先に言う。
+      return peer === undefined
+        ? { live: false, why: "このセッションは instance に接続していません" }
+        : { live: true, why: "" };
+    default:
+      return { live: true, why: "" };
   }
-  const gone = lastLive.value.find((one) => one.sid === sid);
-  if (gone?.state === "paused") return { live: false, why: "セッションは終了しています" };
-  if (gone?.state === "disappeared") return { live: false, why: "セッションは居なくなりました" };
-  return { live: false, why: "このセッションは instance に接続していません" };
 }
 
 function TimelineBody({ view }: { view: TranscriptItemsView }) {
@@ -229,7 +235,11 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   const nodesByUnit = useMemo(() => groupIndexByUnitKey(nodes), [nodes]);
   // 設定画面に並べる型は、この画面が実際に見たもの。窓が手放した分は消えるが、
   // 付けた値は型名で覚えているので、同じ型が戻ってくれば同じ行に戻る。
-  const seenTypes = useMemo(() => [...new Set(held.map((item) => item.type))], [held]);
+  const seenTypes = useMemo(() => {
+    const seen: Record<Subject, Set<string>> = { main: new Set(), sub: new Set() };
+    for (const item of held) seen[faceSubject(item.subject)].add(item.type);
+    return seen;
+  }, [held]);
 
   const book = useMemo(() => new HeightBook(ESTIMATE_PX), []);
   const keys = useMemo(() => nodes.map(nodeKey), [nodes]);
@@ -583,11 +593,11 @@ const SUBJECT_LABELS: Readonly<Record<Subject, string>> = {
  *
  * 表は主語ごとに 1 面。開いた時に出ているのは今読んでいる面で、もう一面は
  * タブで切り替える — worker の読み方を、worker を開く前に決められるように。 */
-function DisplayPanel({ types }: { types: readonly string[] }) {
-  const editing = useSignal<Subject>(timelineSubject.value);
+function DisplayPanel({ types }: { types: Readonly<Record<Subject, ReadonlySet<string>>> }) {
+  const editing = useSignal<Subject>("main");
   const subject = editing.value;
   const face = displayFace(subject);
-  const rows = displayRows(face, subject === timelineSubject.value ? types : []);
+  const rows = displayRows(face, types[subject]);
   return (
     <details class="tl-display">
       <summary>表示</summary>
@@ -603,7 +613,6 @@ function DisplayPanel({ types }: { types: readonly string[] }) {
             }}
           >
             {SUBJECT_LABELS[one]}
-            {one === timelineSubject.value ? " (今)" : ""}
           </button>
         ))}
       </p>
@@ -679,7 +688,7 @@ function NodeView({ node }: { node: TimelineNode }) {
       class="tl-fold"
       folds={timelineFolds.value}
       foldKey={foldGroupKey(node.rows)}
-      fallback={foldShouldOpen(node.rows, timelineDisplay.value)}
+      fallback={foldShouldOpen(node.rows, timelineFaces.value)}
       summary={foldLabel(node.rows)}
     >
       {node.rows.map((row) => (
@@ -805,14 +814,14 @@ function MessageView({ item }: { item: TranscriptItem }) {
   // 上げる所も同じ文を 2 度数える。
   const open = timelineFolds.value.isOpen(
     key,
-    resolveDisplay(timelineDisplay.value, item.type).open,
+    resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open,
   );
   return (
     <Fold
       class={`tl-bubble ${way}`}
       folds={timelineFolds.value}
       foldKey={key}
-      fallback={resolveDisplay(timelineDisplay.value, item.type).open}
+      fallback={resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open}
       summary={
         <>
           <span class="tl-mark" aria-hidden="true">
@@ -848,7 +857,7 @@ function ThinkingView({ item }: { item: TranscriptItem }) {
       class="tl-aside"
       folds={timelineFolds.value}
       foldKey={thinkFoldKey(item.id)}
-      fallback={resolveDisplay(timelineDisplay.value, item.type).open}
+      fallback={resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open}
       summary={`思考 (${text.length} 文字)`}
     >
       <div class="tl-text">

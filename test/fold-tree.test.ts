@@ -18,10 +18,10 @@ import {
   thinkFoldKey,
 } from "../src/timeline/fold-tree.ts";
 import { FoldOpen } from "../src/timeline/fold-open.ts";
-import type { DisplayFace } from "../src/timeline/display.ts";
+import type { DisplayFaces } from "../src/timeline/display.ts";
 import { item, use } from "./item.ts";
 
-const MAIN: DisplayFace = { subject: "main", settings: {} };
+const MAIN: DisplayFaces = { main: {}, sub: {} };
 
 describe("foldPathsById", () => {
   test("畳みの中の item は、それを開く名前で引ける", () => {
@@ -42,7 +42,7 @@ describe("foldPathsById", () => {
 
   test("畳みの中の会話は、外側と自分の畳みの順で引ける", () => {
     const said = item("message:user:in", { text: "やって" });
-    const nodes = buildTimeline([said], { subject: "main", settings: { message: { top: false } } });
+    const nodes = buildTimeline([said], { main: { message: { top: false } }, sub: {} });
     expect(foldPathsById(nodes).get(said.id)).toEqual([
       foldGroupKey([{ item: said }]),
       messageFoldKey(said.id),

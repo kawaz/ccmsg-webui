@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentInfo, PeerInfo } from "@ccmsg/protocol";
 import {
+  groupPeers,
+  isLost,
   sessionLabel,
   sortAgents,
-  sortLastLive,
   sortPeers,
   terminalIdsBySid,
 } from "../src/sessions.ts";
@@ -51,12 +52,33 @@ describe("the order a person picked", () => {
 });
 
 describe("what belongs in which section", () => {
-  test("last seen first, since that is the session a person is coming back to", () => {
+  test("the rows split on the state their instance stated, in the order of the list", () => {
     const rows = [
-      { sid: "s1", instance: INSTANCE, repo: "", ws: "", cwd: "", last_seen_at: 10 },
-      { sid: "s2", instance: INSTANCE, repo: "", ws: "", cwd: "", last_seen_at: 30 },
+      peer("00000000-0000-0000-0000-00000000000a", { state: "disappeared" }),
+      peer("00000000-0000-0000-0000-00000000000b", { state: "live" }),
+      peer("00000000-0000-0000-0000-00000000000c", { state: "waiting" }),
+      peer("00000000-0000-0000-0000-00000000000d", { state: "live" }),
     ];
-    expect(sortLastLive(rows).map((row) => row.sid)).toEqual(["s2", "s1"]);
+    const groups = groupPeers(rows);
+    expect(groups.map((group) => group.state)).toEqual(["waiting", "live", "disappeared"]);
+    expect(groups[1]?.rows.map((row) => row.sid.slice(-1))).toEqual(["b", "d"]);
+  });
+
+  test("a row whose instance states no classification is shown ungrouped, and first", () => {
+    const rows = [
+      peer("00000000-0000-0000-0000-00000000000a", { state: "live" }),
+      peer("00000000-0000-0000-0000-00000000000b"),
+    ];
+    const groups = groupPeers(rows);
+    expect(groups.map((group) => group.state)).toEqual([undefined, "live"]);
+    expect(groups[0]?.rows.map((row) => row.sid.slice(-1))).toEqual(["b"]);
+  });
+
+  test("only a row its instance has lost can be asked to be forgotten", () => {
+    expect(isLost("paused")).toBe(true);
+    expect(isLost("disappeared")).toBe(true);
+    expect(isLost("live")).toBe(false);
+    expect(isLost(undefined)).toBe(false);
   });
 
   test("an agent row the instance already lists as a peer is not shown twice", () => {

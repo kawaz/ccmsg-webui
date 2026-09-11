@@ -1,4 +1,4 @@
-import type { AgentInfo, LastLiveSession, PeerInfo, SessionErrorEntry, Sid } from "@ccmsg/protocol";
+import type { AgentInfo, PeerInfo, SessionErrorEntry, SessionState, Sid } from "@ccmsg/protocol";
 
 /** What the session list is made of, out of the rows the contract delivers.
  *
@@ -48,10 +48,56 @@ export function sortPeers(peers: readonly PeerInfo[], key: SortKey): readonly Pe
   return rows;
 }
 
-/** Last seen first: what a person coming back looks for is the session they
- * were in, and that is the most recent one. */
-export function sortLastLive(rows: readonly LastLiveSession[]): readonly LastLiveSession[] {
-  return [...rows].sort((a, b) => b.last_seen_at - a.last_seen_at || a.sid.localeCompare(b.sid));
+/** The order the groups stand in: what is stopped at something a person has to
+ * answer first, then what is running, then what the instance has lost. Reading
+ * down the list is then reading from what wants attention to what no longer
+ * asks for any. */
+export const SESSION_STATES: readonly SessionState[] = [
+  "waiting",
+  "live",
+  "live_unmanaged",
+  "paused",
+  "disappeared",
+];
+
+export const SESSION_STATE_LABELS: Readonly<Record<SessionState, string>> = {
+  waiting: "答え待ち",
+  live: "稼働中",
+  live_unmanaged: "稼働中 (届かない)",
+  paused: "終了",
+  disappeared: "消失",
+};
+
+/** Sessions the instance has lost, which is what a row can be forgotten from.
+ * Asking an instance to forget a session it is holding would be asking it to
+ * drop something it can still see. */
+export function isLost(state: SessionState | undefined): boolean {
+  return state === "paused" || state === "disappeared";
+}
+
+/** One heading of the list and the rows under it. A group with no state is the
+ * rows an instance stated no classification for: the contract says such a
+ * session is shown without being grouped rather than guessed at, and it stands
+ * first so that the rows nothing can be said about are not buried. */
+export interface SessionGroup {
+  readonly state?: SessionState;
+  readonly rows: readonly PeerInfo[];
+}
+
+/** The list split by how its sessions stand, in the order above.
+ *
+ * Grouping is on `state` alone — the instance holding a session states the
+ * classification rather than the inputs it read, so every client shows the same
+ * session the same way. An empty group is left out: a heading over nothing says
+ * only that this build knows the word. */
+export function groupPeers(rows: readonly PeerInfo[]): readonly SessionGroup[] {
+  const ungrouped = rows.filter((row) => row.state === undefined);
+  const groups: SessionGroup[] = ungrouped.length === 0 ? [] : [{ rows: ungrouped }];
+  for (const state of SESSION_STATES) {
+    const under = rows.filter((row) => row.state === state);
+    if (under.length > 0) groups.push({ state, rows: under });
+  }
+  return groups;
 }
 
 /** Newest first, with sessions the instance already lists as peers left out:

@@ -1,14 +1,17 @@
 import { computed, effect, signal } from "@preact/signals";
 import type { Static } from "@sinclair/typebox";
 import type {
+  AgentElement,
   AgentInfo,
   AuthRefreshReason,
   AuthSession,
   AgentsFrame,
   HelloResult,
-  LastLiveSession,
+  InstanceInfo,
+  InstancesFrame,
   MessageSendResult,
   Notification,
+  PeerElement,
   PeerInfo,
   PeersFrame,
   SessionErrorEntry,
@@ -51,7 +54,6 @@ import {
   isSortKey,
   type SortKey,
   sortAgents,
-  sortLastLive,
   sortPeers,
   terminalIdsBySid,
 } from "./sessions.ts";
@@ -61,6 +63,7 @@ import {
   clearDisplay,
   type DisplayAxis,
   type DisplayFace,
+  type DisplayFaces,
   type DisplaySettings,
   displayStorageKey,
   formatDisplaySettings,
@@ -70,7 +73,7 @@ import {
   SUBJECTS,
 } from "./timeline/display.ts";
 import { TranscriptItemsView } from "./timeline/items-view.ts";
-import { type Slot, TopicFold, union } from "./topic-fold.ts";
+import { ElementFold, rows, type Slot, TopicFold, union } from "./topic-fold.ts";
 
 /** The whole of this build's state, and the functions that change it.
  *
@@ -83,13 +86,14 @@ import { type Slot, TopicFold, union } from "./topic-fold.ts";
 type PeersData = Static<typeof PeersFrame>["data"];
 type AgentsData = Static<typeof AgentsFrame>["data"];
 type ErrorsData = Static<typeof SessionErrorsFrame>["data"];
+type InstancesData = Static<typeof InstancesFrame>["data"];
 
 const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
 
 /** The topics this build stands on: what the session list is made of, plus the
  * one topic that is about the person rather than about a session — a
  * notification is a line a session wrote for whoever is watching. */
-const TOPICS: readonly TopicName[] = ["peers", "agents", "session_errors", "notify"];
+const TOPICS: readonly TopicName[] = ["peers", "instances", "agents", "session_errors", "notify"];
 
 /** The instance this page belongs to: the base URL it was served from.
  *
@@ -112,28 +116,34 @@ export const hello = signal<HelloResult | undefined>(undefined);
  * no path back: the page asks for a reload rather than degrading. */
 export const generationWarning = signal<string | undefined>(undefined);
 
-const peerSlots = signal<readonly Slot<PeersData>[]>([]);
-const agentSlots = signal<readonly Slot<AgentsData>[]>([]);
+const peerSlots = signal<readonly Slot<readonly PeerInfo[]>[]>([]);
+const agentSlots = signal<readonly Slot<readonly AgentInfo[]>[]>([]);
 const errorSlots = signal<readonly Slot<ErrorsData>[]>([]);
+const instanceSlots = signal<readonly Slot<InstancesData>[]>([]);
 
 export const sortKey = signal<SortKey>(loadSortKey());
 export const route = signal<Route>(locationRoute());
 
 export const peers = computed<readonly PeerInfo[]>(() =>
-  sortPeers(union(peerSlots.value, "peers"), sortKey.value),
-);
-export const lastLive = computed<readonly LastLiveSession[]>(() =>
-  sortLastLive(union(peerSlots.value, "last_live")),
+  sortPeers(rows(peerSlots.value), sortKey.value),
 );
 export const agents = computed<readonly AgentInfo[]>(() =>
-  sortAgents(union(agentSlots.value, "agents"), union(peerSlots.value, "peers")),
+  sortAgents(rows(agentSlots.value), rows(peerSlots.value)),
+);
+/** The mesh as the instances themselves state it, this one included.
+ *
+ * Read from the topic rather than from what `hello` answered: a link going down
+ * is something a subscriber learns where it is already listening, and a
+ * greeting's list is only ever as current as the moment it was greeted. */
+export const instances = computed<readonly InstanceInfo[]>(() =>
+  union(instanceSlots.value, "instances"),
 );
 /** The gateway that fronts this instance's terminals, when it fronts any. */
 export const terminalGateway = computed<string | undefined>(() => hello.value?.terminal_gateway);
 /** The terminal each session runs in, over every row rather than the shown
  * ones — `agents` above hides a session the peer list already carries. */
 export const terminalIds = computed<ReadonlyMap<Sid, string>>(() =>
-  terminalIdsBySid(union(agentSlots.value, "agents")),
+  terminalIdsBySid(rows(agentSlots.value)),
 );
 export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
   errorsBySid(union(errorSlots.value, "errors")),
@@ -178,25 +188,13 @@ let notificationCounter = 0;
  * 表示属性は各 fold が落ちる**既定**なので、変更は各 fold を書き換えるのでは
  * なく読み手の上書きを捨てることで効く — store が各 fold の既定を知らないまま、
  * 誰も触っていない fold が設定に従う、という形。 */
-const displayFaces = signal<Readonly<Record<Subject, DisplaySettings>>>(loadDisplayFaces());
+export const timelineFaces = signal<DisplayFaces>(loadDisplayFaces());
 export const timelineFolds = signal(new FoldOpen());
 
-/** 今読んでいる主語。URL が決める — sid だけなら main、agent を名指していれば
- * その worker。画面が主語を覚えるのではなく、開いている所がそのまま主語。 */
-export const timelineSubject = computed<Subject>(() =>
-  route.value.at === "agent" ? "sub" : "main",
-);
-
-/** 今の画面に効いている面。 */
-export const timelineDisplay = computed<DisplayFace>(() => ({
-  subject: timelineSubject.value,
-  settings: displayFaces.value[timelineSubject.value],
-}));
-
-/** 設定画面が編集する側の面 (今読んでいる面とは限らない — もう一面はタブで
+/** 設定画面が編集する側の面 (画面に出ている面とは限らない — もう一面はタブで
  * 切り替えて触れる)。 */
 export function displayFace(subject: Subject): DisplayFace {
-  return { subject, settings: displayFaces.value[subject] };
+  return { subject, settings: timelineFaces.value[subject] };
 }
 
 /** 覚えていた読み方。instance にもセッションにも依らないので、繋ぐ前に — この
@@ -210,7 +208,7 @@ function loadDisplayFaces(): Record<Subject, DisplaySettings> {
 }
 
 function writeDisplay(subject: Subject, next: DisplaySettings): void {
-  displayFaces.value = { ...displayFaces.value, [subject]: next };
+  timelineFaces.value = { ...timelineFaces.value, [subject]: next };
   // どの fold も自分の既定に戻る — その既定を今変えたところなので。手で開いた
   // 分は古い既定への答えなので持ち越さない。
   timelineFolds.value.reset();
@@ -223,12 +221,24 @@ export function setTimelineDisplay(
   axis: DisplayAxis,
   value: boolean,
 ): void {
-  writeDisplay(subject, setDisplay(displayFaces.value[subject], type, axis, value));
+  writeDisplay(subject, setDisplay(timelineFaces.value[subject], type, axis, value));
 }
 
 export function clearTimelineDisplay(subject: Subject, type: string): void {
-  writeDisplay(subject, clearDisplay(displayFaces.value[subject], type));
+  writeDisplay(subject, clearDisplay(timelineFaces.value[subject], type));
 }
+
+/** The two topics whose frames carry rows rather than a value stated whole.
+ *
+ * Both are matched by the same pair — one session lives on one instance, so
+ * `instance` and `sid` together is what makes two hosts' rows tellable apart
+ * under one topic name. */
+function sessionRowKey(row: { instance: string; sid: string }): string {
+  return `${row.instance} ${row.sid}`;
+}
+
+const peerRows = new ElementFold<PeerElement, PeerInfo>("peers", sessionRowKey);
+const agentRows = new ElementFold<AgentElement, AgentInfo>("agents", sessionRowKey);
 
 const folds = new Map<string, TopicFold<unknown>>();
 
@@ -257,6 +267,7 @@ export const connection = new Connection({
       peerSlots.value = [];
       agentSlots.value = [];
       errorSlots.value = [];
+      instanceSlots.value = [];
       hello.value = undefined;
       // 期限は「この接続がいつまで許されているか」なので、接続と一緒に消える。
       // access token 自体はまだ生きているかもしれないので手を付けない。
@@ -289,15 +300,23 @@ export const connection = new Connection({
     }
     switch (message.topic) {
       case "peers":
-        peerSlots.value = fold<PeersData>("peers").push(
+        peerSlots.value = peerRows.push(
           message.instance,
-          message.data as PeersData,
+          (message.data as PeersData).peers,
+          message.snapshot,
+        );
+        break;
+      case "instances":
+        instanceSlots.value = fold<InstancesData>("instances").push(
+          message.instance,
+          message.data as InstancesData,
         );
         break;
       case "agents":
-        agentSlots.value = fold<AgentsData>("agents").push(
+        agentSlots.value = agentRows.push(
           message.instance,
-          message.data as AgentsData,
+          (message.data as AgentsData).agents,
+          message.snapshot,
         );
         break;
       case "session_errors":
@@ -338,7 +357,7 @@ effect(() => {
     transcript.value = undefined;
     return;
   }
-  const view = new TranscriptItemsView(connection, wanted, timelineDisplay, agentId);
+  const view = new TranscriptItemsView(connection, wanted, timelineFaces, agentId);
   // A fold's state is about the transcript being read, so moving to another
   // session starts from that session's own settings and no held overrides.
   timelineFolds.value = new FoldOpen();
@@ -654,11 +673,12 @@ export function dropHeld(key: number): void {
   heldMessages.value = heldMessages.value.filter((one) => one.key !== key);
 }
 
-/** Drop one entry from the instance's record of sessions that were running.
+/** Ask the instance to forget one session it has lost, before its retention
+ * window runs out on its own.
  *
- * The list is answered by the instance, so nothing is removed here: the next
- * `peers` frame is what shows the removal, which is also what makes two people
+ * The rows are the instance's, so nothing is dropped here: the `peers` frame
+ * that follows carries the removal, which is also what makes two people
  * pressing the same button agree. */
-export async function removeLastLive(sid: Sid): Promise<void> {
+export async function forgetLostSession(sid: Sid): Promise<void> {
   await connection.request("session_last_live_remove", { sid });
 }

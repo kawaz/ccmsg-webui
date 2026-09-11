@@ -6,7 +6,7 @@ import type {
   TranscriptItemsReadResult,
   TranscriptReadResult,
 } from "@ccmsg/protocol";
-import type { DisplayFace } from "./display.ts";
+import type { DisplayFaces } from "./display.ts";
 import { buildTimeline, recordRange, type TimelineNode } from "./items.ts";
 
 /** One session's transcript as the screen holds it: the items an instance read
@@ -64,7 +64,7 @@ export class TranscriptItemsView {
   readonly #sid: Sid;
   readonly #topic: TopicName | undefined;
   readonly #agentId: string | undefined;
-  readonly #display: ReadonlySignal<DisplayFace>;
+  readonly #faces: ReadonlySignal<DisplayFaces>;
   #held: readonly Held[] = [];
   #ids = new Set<string>();
   #reading = false;
@@ -87,7 +87,7 @@ export class TranscriptItemsView {
   constructor(
     port: TranscriptPort,
     sid: Sid,
-    display: ReadonlySignal<DisplayFace>,
+    faces: ReadonlySignal<DisplayFaces>,
     agentId?: string,
   ) {
     this.#port = port;
@@ -98,9 +98,9 @@ export class TranscriptItemsView {
     // transcript into the agent's. What an agent can be asked for is a read,
     // which is why its screen does not follow a tail.
     this.#topic = agentId === undefined ? `transcript_items:${sid}` : undefined;
-    this.#display = display;
+    this.#faces = faces;
     this.groups = computed<readonly TimelineNode[]>(() =>
-      buildTimeline(this.items.value, this.#display.value),
+      buildTimeline(this.items.value, this.#faces.value),
     );
   }
 

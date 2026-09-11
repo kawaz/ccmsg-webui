@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AppendFold, isFoldable, TopicFold, union } from "../src/topic-fold.ts";
+import { AppendFold, ElementFold, isFoldable, rows, TopicFold, union } from "../src/topic-fold.ts";
 
 /** How frames fold into what is already held (contract, "観測系は snapshot +
  * delta の 1 形"). The rule is read from the contract's granularity table, so
@@ -11,21 +11,95 @@ const B = "ws://b.example/ws";
 
 describe("per_instance_whole", () => {
   test("a frame replaces its own instance's entries and leaves the others'", () => {
-    const fold = new TopicFold<{ peers: string[] }>("peers");
-    fold.push(A, { peers: ["a1", "a2"] });
-    fold.push(B, { peers: ["b1"] });
-    expect(union(fold.slots, "peers")).toEqual(["a1", "a2", "b1"]);
+    const fold = new TopicFold<{ instances: string[] }>("instances");
+    fold.push(A, { instances: ["a1", "a2"] });
+    fold.push(B, { instances: ["b1"] });
+    expect(union(fold.slots, "instances")).toEqual(["a1", "a2", "b1"]);
     // A second frame from A says the whole of what A knows now, which is one
-    // session: B's entry is untouched.
-    const after = fold.push(A, { peers: ["a2"] });
-    expect(union(after, "peers")).toEqual(["a2", "b1"]);
+    // entry: B's is untouched.
+    const after = fold.push(A, { instances: ["a2"] });
+    expect(union(after, "instances")).toEqual(["a2", "b1"]);
   });
 
   test("an instance that stops speaking takes its entries with it", () => {
-    const fold = new TopicFold<{ peers: string[] }>("peers");
-    fold.push(A, { peers: ["a1"] });
-    fold.push(B, { peers: ["b1"] });
-    expect(union(fold.forget(A), "peers")).toEqual(["b1"]);
+    const fold = new TopicFold<{ instances: string[] }>("instances");
+    fold.push(A, { instances: ["a1"] });
+    fold.push(B, { instances: ["b1"] });
+    expect(union(fold.forget(A), "instances")).toEqual(["b1"]);
+  });
+});
+
+describe("element", () => {
+  interface Row {
+    readonly instance: string;
+    readonly sid: string;
+    readonly state?: string;
+    readonly removed?: true;
+  }
+  const key = (row: Row) => `${row.instance} ${row.sid}`;
+  const fold = () => new ElementFold<Row, Row>("peers", key);
+
+  test("a frame names the rows that changed and leaves every other row as it was", () => {
+    const held = fold();
+    held.push(
+      A,
+      [
+        { instance: A, sid: "s1", state: "live" },
+        { instance: A, sid: "s2" },
+      ],
+      true,
+    );
+    const after = held.push(A, [{ instance: A, sid: "s1", state: "waiting" }], false);
+    expect(rows(after)).toEqual([
+      { instance: A, sid: "s1", state: "waiting" },
+      { instance: A, sid: "s2" },
+    ]);
+  });
+
+  test("a row leaves on the mark it carries, since an absence says nothing", () => {
+    const held = fold();
+    held.push(
+      A,
+      [
+        { instance: A, sid: "s1" },
+        { instance: A, sid: "s2" },
+      ],
+      true,
+    );
+    const after = held.push(A, [{ instance: A, sid: "s1", removed: true }], false);
+    expect(rows(after)).toEqual([{ instance: A, sid: "s2" }]);
+  });
+
+  test("the opening snapshot is the whole of what its sender holds", () => {
+    const held = fold();
+    held.push(
+      A,
+      [
+        { instance: A, sid: "s1" },
+        { instance: A, sid: "s2" },
+      ],
+      true,
+    );
+    const after = held.push(A, [{ instance: A, sid: "s2" }], true);
+    expect(rows(after)).toEqual([{ instance: A, sid: "s2" }]);
+  });
+
+  test("one sender's snapshot leaves another sender's rows alone", () => {
+    const held = fold();
+    held.push(A, [{ instance: A, sid: "s1" }], true);
+    held.push(B, [{ instance: B, sid: "s2" }], true);
+    expect(rows(held.push(A, [], true))).toEqual([{ instance: B, sid: "s2" }]);
+    expect(rows(held.forget(B))).toEqual([]);
+  });
+
+  test("rows are matched by instance and sid together, not by sid alone", () => {
+    const held = fold();
+    held.push(A, [{ instance: A, sid: "s1", state: "live" }], true);
+    const after = held.push(A, [{ instance: B, sid: "s1", state: "paused" }], false);
+    expect(rows(after)).toEqual([
+      { instance: A, sid: "s1", state: "live" },
+      { instance: B, sid: "s1", state: "paused" },
+    ]);
   });
 });
 
@@ -50,16 +124,18 @@ describe("event", () => {
 });
 
 describe("what this build refuses", () => {
-  test("a topic folding as append or element is refused rather than half-held", () => {
-    expect(isFoldable("peers")).toBe(true);
+  test("a topic is held by the fold its granularity names and by no other", () => {
+    expect(isFoldable("instances")).toBe(true);
     expect(isFoldable("transcript:00000000-0000-0000-0000-000000000000")).toBe(false);
-    expect(isFoldable("inbox")).toBe(false);
-    expect(() => new TopicFold("inbox")).toThrow(/element/);
+    expect(isFoldable("peers")).toBe(false);
+    expect(() => new TopicFold("peers")).toThrow(/element/);
+    expect(() => new ElementFold("instances", () => "")).toThrow(/per_instance_whole/);
   });
 
   test("a name this generation does not define is refused", () => {
     expect(isFoldable("nonsense")).toBe(false);
     expect(() => new TopicFold("nonsense")).toThrow(/unknown topic/);
+    expect(() => new ElementFold("nonsense", () => "")).toThrow(/unknown topic/);
   });
 });
 
@@ -123,7 +199,7 @@ describe("append", () => {
   });
 
   test("a topic that does not fold as append is refused", () => {
-    expect(() => new AppendFold("peers")).toThrow(/per_instance_whole/);
+    expect(() => new AppendFold("instances")).toThrow(/per_instance_whole/);
     expect(() => new AppendFold("nonsense")).toThrow(/unknown topic/);
   });
 });

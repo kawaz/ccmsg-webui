@@ -1,5 +1,5 @@
 import type { TranscriptItem } from "@ccmsg/protocol";
-import { type DisplayFace, resolveDisplay } from "./display.ts";
+import { type DisplayFaces, faceOf, resolveDisplay } from "./display.ts";
 
 /** 型付き item を画面の並びに読むところ。
  *
@@ -32,7 +32,7 @@ export type TimelineNode =
  * 名前で指す — 間に挟まったものを飛ばして畳むと、間の時間が消える。 */
 export function buildTimeline(
   items: readonly TranscriptItem[],
-  display: DisplayFace,
+  faces: DisplayFaces,
 ): readonly TimelineNode[] {
   const at = new Map<string, number>();
   const calls = new Map<string, number>();
@@ -62,7 +62,7 @@ export function buildTimeline(
     const answer = child.get(index);
     const row: ItemRow =
       answer === undefined ? { item } : { item, result: items[answer] as TranscriptItem };
-    if (!resolveDisplay(display, item.type).top) {
+    if (!resolveDisplay(faceOf(faces, item.subject), item.type).top) {
       run.push(row);
       continue;
     }
@@ -105,18 +105,19 @@ export function nodeRows(node: TimelineNode): readonly ItemRow[] {
 
 /** 畳みが既定で開いているか。中の 1 つでも `open` の型が居れば開く — 読み手が
  * 気にしている型を 1 度決めれば、同じ畳みを何度も開かずに済む。 */
-export function foldShouldOpen(rows: readonly ItemRow[], display: DisplayFace): boolean {
-  return rows.some((row) => resolveDisplay(display, row.item.type).open);
+export function foldShouldOpen(rows: readonly ItemRow[], faces: DisplayFaces): boolean {
+  return rows.some((row) => resolveDisplay(faceOf(faces, row.item.subject), row.item.type).open);
 }
 
 /** item が出しているうち、その item だけのもの。
  *
- * 共通のもの (どこから来たか・いつか・何番目か) を除くと、残るのはその型が
+ * 共通のもの (どこから来たか・誰の並びか・いつか・何番目か) を除くと、残るのはその型が
  * 何を言っているか。専用の見た目が無い型を出す時の中身であり、探す対象でも
  * ある。 */
 const COMMON_FIELDS = new Set([
   "id",
   "uuid",
+  "subject",
   "source",
   "at",
   "turn",

@@ -1,15 +1,24 @@
-import type { Sid } from "@ccmsg/protocol";
+import type { InstanceInfo, PeerInfo, SessionState, Sid } from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
 import { heldCounts } from "../conversation/held-messages.ts";
-import { sessionLabel, SORT_KEYS, SORT_LABELS, isSortKey } from "../sessions.ts";
+import { instanceLabel } from "../instance-label.ts";
+import {
+  groupPeers,
+  isLost,
+  sessionLabel,
+  SESSION_STATE_LABELS,
+  SORT_KEYS,
+  SORT_LABELS,
+  isSortKey,
+} from "../sessions.ts";
 import { terminalUrl } from "../terminal-url.ts";
 import {
   agents,
+  forgetLostSession,
   heldMessages,
-  lastLive,
+  instances,
   navigate,
   peers,
-  removeLastLive,
   sessionErrors,
   setSortKey,
   sortKey,
@@ -39,14 +48,84 @@ function TerminalLink({ sid }: { sid: Sid }) {
   );
 }
 
-/** The list a person starts from: what is running, what the harness itself
- * reports, and what was running when the instance last looked. */
+/** 見出しに立つ名前と、その下に何行あるか。分類を名乗らない instance の行は
+ * まとめず、そういう行だということだけを言う。 */
+function groupTitle(state: SessionState | undefined, count: number): string {
+  return `${state === undefined ? "分類なし" : SESSION_STATE_LABELS[state]} (${String(count)})`;
+}
+
+/** セッション 1 行。どう立っているかは instance が言う `state` で、行に付いて
+ * いる時刻はその立ち方の内訳 — 失われた行なら最後に見えた時、終了と言って
+ * 去った行ならそう言った時。 */
+function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
+  const failure = sessionErrors.value.get(peer.sid);
+  const at = peer.stopped_at ?? peer.last_seen_at;
+  return (
+    <div class="row">
+      <button
+        type="button"
+        class="name open"
+        onClick={() => {
+          open(peer.sid);
+        }}
+      >
+        {sessionLabel(peer)}
+      </button>
+      {waiting > 0 && (
+        <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
+          {waiting}
+        </span>
+      )}
+      {failure !== undefined && (
+        // The error may run to several lines; the row shows the first
+        // and the whole of it is on the title.
+        <span class="error" title={failure.text}>
+          {failure.text.split("\n")[0]}
+        </span>
+      )}
+      <TerminalLink sid={peer.sid} />
+      {at !== undefined && <span class="meta">{when(at)}</span>}
+      <span class="meta mono">{peer.instance}</span>
+      {isLost(peer.state) && (
+        <button
+          type="button"
+          onClick={() => {
+            void forgetLostSession(peer.sid);
+          }}
+        >
+          削除
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** この instance から見た mesh の 1 行。名前は endpoint、届くかどうかはその
+ * instance 自身が今言っていること — hello の返事から推し量るのではなく、
+ * `instances` topic で届く。 */
+function InstanceRow({ one }: { one: InstanceInfo }) {
+  return (
+    <div class="row">
+      <span class="name">
+        {one.id === undefined ? (one.endpoint ?? one.host) : instanceLabel(one.id, one.endpoint)}
+      </span>
+      <span class={`state ${one.reachable ? "live" : "disappeared"}`}>
+        {one.reachable ? "到達" : "不通"}
+      </span>
+      <span class="meta host">{one.host}</span>
+      {one.id !== undefined && <span class="meta mono">{one.id}</span>}
+    </div>
+  );
+}
+
+/** The list a person starts from: the sessions every instance knows, grouped by
+ * how they stand, what the harness itself reports, and the mesh they sit in. */
 export function SessionList() {
-  const errors = sessionErrors.value;
   const connected = status.value === "open";
   // この画面から送って、まだ渡っていない数。instance の inbox の件数ではない
   // (人には `inbox` の frame が来ない — `held-messages.ts`)。
   const waiting = heldCounts(heldMessages.value);
+  const groups = groupPeers(peers.value);
 
   return (
     <>
@@ -68,49 +147,24 @@ export function SessionList() {
         </select>
       </div>
 
-      <section class="section">
-        <h2>稼働セッション ({peers.value.length})</h2>
-        <div class="rows">
-          {peers.value.length === 0 && (
-            <p class="empty">
-              {connected ? "接続中のセッションはありません。" : "接続すると一覧が出ます。"}
-            </p>
-          )}
-          {peers.value.map((peer) => {
-            const failure = errors.get(peer.sid);
-            return (
-              <div class="row" key={peer.sid}>
-                <button
-                  type="button"
-                  class="name open"
-                  onClick={() => {
-                    open(peer.sid);
-                  }}
-                >
-                  {sessionLabel(peer)}
-                </button>
-                {(waiting.get(peer.sid) ?? 0) > 0 && (
-                  <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
-                    {waiting.get(peer.sid)}
-                  </span>
-                )}
-                {failure !== undefined && (
-                  // The error may run to several lines; the row shows the first
-                  // and the whole of it is on the title.
-                  <span class="error" title={failure.text}>
-                    {failure.text.split("\n")[0]}
-                  </span>
-                )}
-                {peer.state !== undefined && (
-                  <span class={`state ${peer.state}`}>{peer.state}</span>
-                )}
-                <TerminalLink sid={peer.sid} />
-                <span class="meta mono">{peer.instance}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {groups.length === 0 && (
+        <section class="section">
+          <h2>セッション (0)</h2>
+          <p class="empty">
+            {connected ? "セッションはまだありません。" : "接続すると一覧が出ます。"}
+          </p>
+        </section>
+      )}
+      {groups.map((group) => (
+        <section class="section" key={group.state ?? "ungrouped"}>
+          <h2>{groupTitle(group.state, group.rows.length)}</h2>
+          <div class="rows">
+            {group.rows.map((peer) => (
+              <PeerRow key={peer.sid} peer={peer} waiting={waiting.get(peer.sid) ?? 0} />
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section class="section">
         <h2>agents ({agents.value.length})</h2>
@@ -138,31 +192,11 @@ export function SessionList() {
       </section>
 
       <section class="section">
-        <h2>前回稼働 ({lastLive.value.length})</h2>
+        <h2>instance ({instances.value.length})</h2>
         <div class="rows">
-          {lastLive.value.length === 0 && (
-            <p class="empty">記録されているセッションはありません。</p>
-          )}
-          {lastLive.value.map((row) => (
-            <div class="row" key={row.sid}>
-              <span class="name">{sessionLabel(row)}</span>
-              {(waiting.get(row.sid) ?? 0) > 0 && (
-                <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
-                  {waiting.get(row.sid)}
-                </span>
-              )}
-              {row.state !== undefined && <span class="state">{row.state}</span>}
-              <TerminalLink sid={row.sid} />
-              <span class="meta">{when(row.last_seen_at)}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  void removeLastLive(row.sid);
-                }}
-              >
-                削除
-              </button>
-            </div>
+          {instances.value.length === 0 && <p class="empty">まだ何も名乗っていません。</p>}
+          {instances.value.map((one) => (
+            <InstanceRow key={one.id ?? one.endpoint ?? one.host} one={one} />
           ))}
         </div>
       </section>

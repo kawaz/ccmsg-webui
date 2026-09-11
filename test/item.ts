@@ -4,7 +4,8 @@ import type { TranscriptItem } from "@ccmsg/protocol";
  *
  * 契約の形をそのまま書くと、どの test も同じ 5 つの共通 field を書き写すことに
  * なるので、そこだけをここが埋める。id は契約どおり `<record>:<何番目>` で、
- * 同じ record から読まれた item は同じ record を指す。 */
+ * 同じ record から読まれた item は同じ record を指す。主語は既定で `main` —
+ * 名指しの要る test だけが `fields` で言う。 */
 let made = 0;
 
 export function item(
@@ -19,6 +20,7 @@ export function item(
     id: `${uuid}:${String(index)}`,
     uuid,
     type,
+    subject: "main",
     at: 1_772_000_000_000 + made * 1000,
     source: { offset: where.offset ?? made * 100, bytes: where.bytes ?? 80 },
     ...fields,

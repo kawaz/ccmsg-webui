@@ -17,11 +17,10 @@ export interface Slot<T> {
   readonly data: T;
 }
 
-/** The granularities `TopicFold` folds into slots. `append` is held by
- * `AppendFold` below instead, since what it holds is a stretch of a growing
- * value rather than a value each instance states whole; `element` belongs to
- * topics no screen here subscribes to yet, and refusing at subscription is what
- * keeps an unfolded topic from being read as an empty one. */
+/** The granularities `TopicFold` folds into slots. The other two are held by
+ * the folds below instead, since what they hold is not a value each instance
+ * states whole: `element` is a set of rows a frame touches part of, and
+ * `append` a stretch of a growing value. */
 const FOLDABLE: readonly TopicGranularity[] = ["whole", "per_instance_whole", "event"];
 
 export function isFoldable(topic: string): boolean {
@@ -72,6 +71,91 @@ export class TopicFold<T> {
     this.#slots = this.#slots.filter((one) => one.instance !== instance);
     return this.#slots;
   }
+}
+
+/** The rows of an `element` topic, held per instance that sent them.
+ *
+ * What a frame carries is the rows that changed, matched by a key of their own,
+ * and rows it does not name are left as they were — so a row that moves on its
+ * own (one session becoming busy) travels as that row rather than as the list
+ * it sits in. A departure is therefore a marked element: an absence in a frame
+ * that carries only what changed says nothing, so a row leaves only when one
+ * arrives saying `removed`.
+ *
+ * The opening `snapshot: true` frame is the whole of what its sender holds, so
+ * it replaces that sender's rows rather than adding to them; a row the sender
+ * has since forgotten would otherwise outlive the only frame that could have
+ * removed it.
+ *
+ * Per sender, like every fold here: one instance's rows are the ones it keeps
+ * current, and `forget` drops them whole when it stops speaking. What the key
+ * is made of belongs to the topic and is given by the caller — the contract
+ * says a row is matched by a key of its own, not what that key is called.
+ *
+ * `E` is what a frame carries and `R` what is held — the same type less its
+ * removals, which is what a reader of the slots gets: nothing marked `removed`
+ * survives a fold, since that mark is the instruction to drop a row rather than
+ * a row to keep. */
+export class ElementFold<E, R extends E = E> {
+  readonly #key: (element: E) => string;
+  #held: readonly { instance: InstanceId; rows: Map<string, R> }[] = [];
+
+  constructor(topic: string, key: (element: E) => string) {
+    const granularity = topicGranularity(topic);
+    if (granularity === undefined) throw new Error(`unknown topic ${topic}`);
+    if (granularity !== "element") {
+      throw new Error(`topic ${topic} folds as ${granularity}, which this fold does not hold`);
+    }
+    this.#key = key;
+  }
+
+  get slots(): readonly Slot<readonly R[]>[] {
+    return this.#held.map((one) => ({ instance: one.instance, data: [...one.rows.values()] }));
+  }
+
+  /** Take one frame: its rows over what that instance already held, or in place
+   * of them when it is the opening snapshot. */
+  push(
+    instance: InstanceId,
+    elements: readonly E[],
+    snapshot: boolean,
+  ): readonly Slot<readonly R[]>[] {
+    const at = this.#held.findIndex((one) => one.instance === instance);
+    const rows = at < 0 || snapshot ? new Map<string, R>() : new Map(this.#held[at]?.rows);
+    for (const element of elements) {
+      const key = this.#key(element);
+      // Past the mark there is a row rather than a departure, which is the
+      // whole of what `R` says: the narrowing is this test and nothing a
+      // signature can carry, since what is removable is the topic's own shape.
+      if (isRemoval(element)) rows.delete(key);
+      else rows.set(key, element as R);
+    }
+    const slot = { instance, rows };
+    this.#held =
+      at < 0 ? [...this.#held, slot] : this.#held.map((one, index) => (index === at ? slot : one));
+    return this.slots;
+  }
+
+  forget(instance: InstanceId): readonly Slot<readonly R[]>[] {
+    this.#held = this.#held.filter((one) => one.instance !== instance);
+    return this.slots;
+  }
+}
+
+/** Whether an element says its row is gone. The mark the contract puts on every
+ * element topic's departures, so this reads it rather than each topic's own. */
+function isRemoval(element: unknown): boolean {
+  return (
+    typeof element === "object" &&
+    element !== null &&
+    (element as { removed?: unknown }).removed === true
+  );
+}
+
+/** Every instance's rows, concatenated — the same union `union` below makes,
+ * for a fold whose slots hold a list rather than a payload with lists in it. */
+export function rows<E>(slots: readonly Slot<readonly E[]>[]): readonly E[] {
+  return slots.flatMap((slot) => slot.data);
 }
 
 /** Every instance's list, concatenated — the union the contract describes as

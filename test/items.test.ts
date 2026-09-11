@@ -19,11 +19,11 @@ import {
   itemProse,
   rowText,
 } from "../src/timeline/item-view.ts";
-import type { DisplayFace } from "../src/timeline/display.ts";
+import type { DisplayFaces } from "../src/timeline/display.ts";
 import { item, result, use } from "./item.ts";
 
 /** 何も付けていない main の面 = 組み込みの既定だけ。 */
-const MAIN: DisplayFace = { subject: "main", settings: {} };
+const MAIN: DisplayFaces = { main: {}, sub: {} };
 
 describe("buildTimeline", () => {
   test("会話と思考はそれ自身で 1 つ、続いたそれ以外は 1 つの畳みになる", () => {
@@ -90,29 +90,43 @@ describe("表示属性が並びを決める", () => {
   ];
 
   test("トップ層から外した型は、隣の畳みに入る", () => {
-    const nodes = buildTimeline(rows, {
-      subject: "main",
-      settings: { "message:user:in": { top: false } },
-    });
+    const nodes = buildTimeline(rows, { main: { "message:user:in": { top: false } }, sub: {} });
     expect(nodes.map((node) => node.kind)).toEqual(["fold"]);
     expect(nodeRows(nodes[0]!).length).toBe(2);
   });
 
   test("トップ層に上げた型は、畳みから出て自分で立つ", () => {
-    const nodes = buildTimeline(rows, { subject: "main", settings: { tool: { top: true } } });
+    const nodes = buildTimeline(rows, { main: { tool: { top: true } }, sub: {} });
     expect(nodes.map((node) => node.kind)).toEqual(["row", "row"]);
+  });
+
+  test("面は item が名乗る主語で決まる — 同じ並びに両方の面が出る", () => {
+    // `sub` の既定は道具をトップ層に並べる、`main` は畳みに入れる。同じ
+    // `tool:Bash` が、どちらの主語で読まれたかだけで別の所に立つ。
+    const nodes = buildTimeline(
+      [
+        use("tool:Bash", { tool_use_id: "t1", command: "ls", subject: "main" }),
+        use("tool:Bash", { tool_use_id: "t2", command: "ls", subject: "sub" }),
+      ],
+      MAIN,
+    );
+    expect(nodes.map((node) => node.kind)).toEqual(["fold", "row"]);
+  });
+
+  test("契約の 3 つ目の主語 `team` は、持ち場を任された側として sub の面で読む", () => {
+    const nodes = buildTimeline(
+      [use("tool:Bash", { tool_use_id: "t1", command: "ls", subject: "team" })],
+      MAIN,
+    );
+    expect(nodes.map((node) => node.kind)).toEqual(["row"]);
   });
 
   test("畳みは、中に開く型が 1 つでも居れば開く", () => {
     const bash = [{ item: use("tool:Bash", { tool_use_id: "t", command: "ls" }) }];
     expect(foldShouldOpen(bash, MAIN)).toBe(false);
-    expect(
-      foldShouldOpen(bash, { subject: "main", settings: { "tool:Bash": { open: true } } }),
-    ).toBe(true);
+    expect(foldShouldOpen(bash, { main: { "tool:Bash": { open: true } }, sub: {} })).toBe(true);
     // 上の型に付けた値も効く。
-    expect(foldShouldOpen(bash, { subject: "main", settings: { tool: { open: true } } })).toBe(
-      true,
-    );
+    expect(foldShouldOpen(bash, { main: { tool: { open: true } }, sub: {} })).toBe(true);
   });
 });
 

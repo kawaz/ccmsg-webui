@@ -33,11 +33,7 @@ describe("購読と最初の読み込み", () => {
   test("購読してから読む。先に読むと、その間に分類されたものが誰にも届かない", async () => {
     const port = new Port();
     port.answers = [{ items: [] }];
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     view.open();
     expect(port.subscribed).toEqual([`transcript_items:${SID}`]);
     await Promise.resolve();
@@ -51,11 +47,7 @@ describe("購読と最初の読み込み", () => {
 
   test("既に持っているなら読み直さない", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     view.take({ sid: SID, items: [item("message:user:in", { text: "やって" })] });
     view.ensureFirstPage();
     await Promise.resolve();
@@ -66,11 +58,7 @@ describe("購読と最初の読み込み", () => {
 describe("追記", () => {
   test("同じ item は 2 度数えない (購読と読み込みが重なる所)", () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const one = item("message:user:in", { text: "やって" });
     view.take({ sid: SID, items: [one] });
     view.take({ sid: SID, items: [one, item("message:user:out", { text: "やった" })] });
@@ -79,11 +67,7 @@ describe("追記", () => {
 
   test("別のセッションの frame は取らない", () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     view.take({
       sid: "66666666-7777-4888-8999-aaaaaaaaaaaa" as Sid,
       items: [item("thinking", {})],
@@ -93,11 +77,7 @@ describe("追記", () => {
 
   test("窓を超えた分は古い方から手放す", () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const many = Array.from({ length: 400 }, () =>
       item("message:user:out", { text: "あ".repeat(3000) }),
     );
@@ -112,11 +92,7 @@ describe("追記", () => {
 describe("遡り", () => {
   test("持っている先頭の item より手前を頼み、前に足す", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const held = item("message:user:out", { text: "いま" });
     view.take({ sid: SID, items: [held] });
     const older = item("message:user:in", { text: "むかし" });
@@ -130,11 +106,7 @@ describe("遡り", () => {
 
   test("prev が来たら、そこが次に頼む上限になる (= 手元の先頭)", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const held = item("message:user:out", { text: "いま" });
     view.take({ sid: SID, items: [held] });
     const older = item("message:user:in", { text: "むかし" });
@@ -147,11 +119,7 @@ describe("遡り", () => {
 
   test("何も新しく来なければ、そこが先頭", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const held = item("message:user:out", { text: "いま" });
     view.take({ sid: SID, items: [held] });
     port.answers = [{ items: [] }];
@@ -162,11 +130,7 @@ describe("遡り", () => {
 
   test("先頭に着いたら、もう頼まない", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     port.answers = [{ items: [item("message:user:in", { text: "はじめ" })] }];
     await view.readOlder();
     await view.readOlder();
@@ -175,11 +139,7 @@ describe("遡り", () => {
 
   test("読めなかったら理由を出す", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     await view.readOlder();
     expect(view.failure.value).toContain("答えを用意していません");
   });
@@ -188,11 +148,7 @@ describe("遡り", () => {
 describe("生の record", () => {
   test("item が指す 1 行だけを頼み、読める形にして持つ", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const one = item("system:unknown", { record: {} }, { offset: 400, bytes: 40 });
     port.answers = [{ lines: [`{"type":"なにか"}`], start: 400, end: 440, size: 440 }];
     await view.readRecord(one);
@@ -205,11 +161,7 @@ describe("生の record", () => {
 
   test("同じ record は 1 度しか取り寄せない (1 行から読まれた item は同じ所を指す)", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const first = item("thinking", { text: "" }, { uuid: "rec-x", index: 0 });
     const second = item(
       "tool:Bash",
@@ -224,11 +176,7 @@ describe("生の record", () => {
 
   test("読めなかったら、そう出す", async () => {
     const port = new Port();
-    const view = new TranscriptItemsView(
-      port,
-      SID,
-      signal({ subject: "main" as const, settings: {} }),
-    );
+    const view = new TranscriptItemsView(port, SID, signal({ main: {}, sub: {} }));
     const one = item("thinking", { text: "" });
     await view.readRecord(one);
     expect(view.records.value.get(one.uuid)?.state).toBe("failed");
