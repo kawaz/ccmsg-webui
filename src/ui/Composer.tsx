@@ -9,7 +9,7 @@ import { hello, messageSendRefusal, sendMessage } from "../state.ts";
 
 /** ここから人がセッションに話しかける。
  *
- * 送れるのは動いているセッションだけ: 止まったセッションへの `message_send` は
+ * 送れるのは動いているセッションだけ: 止まったセッションへの `message.send` は
  * instance が断るので、断られてから理由を読ませるのではなく、送れないことと
  * その理由を先に書いておく。 */
 export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: string }) {

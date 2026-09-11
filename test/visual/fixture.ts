@@ -159,7 +159,7 @@ const NOTES = `# 読み方のメモ
 
 - **購読が先、読み込みが後**
 - 窓は末尾 1 MiB まで
-- 落ちた行は \`transcript_read\` が答える範囲そのもの
+- 落ちた行は \`transcript.read\` が答える範囲そのもの
 
 \`\`\`sh
 just visual

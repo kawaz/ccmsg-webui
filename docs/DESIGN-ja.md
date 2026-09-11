@@ -16,7 +16,7 @@
 
 | 層 | ファイル | 責務 |
 |---|---|---|
-| 接続 | `src/connection.ts` | socket の生死、`hello`、request と reply の相関、再接続、購読の復元 |
+| 接続 | `src/connection.ts` | socket の生死、`hello.user`、request と reply の相関、再接続、購読の復元 |
 | 畳み | `src/topic-fold.ts` | topic frame を手元の値に畳む。規則は契約の `granularity` |
 | 状態 | `src/state.ts` | signal と、その唯一の書き手である関数 |
 | 派生 | `src/sessions.ts` `src/route.ts` | 並び・セクション・表示名・URL 文法 (純関数) |
@@ -32,7 +32,7 @@
 
 畳んだ結果は常に **(instance, payload) のスロットの列**で、`whole` と `per_instance_whole` はスロットの鍵が違うだけの同じ操作になる (前者は topic に 1 つ、後者は instance に 1 つ)。読む側は 1 つの形だけを読む。instance ごとの全体を横断で足すのが `union()` で、これが契約の言う「手元の値は instance 横断の和」にあたる。
 
-`append` は列に畳めない。手元に残るのは instance が全体として言った値ではなく、伸び続ける値の**一続きの区間**なので、`AppendFold` が別に持つ: 窓 (`start`/`end`/`lines`) と、instance が最後に言った全長 (`size`)。窓は 2 方向から埋まる — frame が末尾に足し、`transcript_read` が先頭に足す。どちらでもないもの (隣接も重複もしない区間) は**穴**で、穴は繋がっているふりをせず拒否する。offset は byte で、契約の read が刻む offset と同じものなので、生で届いたものと読んで戻したものが二重に数えられることなく繋がる。
+`append` は列に畳めない。手元に残るのは instance が全体として言った値ではなく、伸び続ける値の**一続きの区間**なので、`AppendFold` が別に持つ: 窓 (`start`/`end`/`lines`) と、instance が最後に言った全長 (`size`)。窓は 2 方向から埋まる — frame が末尾に足し、`transcript.read` が先頭に足す。どちらでもないもの (隣接も重複もしない区間) は**穴**で、穴は繋がっているふりをせず拒否する。offset は byte で、契約の read が刻む offset と同じものなので、生で届いたものと読んで戻したものが二重に数えられることなく繋がる。
 
 **`element` は畳まない**。購読する画面がまだ無く、畳めない topic を購読して「空」として読ませないために、購読時点で拒否する (`isFoldable`)。
 
@@ -44,15 +44,15 @@ transcript は「取得」「モデル」「描画」の 3 層に分ける。
 
 | 層 | ファイル | 責務 |
 |---|---|---|
-| 取得 | `src/timeline/items-view.ts` | `transcript_items:<sid>` の購読、`transcript_items_read` の遡り読み、`transcript_read` による生 record の取り寄せ |
+| 取得 | `src/timeline/items-view.ts` | `transcript.items:<sid>` の購読、`transcript.items.read` の遡り読み、`transcript.read` による生 record の取り寄せ |
 | モデル | `src/timeline/items.ts` `src/timeline/item-view.ts` `src/timeline/display.ts` | 型付き item → 呼び出しと答えの結合・畳みのまとめ → `TimelineNode`、型ごとの名乗りと中身、そして型ごとの表示属性。純関数のみ |
 | 描画 | `src/ui/Timeline.tsx`, `src/markdown/` | nodes を読むだけ。スクロール位置の意味付け、Markdown の読み方、fold の見た目もここ |
 
 **分類は instance、契約は型の語彙、webui は jsonl を読まない**。transcript は harness が自分の都合で書いている file なので、どの record がどの item かを決めるのは file を持っている側になる。webui に届くのは分類された item だけで、ここには record の形が 1 つも書かれていない — harness が file を変えても、別の harness が読まれるようになっても、この層は動かない。
 
-**呼び出しと答えは 2 つの言い方で結ぶ**。答えは、読んだ側が付けた item の id (`parent_item`) と、harness が呼び出しと答えを組にした鍵 (`parent_tool_use_id`) の両方で親を指す。前者は instance がその呼び出しを読めていた時だけ付くので、**無いのは正常** — 頁の途中から読み始めれば、答えより前に居る呼び出しは instance の読んだ範囲の外に居る。webui は前者が手元で引けるならそれを使い、引けなければ鍵で手元の呼び出しに突き合わせる: 呼び出しは前の頁で既に持っていることがあり、その時は結び直せる。呼び出しを読めなかった答えは `tool:unknown` (どの道具だったかは record に書かれていない) として届くので、名乗りと中身は汎用形のまま、結び直せた時だけ呼び出しの下に入る。
+**呼び出しと答えは 2 つの言い方で結ぶ**。答えは、読んだ側が付けた item の id (`parent_item`) と、harness が呼び出しと答えを組にした鍵 (`parent_tool_use_id`) の両方で親を指す。前者は instance がその呼び出しを読めていた時だけ付くので、**無いのは正常** — 頁の途中から読み始めれば、答えより前に居る呼び出しは instance の読んだ範囲の外に居る。webui は前者が手元で引けるならそれを使い、引けなければ鍵で手元の呼び出しに突き合わせる: 呼び出しは前の頁で既に持っていることがあり、その時は結び直せる。呼び出しを読めなかった答えは `tool.unknown` (どの道具だったかは record に書かれていない) として届くので、名乗りと中身は汎用形のまま、結び直せた時だけ呼び出しの下に入る。
 
-**生の record は取り寄せで見る**。item が答えられない唯一の問いが「元の行は何と書いてあったか」で、item はその住所 (`source`) を持っている。各 item の下の `jsonl` を開くと `transcript_read` をその 1 record に絞って頼み、返った行を整形して出す。既定で目立つのは**汎用形で出ている item** (`system:unknown`、専用の見た目を持たない道具・添付・知らない型) — そこが分類の甘い所で、元の行を見ないと分からない所だから。1 つの record から読まれた item は同じ住所を指すので、取り寄せは record ごとに 1 度で足りる。
+**生の record は取り寄せで見る**。item が答えられない唯一の問いが「元の行は何と書いてあったか」で、item はその住所 (`source`) を持っている。各 item の下の `jsonl` を開くと `transcript.read` をその 1 record に絞って頼み、返った行を整形して出す。既定で目立つのは**汎用形で出ている item** (`system.unknown`、専用の見た目を持たない道具・添付・知らない型) — そこが分類の甘い所で、元の行を見ないと分からない所だから。1 つの record から読まれた item は同じ住所を指すので、取り寄せは record ごとに 1 度で足りる。
 
 **購読が先、読み込みが後**。逆にすると、読み終わってから購読するまでに分類された分がどちらにも入らない。購読の snapshot は末尾 200 item を運び、同じ item が読み込みと重なっても id で数えるので二重にならない。
 
@@ -81,9 +81,9 @@ transcript は「取得」「モデル」「描画」の 3 層に分ける。
 - **トップ** — TL のトップ層に立つか。立たない item は、続いた分がまとめて 1 つの畳み (`N item`) に入る
 - **開く** — 既定で開いているか。畳みに入る item では囲む畳みが開くかを決め、本文を持つ item (会話・思考) ではその本文が開いているかを決める
 
-**表は主語ごとに 2 面持つ** (`main` / `sub`)。同じ `tool:Bash` でも、main では会話の傍らで起きたことで、worker ではその worker が**やったこと**そのもの — 読む理由が違うものに 1 つの既定を押し付けない。組み込み既定も 2 面で、main は会話と思考が本文ごと立ち道具は畳みの中、sub は道具をトップ層に 1 行ずつ並べて本文は閉じる (worker を開くのは何を叩いて何を読んだかを追うためで、本文まで開くと 1 件で画面が埋まって順番が読めない)。どちらの面が効くかは**開いている transcript の主語**が決める (sid だけなら main、agent を名指していれば sub)。継ぎ方は面の中で閉じていて、面をまたいで継ぐことはない。
+**表は主語ごとに 2 面持つ** (`main` / `sub`)。同じ `tool.Bash` でも、main では会話の傍らで起きたことで、worker ではその worker が**やったこと**そのもの — 読む理由が違うものに 1 つの既定を押し付けない。組み込み既定も 2 面で、main は会話と思考が本文ごと立ち道具は畳みの中、sub は道具をトップ層に 1 行ずつ並べて本文は閉じる (worker を開くのは何を叩いて何を読んだかを追うためで、本文まで開くと 1 件で画面が埋まって順番が読めない)。どちらの面が効くかは**開いている transcript の主語**が決める (sid だけなら main、agent を名指していれば sub)。継ぎ方は面の中で閉じていて、面をまたいで継ぐことはない。
 
-**設定は型名の階層で継ぐ**。型名は `:` 区切りなので、`tool` に付けた値は `tool:Bash` にも効き、`tool:Bash` に付けた値がその 1 つだけを上書きする。何も付いていない型は組み込みの既定に落ちる。**軸ごとに独立して付く**ので、`tool` の既定を継いだまま `tool:Bash` の片方だけを動かせる。型は harness が増やし続ける開いた集合なので、平らな一覧では知らない型に何も言えない — 階層なら「その根が言っていること」が必ず答えになる。
+**設定は型名の階層で継ぐ**。型名は `.` 区切りなので、`tool` に付けた値は `tool.Bash` にも効き、`tool.Bash` に付けた値がその 1 つだけを上書きする。何も付いていない型は組み込みの既定に落ちる。**軸ごとに独立して付く**ので、`tool` の既定を継いだまま `tool.Bash` の片方だけを動かせる。型は harness が増やし続ける開いた集合なので、平らな一覧では知らない型に何も言えない — 階層なら「その根が言っていること」が必ず答えになる。
 
 **値は面ごとに覚える** (`ccmsg.timeline.display:<main|sub>`)。「思考は畳む」のような決め方は読み手の都合なので、instance でもセッションでも分けない (下記「localStorage のキー規律」)。壊れた値は entry 単位で捨てる: 1 つの型の値が読めなかったことで、他の型に付けた値まで失う理由が無い。
 
@@ -93,13 +93,13 @@ transcript は「取得」「モデル」「描画」の 3 層に分ける。
 
 親の transcript に出るのは worker への指示と返ってきた答えだけで、**その worker が何を叩いて何を読んだかは worker 自身の transcript にしかない**。`/s/<sid>/agent/<agentId>/timeline` がその 1 つを主語にして開く。
 
-**読むのは `transcript_items_read` に `agent_id` を添えるだけ**で、item の型も範囲の切り方も session を読む時と同じ。型は主語相対に定義されているので (`message:user:in` は worker では親からの指示書)、同じ語彙のまま主語だけが移る。生 record も `transcript_read` の `agent_id` で同じように引ける。
+**読むのは `transcript.items.read` に `agent_id` を添えるだけ**で、item の型も範囲の切り方も session を読む時と同じ。型は主語相対に定義されているので (`message.user.in` は worker では親からの指示書)、同じ語彙のまま主語だけが移る。生 record も `transcript.read` の `agent_id` で同じように引ける。
 
-**追記は追わない**。追記を運ぶ topic は `transcript_items:<sid>` で、これは**セッションのもの**。worker の追記を運ぶ topic は契約に無いので、worker の画面は購読を立てず読むだけにする (立てると親の transcript が worker の画面に混ざる)。続きは読み直すと出る、と画面に書く。
+**追記は追わない**。追記を運ぶ topic は `transcript.items:<sid>` で、これは**セッションのもの**。worker の追記を運ぶ topic は契約に無いので、worker の画面は購読を立てず読むだけにする (立てると親の transcript が worker の画面に混ざる)。続きは読み直すと出る、と画面に書く。
 
 **agent の下にあるのは timeline だけ**。ファイルも端末も状態もセッションのもので、worker に自分のものは無い。別のタブ名を書いた URL は timeline に落とさず 404 にする — 黙って落とすと、送られてきた link が何を指していたかが分からなくなる。
 
-**導線は往復で置く**。`message:sub:out` / `message:sub:in` / `tool:Agent` の行に `agent_id` があれば「この worker を開く」を出し、worker の画面には親へ戻る所を出す。id がどちらの item に書かれていたかは関心ではないので、行の呼び出し側と答えの両方を見る。
+**導線は往復で置く**。`message.sub.out` / `message.sub.in` / `tool.Agent` の行に `agent_id` があれば「この worker を開く」を出し、worker の画面には親へ戻る所を出す。id がどちらの item に書かれていたかは関心ではないので、行の呼び出し側と答えの両方を見る。
 
 ## 描画層: Markdown とハイライト
 
@@ -125,15 +125,15 @@ fold の開閉状態は fold を描く component の**外**に置く (`src/timel
 
 ファイルの画面が答えるのは 3 つ — どこに何があるか (木)、その中身 (本文)、文章の中のパスがどこを指すか (リンク)。
 
-**パスの綴りがそのまま認可の面になる**。契約は `contained` をセッションの根からの相対、`workspace` / `external` を絶対で綴る (契約 `files.ts`) ので、先頭の `/` の有無だけが 3 面の区別になる。木の鍵も、記録した選択も、URL も同じ 1 本の文字列で足りるのはこのため。相対なら `contained` と決まり、**絶対パスの面は `file_stat_batch` に聞く** — `workspace` と `external` は綴りが同じで、どちらが admit するかを答えられるのは instance だけ。
+**パスの綴りがそのまま認可の面になる**。契約は `contained` をセッションの根からの相対、`workspace` / `external` を絶対で綴る (契約 `files.ts`) ので、先頭の `/` の有無だけが 3 面の区別になる。木の鍵も、記録した選択も、URL も同じ 1 本の文字列で足りるのはこのため。相対なら `contained` と決まり、**絶対パスの面は `file.stat` に聞く** — `workspace` と `external` は綴りが同じで、どちらが admit するかを答えられるのは instance だけ。
 
-**木は展開時に 1 段ずつ聞く** (`dir_list`)。答えは「聞いた時点の写し」で購読ではないので、再取得は明示のボタン。断られた理由も「答えが出た」側に畳んで覚える — 覚えないと `読み込み中` の行が永遠に残る。
+**木は展開時に 1 段ずつ聞く** (`dir.list`)。答えは「聞いた時点の写し」で購読ではないので、再取得は明示のボタン。断られた理由も「答えが出た」側に畳んで覚える — 覚えないと `読み込み中` の行が永遠に残る。
 
 **URL が正本**。`/s/<sid>/files?path=<p>&lines=<a>-<b>` が開いているファイルと指している行を名指しするので、リンクを送れば相手は同じものを見る。ファイルを開くことは navigation で、行は `path` に入れられない (パスは `/` を含む) ため query に置く。**行の名指しは記録より強い** — リンクを送った人は行を指しているので、覚えていた表示モードもスクロール位置も譲る。
 
-**続きは読めない**。`file_read` は instance の読み取り上限 (512KiB) までを答えて `truncated` を立てるだけで、offset を渡す引数を契約が持たない (契約 `files.ts`)。だから先頭だけを出し、なぜここで切れているかをバナーで言う。黙って切ると「そういうファイル」に見える。
+**続きは読めない**。`file.read` は instance の読み取り上限 (512KiB) までを答えて `truncated` を立てるだけで、offset を渡す引数を契約が持たない (契約 `files.ts`)。だから先頭だけを出し、なぜここで切れているかをバナーで言う。黙って切ると「そういうファイル」に見える。
 
-**プロジェクト外は履歴であって一覧ではない**。`external` の許可集合はセッションの transcript が名指したファイルで、契約にそれを列挙する op は無い (手元のパスについて admit するかを答える `file_stat_batch` だけ)。なので木に出るのは、このブラウザがそのセッションで実際に開いた絶対パスになる。
+**プロジェクト外は履歴であって一覧ではない**。`external` の許可集合はセッションの transcript が名指したファイルで、契約にそれを列挙する op は無い (手元のパスについて admit するかを答える `file.stat` だけ)。なので木に出るのは、このブラウザがそのセッションで実際に開いた絶対パスになる。
 
 **木と本文の境目は動かせる**。掴んで動かすほかに、境目自身が focus を取って ←→ でも動く (WAI-ARIA の `separator` は矢印で動く前提の役なので、掴めるだけでは足りない)。幅は instance ごとに覚える (`ccmsg.layout.split:<instance>`) — 1 つの store に複数の instance が届くという、上の「localStorage のキー規律」と同じ理由。覚えるのは指を離した時だけで、動かしている途中の幅は書かない。読めない値・範囲外は「覚えていない」と同じに扱い、CSS の既定幅に戻す。狭い画面では 2 つが上下に積まれて左右の境目が無くなるので、そこでは境目ごと消える。
 
@@ -155,10 +155,10 @@ fold の開閉状態は fold を描く component の**外**に置く (`src/timel
 
 人がセッションに話しかけ、返事を読む画面は別に作らない。**会話の正本はセッションの transcript** で、それを読む画面は既にあるため。往復の 2 方向は transcript の中で違う形をしている。
 
-- **人 → セッション**: `message_send { to: sid, text }`。宛先は sid ひとつで room は無い。届いた 1 通は、セッション側の user turn に `<cross-session-message>` の封筒として現れる
+- **人 → セッション**: `message.send { to: sid, text }`。宛先は sid ひとつで room は無い。届いた 1 通は、セッション側の user turn に `<cross-session-message>` の封筒として現れる
 - **セッション → 人**: セッションが走らせる `ccmsg reply <mid> <text>`。`--to` が無い返事は人宛で、instance がそれを通知に変えて届ける
 
-どちらの方向も、画面に届く時には `message:session:in` / `message:session:out` という 1 つの型になっている。封筒を読み戻すのも、返事の Bash コマンドから本文を取り出すのも、file を持っている instance の側の仕事 — 同じ文法の写しが 2 つあると、契約が変わっても画面は古い綴りを読み続ける。
+どちらの方向も、画面に届く時には `message.session.in` / `message.session.out` という 1 つの型になっている。封筒を読み戻すのも、返事の Bash コマンドから本文を取り出すのも、file を持っている instance の側の仕事 — 同じ文法の写しが 2 つあると、契約が変わっても画面は古い綴りを読み続ける。
 
 ## 端末は借りて表示する
 
@@ -178,7 +178,7 @@ fold の開閉状態は fold を描く component の**外**に置く (`src/timel
 
 ## 送れない相手には送らせない
 
-composer が有効なのは、instance が今つながっていると言っているセッションだけ。止まったセッション宛の `message_send` は instance が断るので、断られてから理由を読ませるのではなく、送れないことと理由 (終了した / 居なくなった / 未接続) を先に書く。
+composer が有効なのは、instance が今つながっていると言っているセッションだけ。止まったセッション宛の `message.send` は instance が断るので、断られてから理由を読ませるのではなく、送れないことと理由 (終了した / 居なくなった / 未接続) を先に書く。
 
 送れた場合の応答は 2 つの成功に分かれる: 今届いたか、inbox に積まれたか。積まれた方も失敗ではないので、文言は「待つ / 別のセッションに送り直す / 諦める」のどれなのかを言う (`src/conversation/send-outcome.ts`)。
 
@@ -186,11 +186,11 @@ composer が有効なのは、instance が今つながっていると言って�
 
 ## 人には inbox が見えない
 
-契約の `TOPIC_ATTRIBUTES` は `inbox` を `["session", "user"]` に開いているので、人としてつないだ接続も購読できる。**購読は通るが frame は 1 つも来ない** (v0.0.29 で実機確認: `topic_subscribe` は ok、snapshot も delta も無し)。daemon 側の理由は明快で、この topic が運ぶのは「そのセッションに宛てて言われたこと」であり、人はセッションではない — snapshot は接続の sid で引かれ、配送の push も宛先 sid の接続に絞られる。
+契約の `TOPIC_ATTRIBUTES` は `inbox` を `["session", "user"]` に開いているので、人としてつないだ接続も購読できる。**購読は通るが frame は 1 つも来ない** (v0.0.29 で実機確認: `topic.subscribe` は ok、snapshot も delta も無し)。daemon 側の理由は明快で、この topic が運ぶのは「そのセッションに宛てて言われたこと」であり、人はセッションではない — snapshot は接続の sid で引かれ、配送の push も宛先 sid の接続に絞られる。
 
 `peers` の行にも未配送の件数は無い。つまり **instance の inbox が何通抱えているかを人が知る術は、この世代の契約には無い**。
 
-出せるのは「この画面が送って、まだ渡っていない 1 通」だけ。`message_send` の応答 (`delivered: false` と理由) が唯一の一次情報なので、送った時にその場で書き留め、セッション一覧のバッジと Timeline 上部の一覧に出す (`conversation/held-messages.ts`)。ページのメモリにだけ置き、切断で捨てる: 渡ったかを確かめる術が無い以上、書き留めて残せば「もう届いているのに残っている古い控え」を作ることになる。一覧の「消す」も届いた印ではなく、人が気にしないと決めたということ。
+出せるのは「この画面が送って、まだ渡っていない 1 通」だけ。`message.send` の応答 (`delivered: false` と理由) が唯一の一次情報なので、送った時にその場で書き留め、セッション一覧のバッジと Timeline 上部の一覧に出す (`conversation/held-messages.ts`)。ページのメモリにだけ置き、切断で捨てる: 渡ったかを確かめる術が無い以上、書き留めて残せば「もう届いているのに残っている古い控え」を作ることになる。一覧の「消す」も届いた印ではなく、人が気にしないと決めたということ。
 
 `topic-fold.ts` に `element` の畳み方は足していない。畳む相手が無いのが 1 つ、契約の `InboxMessage` に削除を表す印が無いのがもう 1 つ — `element` 粒度は「削除は印付きの要素で来る」と定めているが、`inbox` の payload にその印を書く場所が無い。畳み方だけ先に用意しても、何を消すかを書けない。
 
@@ -209,7 +209,7 @@ composer が有効なのは、instance が今つながっていると言って�
 
 - **登録**: `#register=<token>` を持って来た時だけ (`src/auth/register-link.ts`)。claims は表示のためだけに読む (署名を検証できるのは発行 instance だけ)。**6 桁のコードは URL に無い** ので入力させる — URL とコードが別経路で届くことが、URL が漏れても登録にならない根拠。端末ラベルは UA から埋めて人が書き換える (`src/auth/device-label.ts`)。fragment は読み込み時と `hashchange` の両方で読む — 既に開いているタブで登録リンクを開くと変わるのは fragment だけだから
 - **認証**: access が無ければまず refresh cookie を試し、それも無ければ passkey の画面を出す。credential は名指ししない (resident な passkey が user handle で答え、誰かを引くのは instance の仕事)。求めるのは **この endpoint で登録した passkey** で、別ホスト・別パス prefix は別の登録になる
-- **期限の延長**: `hello` の `auth_expires_at` が接続の期限。残り 10% で `/auth/refresh` → 同じ接続の上で `auth_refresh`。**繋ぎ直さない** — 数時間ごとに画面が瞬く理由が無い
+- **期限の延長**: `hello` の `auth_expires_at` が接続の期限。残り 10% で `/auth/refresh` → 同じ接続の上で `auth.extend`。**繋ぎ直さない** — 数時間ごとに画面が瞬く理由が無い
 
 再接続のたびに token を「取りに行く」形にしてある (`Connection` は値ではなく `TokenSource` を持つ)。切れた接続の向こう側で token が期限切れになっていても、その 1 箇所が refresh に落ちるだけで、他はそれを知らない。handshake を拒否された時も同じ口に「取り直し」として落ちる — 持っている token は family のものでページのものではないので、ページが読む期限は「まだ通用するか」を何も語らない。取れなければ認証の画面が出て、そこからしか戻れない。
 
@@ -217,7 +217,7 @@ composer が有効なのは、instance が今つながっていると言って�
 
 **access token は family のもので、その人が開いている全てのタブが同じ 1 本を提示する** (DR-0001 §2.4)。タブが各自で refresh すると family を回して他のタブの足元から token を抜いてしまうので、ブラウザ側で協調する (`src/auth/tab-share.ts`)。
 
-- refresh (`/auth/refresh` とそれに続く `auth_refresh`) は `navigator.locks.request()` の中で走る。1 セッションにつき同時に 1 タブだけ
+- refresh (`/auth/refresh` とそれに続く `auth.extend`) は `navigator.locks.request()` の中で走る。1 セッションにつき同時に 1 タブだけ
 - 得た結果は `BroadcastChannel` で他のタブへ配る。**メモリ間**で渡す (access token を store に書かないのは上の表のとおり)
 - ロックを取ったタブは、refresh する前に同じ channel で**他のタブに尋ねる**。最初に返ってきた token を使う。聞く側に回るのは、ロックと message が別々の queue で渡るから — 他のタブが配ったものはまだ届いていないかもしれないし、自分が開く前に配られたものは二度と届かない。往復の間に誰も答えなければ、それがこのセッションの唯一のタブという意味なので refresh する
 - handshake を拒否された時は、まず他のタブが配った最新の token を試してから refresh に落ちる

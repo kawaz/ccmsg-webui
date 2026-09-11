@@ -122,7 +122,7 @@ export class Connection {
   unsubscribe(topic: TopicName): void {
     if (!this.#topics.delete(topic)) return;
     if (this.#socket?.readyState !== WebSocket.OPEN) return;
-    this.request("topic_unsubscribe", { topic }).catch(() => {
+    this.request("topic.unsubscribe", { topic }).catch(() => {
       // A subscription on a connection that is gone is gone with it.
     });
   }
@@ -221,8 +221,7 @@ export class Connection {
 
   async #greet(): Promise<void> {
     try {
-      const reply = await this.request("hello", {
-        role: "user",
+      const reply = await this.request("hello.user", {
         protocol_version: PROTOCOL_VERSION,
         client_version: __WEBUI_VERSION__,
       });
@@ -243,7 +242,7 @@ export class Connection {
 
   async #subscribeNow(topic: TopicName): Promise<void> {
     try {
-      await this.request("topic_subscribe", { topic });
+      await this.request("topic.subscribe", { topic });
     } catch (cause) {
       this.#events.status("open", `${topic} を購読できませんでした: ${String(cause)}`);
     }

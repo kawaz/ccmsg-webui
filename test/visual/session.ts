@@ -74,9 +74,8 @@ export function greetAsSession(stateDir: string, facts: SessionFacts): Promise<F
     });
     conn.write(
       `${JSON.stringify({
-        op: "hello",
+        op: "hello.session",
         request_id: "hello",
-        role: "session",
         protocol_version: protocolVersion(),
         sid: facts.sid,
         cwd: facts.cwd,

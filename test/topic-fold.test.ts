@@ -108,7 +108,7 @@ describe("whole", () => {
     // One session lives on one instance, so its status has no other instance's
     // half to leave alone.
     const fold = new TopicFold<{ n: number }>(
-      "session_status:00000000-0000-0000-0000-000000000000",
+      "session.status:00000000-0000-0000-0000-000000000000",
     );
     fold.push(A, { n: 1 });
     const after = fold.push(B, { n: 2 });

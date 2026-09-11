@@ -4,7 +4,7 @@ import type {
   DirListResult,
   FileKind,
   FileReadResult,
-  FileStatBatchResult,
+  FileStatResult,
   Sid,
 } from "@ccmsg/protocol";
 import type { Connection } from "../connection.ts";
@@ -157,7 +157,7 @@ export class FilesView {
     if (held.loading.has(path)) return;
     this.#patch({ loading: new Set(held.loading).add(path) });
     try {
-      const reply = (await this.#connection.request("dir_list", {
+      const reply = (await this.#connection.request("dir.list", {
         sid: this.sid,
         kind: isAbsolutePath(path) ? "workspace" : "contained",
         path,
@@ -185,10 +185,10 @@ export class FilesView {
    * way. */
   async #kindOf(path: string): Promise<FileKind | undefined> {
     if (!isAbsolutePath(path)) return "contained";
-    const reply = (await this.#connection.request("file_stat_batch", {
+    const reply = (await this.#connection.request("file.stat", {
       sid: this.sid,
       paths: [path],
-    })) as unknown as FileStatBatchResult;
+    })) as unknown as FileStatResult;
     return reply.results[0]?.kind;
   }
 
@@ -201,7 +201,7 @@ export class FilesView {
         this.failure.value = "このセッションから開けるファイルではありません";
         return;
       }
-      const reply = (await this.#connection.request("file_read", {
+      const reply = (await this.#connection.request("file.read", {
         sid: this.sid,
         kind,
         path,

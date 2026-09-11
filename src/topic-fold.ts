@@ -174,7 +174,7 @@ export function union<S, K extends keyof S>(
 /** What an `append` topic's subscriber holds: a contiguous stretch of a value
  * that is only ever added to, and where in the whole that stretch sits.
  *
- * The offsets are bytes, and are the same ones `transcript_read` pages by, so
+ * The offsets are bytes, and are the same ones `transcript.read` pages by, so
  * what arrives live and what is read back stitch onto each other without
  * anything being read twice or counted twice. */
 export interface AppendWindow {
@@ -185,7 +185,7 @@ export interface AppendWindow {
   readonly lines: readonly string[];
 }
 
-/** One frame of an `append` topic, or one `transcript_read` reply — the two say
+/** One frame of an `append` topic, or one `transcript.read` reply — the two say
  * the same thing, which is why one fold takes both. */
 export interface AppendPart {
   readonly lines: readonly string[];
@@ -207,7 +207,7 @@ export interface AppendPart {
  * subscriber follows is a value that only grows, so without a bound a screen
  * left open holds the whole of it; past the bound the oldest lines are let go
  * of, whole lines at a time, and what was let go of is exactly what
- * `transcript_read` answers — the same path that fills the start of a window
+ * `transcript.read` answers — the same path that fills the start of a window
  * that was never at the beginning. The bound is applied where the window grows
  * at its end, so a page someone asked for is not taken back out from under
  * them by the read that fetched it. */

@@ -6,7 +6,7 @@ The web UI for ccmsg. A static site that speaks to a daemon instance through the
 
 ## What works
 
-The session list: connected sessions (`peers`), the harness's own view (`agents`), what was running when the instance last looked (`last_live`), and the errors sessions are stopped on (`session_errors`). The ordering a person picks is kept in `localStorage`. A row goes to `/s/<sid>/<tab>`, which is not built yet.
+The session list: connected sessions (`peers`), the harness's own view (`agents`), what was running when the instance last looked (`last_live`), and the errors sessions are stopped on (`session.errors`). The ordering a person picks is kept in `localStorage`. A row goes to `/s/<sid>/<tab>`, which is not built yet.
 
 ## Using it
 

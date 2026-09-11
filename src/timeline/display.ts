@@ -2,8 +2,8 @@ import type { TranscriptSubject } from "@ccmsg/protocol";
 
 /** 型ごとの表示属性 — その型の item を画面のどこに、どこまで開いて出すか。
  *
- * 型名は `:` 区切りの階層なので、設定も階層で読む: `tool` に付けた値は
- * `tool:Bash` にも効き、`tool:Bash` に付けた値がその 1 つだけを上書きする。
+ * 型名は `.` 区切りの階層なので、設定も階層で読む: `tool` に付けた値は
+ * `tool.Bash` にも効き、`tool.Bash` に付けた値がその 1 つだけを上書きする。
  * 何も付いていない型は組み込みの既定に落ちる。これで、知らない型が来ても
  * 「その根が言っていること」で描け、読み手が気にした型だけを名指しで動かせる。
  *
@@ -19,7 +19,7 @@ export interface Display {
   readonly open: boolean;
 }
 
-/** 誰の transcript を読んでいるか。表は主語ごとに 1 面持つ — 同じ `tool:Bash`
+/** 誰の transcript を読んでいるか。表は主語ごとに 1 面持つ — 同じ `tool.Bash`
  * でも、main では会話の傍らで起きたことで、worker ではその worker が**やった
  * こと**そのもの。読む理由が違うものに 1 つの既定を押し付けない。 */
 export type Subject = "main" | "sub";
@@ -55,7 +55,7 @@ export type DisplayAxis = keyof Display;
 export const DISPLAY_AXES: readonly DisplayAxis[] = ["top", "open"];
 
 /** 読み手が名指しで付けた値。軸ごとに独立して付く — `tool` の既定を継いだまま
- * `tool:Bash` の `top` だけを変える、が書ける形。 */
+ * `tool.Bash` の `top` だけを変える、が書ける形。 */
 export type DisplaySettings = Readonly<Record<string, Partial<Display>>>;
 
 /** どの型も名乗らなかった時の値。会話でも思考でもないものは畳みの中に居て、
@@ -84,14 +84,14 @@ const BUILTIN: Readonly<Record<Subject, Readonly<Record<string, Partial<Display>
   },
 };
 
-/** その型と、その型を含む上の型を、近い順に。`tool:Bash` なら
- * `["tool:Bash", "tool"]`。 */
+/** その型と、その型を含む上の型を、近い順に。`tool.Bash` なら
+ * `["tool.Bash", "tool"]`。 */
 export function typeAncestry(type: string): readonly string[] {
   const names: string[] = [];
   let at = type;
   for (;;) {
     names.push(at);
-    const cut = at.lastIndexOf(":");
+    const cut = at.lastIndexOf(".");
     if (cut < 0) return names;
     at = at.slice(0, cut);
   }
@@ -144,7 +144,7 @@ export function clearDisplay(settings: DisplaySettings, type: string): DisplaySe
 /** 設定画面に並べる型。組み込みが名乗っている型と、この画面で実際に見た型、
  * そして読み手が既に値を付けた型。
  *
- * 見た型はその上の型も一緒に並べる — `tool:Bash` を見たなら `tool` にまとめて
+ * 見た型はその上の型も一緒に並べる — `tool.Bash` を見たなら `tool` にまとめて
  * 付けられる所が要る。並びは型名そのもので、階層がそのまま隣り合う。 */
 export function displayRows(face: DisplayFace, observed: Iterable<string>): readonly string[] {
   const names = new Set<string>([
@@ -167,7 +167,7 @@ export function displayStorageKey(subject: Subject): string {
 }
 
 /** 型名として読めるもの。契約の `TranscriptItemType` と同じ形。 */
-const TYPE_NAME = /^[a-z]+(?::[A-Za-z0-9_.-]+)*$/;
+const TYPE_NAME = /^[a-z][a-z0-9_]*(?:\.[A-Za-z0-9_-]+)*$/;
 
 /** 覚えていた値を読む。壊れた entry はその entry だけ捨てる — 1 つの型の値が
  * 読めなかったことで、他の型に付けた値まで失う理由は無い。 */

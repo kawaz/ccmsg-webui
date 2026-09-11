@@ -16,7 +16,7 @@ This page is a static site served **from under an instance's endpoint** (DR-0001
 
 | Layer | File | Responsibility |
 |---|---|---|
-| connection | `src/connection.ts` | the socket's life, `hello`, correlating replies to requests, reconnection, restoring subscriptions |
+| connection | `src/connection.ts` | the socket's life, `hello.user`, correlating replies to requests, reconnection, restoring subscriptions |
 | fold | `src/topic-fold.ts` | folding topic frames into what is held, by the contract's `granularity` |
 | state | `src/state.ts` | the signals, and the functions that are their only writers |
 | derived | `src/sessions.ts` `src/route.ts` | ordering, sections, display names, the URL grammar (pure) |
@@ -44,15 +44,15 @@ A transcript is fetched, read, and drawn, and those are three layers.
 
 | Layer | File | Responsibility |
 |---|---|---|
-| fetch | `src/timeline/items-view.ts` | the `transcript_items:<sid>` subscription, the backwards `transcript_items_read`, and the `transcript_read` that fetches a raw record |
+| fetch | `src/timeline/items-view.ts` | the `transcript.items:<sid>` subscription, the backwards `transcript.items.read`, and the `transcript.read` that fetches a raw record |
 | model | `src/timeline/items.ts` `src/timeline/item-view.ts` `src/timeline/display.ts` | typed items to `TimelineNode` — joining a call with its answer, gathering a run into a fold — what each type is called and says, and each type's display attributes. Pure functions only |
 | draw | `src/ui/Timeline.tsx`, `src/markdown/` | reading the nodes, what a scroll position means, how Markdown is read, and how a fold looks |
 
 **The classifying is the instance's, the contract is the vocabulary of types, and this build never reads jsonl.** A transcript is a file a harness writes in whatever shape it settles on, so deciding which record is which item belongs to whoever holds the file. What arrives here is the classified item, and the shape of a record is written nowhere in this layer — which is what lets the harness change its file, or a second harness be read at all, without this moving.
 
-**A call and its answer are joined two ways.** An answer names its call both by the id the reader gave the item (`parent_item`) and by the key the harness paired the two under (`parent_tool_use_id`). The first is written only where the instance read the call as well, so its **absence is the ordinary case** — a read that begins part-way down a file meets answers whose call stands before where it started. The screen uses the id when it can resolve it and joins on the key when it cannot: the call is often already held from an earlier page, and then the two are put back together. An answer whose call was never read arrives as `tool:unknown` (the record does not say which tool it was), so it keeps the generic name and body and moves under its call only once the join succeeds.
+**A call and its answer are joined two ways.** An answer names its call both by the id the reader gave the item (`parent_item`) and by the key the harness paired the two under (`parent_tool_use_id`). The first is written only where the instance read the call as well, so its **absence is the ordinary case** — a read that begins part-way down a file meets answers whose call stands before where it started. The screen uses the id when it can resolve it and joins on the key when it cannot: the call is often already held from an earlier page, and then the two are put back together. An answer whose call was never read arrives as `tool.unknown` (the record does not say which tool it was), so it keeps the generic name and body and moves under its call only once the join succeeds.
 
-**The raw record is fetched when someone asks for it.** The one question an item cannot answer is what the line behind it actually said, and the item carries that line's address (`source`). Opening `jsonl` under an item asks `transcript_read` for exactly that record and shows it formatted. It is prominent by default under items drawn in the **generic form** — `system:unknown`, a tool or attachment or type this build has no picture for — because that is where the classification is thin and the record is the only way to tell. Several items read out of one record share the address, so it is fetched once per record.
+**The raw record is fetched when someone asks for it.** The one question an item cannot answer is what the line behind it actually said, and the item carries that line's address (`source`). Opening `jsonl` under an item asks `transcript.read` for exactly that record and shows it formatted. It is prominent by default under items drawn in the **generic form** — `system.unknown`, a tool or attachment or type this build has no picture for — because that is where the classification is thin and the record is the only way to tell. Several items read out of one record share the address, so it is fetched once per record.
 
 **Subscribe first, read second.** The other order loses whatever is classified between the end of the read and the start of the subscription. The subscription opens with the last 200 items, and an item that arrives twice is counted once: what identifies it is its id.
 
@@ -81,9 +81,9 @@ The scroll position is what separates following from reading. At the bottom a pe
 - **top** — whether it stands on the timeline's top level. An item that does not joins the run beside it, and a run becomes one fold (`N item`)
 - **open** — whether it is open by default. For an item inside a fold that decides whether the enclosing fold opens; for an item with a body of its own (a message, a thinking block) it decides whether that body is open
 
-**The table has two faces, one per subject** (`main` / `sub`). The same `tool:Bash` is something that happened beside the conversation when the subject is the session, and is **what the worker did** when the subject is a worker — two reasons to read, so not one default. The built-in defaults come in two faces as well: main stands the conversation and the thinking up with their bodies and folds the tools away; sub stands the tools on the top level one line each and keeps their bodies closed (a worker is opened to follow what it ran and read, and opening the bodies fills the screen with one of them). Which face applies is decided by **the subject of the transcript being read** — a sid alone is main, an agent named is sub. Inheritance is closed within a face; nothing is inherited across one.
+**The table has two faces, one per subject** (`main` / `sub`). The same `tool.Bash` is something that happened beside the conversation when the subject is the session, and is **what the worker did** when the subject is a worker — two reasons to read, so not one default. The built-in defaults come in two faces as well: main stands the conversation and the thinking up with their bodies and folds the tools away; sub stands the tools on the top level one line each and keeps their bodies closed (a worker is opened to follow what it ran and read, and opening the bodies fills the screen with one of them). Which face applies is decided by **the subject of the transcript being read** — a sid alone is main, an agent named is sub. Inheritance is closed within a face; nothing is inherited across one.
 
-**A setting is inherited down the type name.** Names are `:`-separated, so a value set on `tool` reaches `tool:Bash`, and a value set on `tool:Bash` overrides that one alone. A type with nothing set falls to the built-in default. **Each axis is set independently**, so `tool:Bash` can move one axis while still inheriting the other. Types are an open set the harness keeps adding to, and a flat list has nothing to say about a name it has never seen — a hierarchy always has an answer, the one its root gives.
+**A setting is inherited down the type name.** Names are `.`-separated, so a value set on `tool` reaches `tool.Bash`, and a value set on `tool.Bash` overrides that one alone. A type with nothing set falls to the built-in default. **Each axis is set independently**, so `tool.Bash` can move one axis while still inheriting the other. Types are an open set the harness keeps adding to, and a flat list has nothing to say about a name it has never seen — a hierarchy always has an answer, the one its root gives.
 
 **The values are kept per face** (`ccmsg.timeline.display:<main|sub>`). "Fold the thinking away" is how a reader reads, so it is split by neither instance nor session (see the key discipline below). A stored value that will not parse is dropped entry by entry: one type's value being unreadable is no reason to lose what was set on the others.
 
@@ -93,13 +93,13 @@ The scroll position is what separates following from reading. At the bottom a pe
 
 What the parent's transcript holds of a worker is the brief and the answer; **what it ran and what it read is only in the worker's own transcript**. `/s/<sid>/agent/<agentId>/timeline` reads that one as the subject.
 
-**Reading is `transcript_items_read` with `agent_id` added** and nothing else: the item types and the way a range is cut are the session's. Types are defined relative to the subject (`message:user:in` is the brief its parent gave it), so the vocabulary stays and only the subject moves. The raw record is reached the same way, by `agent_id` on `transcript_read`.
+**Reading is `transcript.items.read` with `agent_id` added** and nothing else: the item types and the way a range is cut are the session's. Types are defined relative to the subject (`message.user.in` is the brief its parent gave it), so the vocabulary stays and only the subject moves. The raw record is reached the same way, by `agent_id` on `transcript.read`.
 
-**The tail is not followed.** What carries appended items is `transcript_items:<sid>`, and that topic is **the session's**. The contract has no topic for an agent, so an agent's screen opens no subscription and only reads — subscribing would mix the parent's transcript into the worker's. The screen says so, and says that re-reading shows what has since been written.
+**The tail is not followed.** What carries appended items is `transcript.items:<sid>`, and that topic is **the session's**. The contract has no topic for an agent, so an agent's screen opens no subscription and only reads — subscribing would mix the parent's transcript into the worker's. The screen says so, and says that re-reading shows what has since been written.
 
 **Only the timeline is under an agent.** The files, the terminal and the state are the session's, and an agent has none of its own. A URL naming another tab under an agent is a 404 rather than a silent fall back to the timeline, which would lose what the link that was sent actually pointed at.
 
-**The way down and the way back are both drawn.** A row whose `message:sub:out` / `message:sub:in` / `tool:Agent` carries an `agent_id` offers to open that worker, and the worker's screen offers its parent. Which of the two items the id was written on is not the question, so both ends of the row are looked at.
+**The way down and the way back are both drawn.** A row whose `message.sub.out` / `message.sub.in` / `tool.Agent` carries an `agent_id` offers to open that worker, and the worker's screen offers its parent. Which of the two items the id was written on is not the question, so both ends of the row are looked at.
 
 ## Drawing: Markdown and highlighting
 
@@ -125,15 +125,15 @@ Whether a fold is open is held **outside** the component drawing it (`src/timeli
 
 The files screen answers three things: where things are (the tree), what is in one (the file), and where a path written in some text points (the links).
 
-**How a path is spelled is which surface it is reached through.** The contract spells `contained` paths relative to the session's root and `workspace`/`external` paths absolute (contract `files.ts`), so a leading `/` is the whole of the distinction — which is why the tree's keys, the stored selection and the URL are all the same one string. A relative path can only be `contained`; **the surface of an absolute one is asked for** with `file_stat_batch`, since `workspace` and `external` share a spelling and only the instance can say which admits it.
+**How a path is spelled is which surface it is reached through.** The contract spells `contained` paths relative to the session's root and `workspace`/`external` paths absolute (contract `files.ts`), so a leading `/` is the whole of the distinction — which is why the tree's keys, the stored selection and the URL are all the same one string. A relative path can only be `contained`; **the surface of an absolute one is asked for** with `file.stat`, since `workspace` and `external` share a spelling and only the instance can say which admits it.
 
-**The tree is asked for one level at a time**, as it is expanded (`dir_list`). What comes back is a copy of a moment rather than a subscription, so re-reading is a button. A refusal is remembered as an answer too — otherwise a row reads `loading` forever.
+**The tree is asked for one level at a time**, as it is expanded (`dir.list`). What comes back is a copy of a moment rather than a subscription, so re-reading is a button. A refusal is remembered as an answer too — otherwise a row reads `loading` forever.
 
 **The URL is the record.** `/s/<sid>/files?path=<p>&lines=<a>-<b>` names the open file and the lines being pointed at, so a link shows its reader the same thing. Opening a file is a navigation; the lines live in the query because a path contains slashes and a path segment cannot. **Named lines beat what was remembered**: whoever sent the link was pointing at lines, so both the stored view mode and the stored scroll position give way.
 
-**There is no next page.** `file_read` answers up to the instance's read limit (512KiB) and sets `truncated`; the contract gives it no offset to ask for the rest (contract `files.ts`). So the head is shown with a banner saying why it stops there — cutting it silently would read as "that is the file".
+**There is no next page.** `file.read` answers up to the instance's read limit (512KiB) and sets `truncated`; the contract gives it no offset to ask for the rest (contract `files.ts`). So the head is shown with a banner saying why it stops there — cutting it silently would read as "that is the file".
 
-**What is outside the project is a trail, not a listing.** The `external` allowlist is the files this session's transcript named, and the contract has no op that enumerates it (only `file_stat_batch`, which answers about a path already in hand). What the tree shows is therefore the absolute paths this browser has actually opened for that session.
+**What is outside the project is a trail, not a listing.** The `external` allowlist is the files this session's transcript named, and the contract has no op that enumerates it (only `file.stat`, which answers about a path already in hand). What the tree shows is therefore the absolute paths this browser has actually opened for that session.
 
 **The line between the tree and the file can be moved.** It is dragged, and it also takes focus and moves with ← and → — WAI-ARIA's `separator` is a role that is expected to answer arrow keys, so being draggable is not the whole of it. The width is remembered per instance (`ccmsg.layout.split:<instance>`), for the same reason as the key discipline below: one store is reached by several instances. It is written only when the pointer is let go; the widths passed through while dragging are not worth keeping. A value that does not read cleanly, or one outside the range, is the same as none and the CSS default is used. On a narrow screen the two panes stack and there is no left-right line to move, so the handle is gone with it.
 
@@ -155,10 +155,10 @@ Highlighting happens two ways. Prose is split at render time and `<mark>` put in
 
 There is no separate screen for talking to a session. **The session's own transcript is the record of the conversation**, and the screen that reads it already exists. The two directions look different in there.
 
-- **person to session**: `message_send { to: sid, text }`. One sid is the whole address; there is no room. What arrives shows up in the session's own user turn, wrapped in a `<cross-session-message>` envelope
+- **person to session**: `message.send { to: sid, text }`. One sid is the whole address; there is no room. What arrives shows up in the session's own user turn, wrapped in a `<cross-session-message>` envelope
 - **session to person**: the `ccmsg reply <mid> <text>` the session runs. A reply with no `--to` is for the person, and the instance turns it into a notification
 
-Both directions reach the screen as one type, `message:session:in` and `message:session:out`. Reading the envelope back, and taking the body out of the Bash command a reply is sent with, are the instance's work — it holds the file, and a second copy of the same grammar here would keep reading the old spelling after the contract moved.
+Both directions reach the screen as one type, `message.session.in` and `message.session.out`. Reading the envelope back, and taking the body out of the Bash command a reply is sent with, are the instance's work — it holds the file, and a second copy of the same grammar here would keep reading the old spelling after the contract moved.
 
 ## The terminal is borrowed, not built
 
@@ -178,7 +178,7 @@ A `notify` frame is an event, and the contract keeps none of them. Neither does 
 
 ## A session that cannot be reached offers no composer
 
-The composer is enabled for sessions the instance currently reports as connected. A `message_send` to a stopped session is refused, so the page says that it cannot be sent and why (ended / gone / not connected) rather than letting the person find out from a refusal.
+The composer is enabled for sessions the instance currently reports as connected. A `message.send` to a stopped session is refused, so the page says that it cannot be sent and why (ended / gone / not connected) rather than letting the person find out from a refusal.
 
 A send that goes through has two successes to tell apart: handed over now, or held in the inbox. Being held is not a failure, so the wording says which of "wait", "send to another session" or "give up" this is (`src/conversation/send-outcome.ts`).
 
@@ -186,11 +186,11 @@ Neither is a message too large to send. The contract's `MAX_FRAME_BYTES` is a ce
 
 ## A person cannot see an inbox
 
-The contract's `TOPIC_ATTRIBUTES` opens `inbox` to `["session", "user"]`, so a connection made as a person may subscribe. **The subscribe succeeds and no frame ever arrives** (measured against v0.0.29: `topic_subscribe` answers ok, and neither a snapshot nor a delta follows). The daemon's reason is plain — the topic carries what was said to a session, and a person is not one: the snapshot is looked up by the connection's sid, and a delivery is pushed only to connections holding the addressee's.
+The contract's `TOPIC_ATTRIBUTES` opens `inbox` to `["session", "user"]`, so a connection made as a person may subscribe. **The subscribe succeeds and no frame ever arrives** (measured against v0.0.29: `topic.subscribe` answers ok, and neither a snapshot nor a delta follows). The daemon's reason is plain — the topic carries what was said to a session, and a person is not one: the snapshot is looked up by the connection's sid, and a delivery is pushed only to connections holding the addressee's.
 
 Nor does a `peers` row carry a count of what is waiting. In this generation of the contract there is **no way for a person to learn how much an instance's inbox is holding**.
 
-What can be shown is what this page sent and has not seen handed over. The reply to `message_send` (`delivered: false` and its reason) is the only primary source there is, so it is written down at that moment and shown as a badge in the session list and a list above the timeline (`conversation/held-messages.ts`). It lives in the page's memory and goes with the connection: with no way to confirm delivery, persisting it would only manufacture stale notes about messages that have long since arrived. "Dismiss" on the list is a person deciding to stop caring, not evidence that it landed.
+What can be shown is what this page sent and has not seen handed over. The reply to `message.send` (`delivered: false` and its reason) is the only primary source there is, so it is written down at that moment and shown as a badge in the session list and a list above the timeline (`conversation/held-messages.ts`). It lives in the page's memory and goes with the connection: with no way to confirm delivery, persisting it would only manufacture stale notes about messages that have long since arrived. "Dismiss" on the list is a person deciding to stop caring, not evidence that it landed.
 
 No `element` fold was added to `topic-fold.ts`. There is nothing to fold, and the contract's `InboxMessage` carries no removal mark — `element` granularity states that a removal arrives as a marked element, and the `inbox` payload has nowhere to write that mark. A fold with no way to say what was removed is a fold written ahead of its topic.
 
@@ -209,7 +209,7 @@ Three flows, all of them entering at the endpoint's `/auth/*` (`src/auth/client.
 
 - **Registration** happens only when a link brought `#register=<token>` (`src/auth/register-link.ts`). The claims are read for display alone — the signature is the issuing instance's to check. **The six digits are not in the URL**, so they are typed in: the two halves travelling apart is what makes a leaked URL not a registration. The device label is filled in from the user agent and rewritten by the person (`src/auth/device-label.ts`). The fragment is read on arrival and on every `hashchange`, since a link opened into a tab already showing this page changes nothing else
 - **Signing in** tries the refresh cookie first and raises the passkey screen when there is none. No credential is named: a resident passkey answers with its user handle, and which subject that is is the instance's to look up. What is asked for is **a passkey registered for this endpoint**; another host or path prefix is a registration of its own
-- **Extending** works off `auth_expires_at` from `hello`, which is the connection's deadline. At a tenth of it left, `/auth/refresh` mints a token and `auth_refresh` moves the deadline **on the same connection** — there is no reason for the screen to blink every few hours
+- **Extending** works off `auth_expires_at` from `hello`, which is the connection's deadline. At a tenth of it left, `/auth/refresh` mints a token and `auth.extend` moves the deadline **on the same connection** — there is no reason for the screen to blink every few hours
 
 The token is fetched again on every attempt to connect (`Connection` holds a `TokenSource` rather than a value). A token that expired while a connection was down turns into a refresh in that one place, and nothing else knows it happened. A handshake that was refused asks for the token again too, saying so: what the page holds is the family's token and not its own, so an expiry it reads as live tells it nothing about whether the token still stands. When there is none to be had, the sign-in screen is raised, and it is the only way back.
 
@@ -217,7 +217,7 @@ The token is fetched again on every attempt to connect (`Connection` holds a `To
 
 **An access token belongs to the family, and every tab the person has open presents the same one** (DR-0001 §2.4). Tabs that refreshed on their own would each rotate the family and take the token out from under the others, so they coordinate in the browser (`src/auth/tab-share.ts`):
 
-- The refresh — `/auth/refresh` and the `auth_refresh` that follows it — runs inside `navigator.locks.request()`, so one tab of a session does it at a time
+- The refresh — `/auth/refresh` and the `auth.extend` that follows it — runs inside `navigator.locks.request()`, so one tab of a session does it at a time
 - What it settles on goes to the others over a `BroadcastChannel`, **in memory**: an access token is not written to a store, here as anywhere (see the table above)
 - The tab holding the lock **asks the others** on the same channel before it refreshes, and takes the first token that comes back. Asking rather than only listening is what makes this reliable: the lock and a message are handed over by different queues, so what another tab broadcast may not have arrived yet — and what it broadcast before this tab was opened never will. A tab that nobody answers within the round trip is the only tab of its session, and refreshes
 - A refused handshake tries the newest token another tab passed on before it refreshes at all

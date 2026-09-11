@@ -708,11 +708,11 @@ function NodeView({ node }: { node: TimelineNode }) {
 /** worker を名指しうる型。ここに無い型の `agent_id` を入口にしないのは、同じ
  * 名前の field が「起動した相手」ではなく「自分」を指す型があるため。 */
 const NAMES_AN_AGENT = new Set([
-  "message:sub:out",
-  "message:sub:in",
-  "message:team:out",
-  "message:team:in",
-  "tool:Agent",
+  "message.sub.out",
+  "message.sub.in",
+  "message.team.out",
+  "message.team.in",
+  "tool.Agent",
 ]);
 
 /** その行が名指している worker。呼び出し側と答えのどちらが id を持っているかは
@@ -764,7 +764,7 @@ function RowView({ row }: { row: ItemRow }) {
       </div>
     );
   }
-  if (item.type.startsWith("message:")) {
+  if (item.type.startsWith("message.")) {
     return (
       <div class="tl-line message" data-search-key={item.id}>
         <MessageView item={item} />

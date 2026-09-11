@@ -14,12 +14,12 @@ import { buildTimeline, recordRange, type TimelineNode } from "./items.ts";
  *
  * The classifying happens where the file is — what travels here is the item —
  * so nothing in this layer knows how a record is shaped. The two ways items
- * arrive say the same thing: `transcript_items:<sid>` carries what has been
- * classified since the subscription opened, and `transcript_items_read`
+ * arrive say the same thing: `transcript.items:<sid>` carries what has been
+ * classified since the subscription opened, and `transcript.items.read`
  * answers what came before.
  *
  * The raw record stays reachable all the same: an item carries the address of
- * the line it was read from, and `transcript_read` bounded to that address
+ * the line it was read from, and `transcript.read` bounded to that address
  * answers the line itself. That is the one question an item cannot answer —
  * what the record actually said — so it is fetched when someone asks it,
  * rather than held for every item on the chance they do. */
@@ -40,7 +40,7 @@ const PAGE_ITEMS = 200;
  *
  * The same megabyte the instance seeds its own reading with, counted in what
  * the items themselves weigh: a screen holds what an instance offers without
- * being asked. Older than that is not lost — `transcript_items_read` pages it
+ * being asked. Older than that is not lost — `transcript.items.read` pages it
  * back and it is stitched onto the start of what is held. */
 const WINDOW_BYTES = 1024 * 1024;
 
@@ -93,11 +93,11 @@ export class TranscriptItemsView {
     this.#port = port;
     this.#sid = sid;
     this.#agentId = agentId;
-    // An agent has no topic. `transcript_items:<sid>` carries the session's own
+    // An agent has no topic. `transcript.items:<sid>` carries the session's own
     // items, so subscribing to it while reading an agent would mix the parent's
     // transcript into the agent's. What an agent can be asked for is a read,
     // which is why its screen does not follow a tail.
-    this.#topic = agentId === undefined ? `transcript_items:${sid}` : undefined;
+    this.#topic = agentId === undefined ? `transcript.items:${sid}` : undefined;
     this.#faces = faces;
     this.groups = computed<readonly TimelineNode[]>(() =>
       buildTimeline(this.items.value, this.#faces.value),
@@ -152,7 +152,7 @@ export class TranscriptItemsView {
     if (this.#topic !== undefined) this.#port.unsubscribe(this.#topic);
   }
 
-  /** Take one `transcript_items:<sid>` frame: the tail the subscription opens
+  /** Take one `transcript.items:<sid>` frame: the tail the subscription opens
    * with, or what has since been classified. Both are appended by the same
    * rule, because both are items that come after what is held. */
   take(data: { sid: Sid; items?: readonly TranscriptItem[] }): void {
@@ -177,7 +177,7 @@ export class TranscriptItemsView {
     this.loading.value = true;
     try {
       const oldest = this.#held[0]?.item;
-      const reply = (await this.#port.request("transcript_items_read", {
+      const reply = (await this.#port.request("transcript.items.read", {
         sid: this.#sid,
         ...(this.#agentId === undefined ? {} : { agent_id: this.#agentId }),
         limit: PAGE_ITEMS,
@@ -202,7 +202,7 @@ export class TranscriptItemsView {
     if (this.records.value.get(uuid) !== undefined) return;
     this.#record(uuid, { state: "loading", text: "" });
     try {
-      const reply = (await this.#port.request("transcript_read", {
+      const reply = (await this.#port.request("transcript.read", {
         sid: this.#sid,
         ...(this.#agentId === undefined ? {} : { agent_id: this.#agentId }),
         ...recordRange(item),

@@ -31,7 +31,7 @@ export function messageFoldKey(id: string): string {
  * A line naming what happened has none: there is nothing under it to hide. */
 export function ownFoldKey(type: string, id: string): string | undefined {
   if (type === "thinking") return thinkFoldKey(id);
-  return type.startsWith("message:") ? messageFoldKey(id) : undefined;
+  return type.startsWith("message.") ? messageFoldKey(id) : undefined;
 }
 
 /** The key of one record's raw line, shown under any item read from it. Keyed

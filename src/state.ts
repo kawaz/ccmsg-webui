@@ -93,7 +93,7 @@ const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
 /** The topics this build stands on: what the session list is made of, plus the
  * one topic that is about the person rather than about a session — a
  * notification is a line a session wrote for whoever is watching. */
-const TOPICS: readonly TopicName[] = ["peers", "instances", "agents", "session_errors", "notify"];
+const TOPICS: readonly TopicName[] = ["peers", "instances", "agents", "session.errors", "notify"];
 
 /** The instance this page belongs to: the base URL it was served from.
  *
@@ -319,8 +319,8 @@ export const connection = new Connection({
           message.snapshot,
         );
         break;
-      case "session_errors":
-        errorSlots.value = fold<ErrorsData>("session_errors").push(
+      case "session.errors":
+        errorSlots.value = fold<ErrorsData>("session.errors").push(
           message.instance,
           message.data as ErrorsData,
         );
@@ -583,7 +583,7 @@ let renewTimer: ReturnType<typeof setTimeout> | undefined;
 /** Move this connection's deadline before it arrives.
  *
  * Two steps because they answer different questions: `/auth/refresh` mints a
- * token from the cookie, and `auth_refresh` on this very connection moves its
+ * token from the cookie, and `auth.extend` on this very connection moves its
  * deadline — a client that reconnected to use a fresh token would blink every
  * few hours for no reason (DR-0001 §2.5). */
 async function renewConnection(): Promise<void> {
@@ -592,7 +592,7 @@ async function renewConnection(): Promise<void> {
     holdSession(await renewSession(endpoint, "expiring"));
     const token = access.peek()?.value;
     if (token === undefined) return;
-    const reply = await connection.request("auth_refresh", { access_token: token });
+    const reply = await connection.request("auth.extend", { access_token: token });
     const next = (reply as { auth_expires_at?: number }).auth_expires_at;
     if (typeof next === "number") connectionExpiresAt.value = next;
   } catch {
@@ -649,11 +649,11 @@ export function adoptLocation(): void {
  * 契約の上限は送る側が守るものなので、断られてから読ませるのではなく、
  * これから送る行そのものを測って先に言う。 */
 export function messageSendRefusal(sid: Sid, text: string): string | undefined {
-  return oversizeReason(connection.frameBytes("message_send", { to: sid, text }));
+  return oversizeReason(connection.frameBytes("message.send", { to: sid, text }));
 }
 
 export async function sendMessage(sid: Sid, text: string): Promise<MessageSendResult> {
-  const reply = await connection.request("message_send", { to: sid, text });
+  const reply = await connection.request("message.send", { to: sid, text });
   const result = reply as unknown as MessageSendResult;
   const waiting = heldFromSend(sid, text, result);
   if (waiting !== undefined) heldMessages.value = [...heldMessages.value, waiting];
@@ -680,5 +680,5 @@ export function dropHeld(key: number): void {
  * that follows carries the removal, which is also what makes two people
  * pressing the same button agree. */
 export async function forgetLostSession(sid: Sid): Promise<void> {
-  await connection.request("session_last_live_remove", { sid });
+  await connection.request("session.forget", { sid });
 }

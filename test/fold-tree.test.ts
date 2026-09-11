@@ -25,23 +25,23 @@ const MAIN: DisplayFaces = { main: {}, sub: {} };
 
 describe("foldPathsById", () => {
   test("畳みの中の item は、それを開く名前で引ける", () => {
-    const first = use("tool:Bash", { tool_use_id: "t1", command: "ls" });
-    const second = use("tool:Read", { tool_use_id: "t2", file_path: "a.ts" });
-    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), first, second], MAIN);
+    const first = use("tool.Bash", { tool_use_id: "t1", command: "ls" });
+    const second = use("tool.Read", { tool_use_id: "t2", file_path: "a.ts" });
+    const nodes = buildTimeline([item("message.user.in", { text: "やって" }), first, second], MAIN);
     const paths = foldPathsById(nodes);
     expect(paths.get(first.id)).toEqual([foldGroupKey([{ item: first }])]);
     expect(paths.get(second.id)).toEqual([foldGroupKey([{ item: first }])]);
   });
 
   test("会話はトップ層に立つが、本文は自分の畳みの中に居る", () => {
-    const said = item("message:user:in", { text: "やって" });
+    const said = item("message.user.in", { text: "やって" });
     expect(foldPathsById(buildTimeline([said], MAIN)).get(said.id)).toEqual([
       messageFoldKey(said.id),
     ]);
   });
 
   test("畳みの中の会話は、外側と自分の畳みの順で引ける", () => {
-    const said = item("message:user:in", { text: "やって" });
+    const said = item("message.user.in", { text: "やって" });
     const nodes = buildTimeline([said], { main: { message: { top: false } }, sub: {} });
     expect(foldPathsById(nodes).get(said.id)).toEqual([
       foldGroupKey([{ item: said }]),
@@ -50,8 +50,8 @@ describe("foldPathsById", () => {
   });
 
   test("本文を持たない item は、外側の畳みだけ", () => {
-    const alone = use("tool:Bash", { tool_use_id: "t", command: "ls" });
-    const nodes = buildTimeline([item("message:user:in", { text: "やって" }), alone], MAIN);
+    const alone = use("tool.Bash", { tool_use_id: "t", command: "ls" });
+    const nodes = buildTimeline([item("message.user.in", { text: "やって" }), alone], MAIN);
     expect(foldPathsById(nodes).get(alone.id)).toEqual([foldGroupKey([{ item: alone }])]);
   });
 });

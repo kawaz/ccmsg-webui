@@ -6,7 +6,7 @@ import { expect, test } from "./harness.ts";
  *
  * 絵ではなく振る舞いなので基準画像は撮らない。ここが実機で要る理由は、道が
  * 分類を挟んで長いこと — file に 1 行足されると instance がそれを読んで item に
- * し、`transcript_items:<sid>` の frame として送り、画面がそれを id で数えて
+ * し、`transcript.items:<sid>` の frame として送り、画面がそれを id で数えて
  * 末尾に足す。どこか 1 つでも噛み合わなければ、画面は静かに古いままになる。
  *
  * 名前が `screens` の後ろに来るのは順番のため: 最初の画面 (sign-in) は passkey を

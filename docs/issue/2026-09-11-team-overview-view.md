@@ -22,10 +22,10 @@ origin: kawaz 依頼 (2026-09-11 r298m52)
 ## 概要
 
 lead + teammate 全員の transcript (`sid` と `sid/agent-<id>` ×N) を時系列で重ねて見る view。
-型 (`message:team` 等) の話ではなく **view のモード** として提供する。各 item は主語 (どの
+型 (`message.team` 等) の話ではなく **view のモード** として提供する。各 item は主語 (どの
 transcript 由来か) を持ったまま、型は主語相対のまま変えない。
 
-同じ 1 通のメッセージが 2 回観測される (A の `message:team:out` と B の `message:team:in`、
+同じ 1 通のメッセージが 2 回観測される (A の `message.team.out` と B の `message.team.in`、
 lead の `team:out` と B の `parent:in`) ので、これを対応付けて 1 行 (「A → B」+ 送信/受信の
 時刻) に見せる。
 
@@ -37,7 +37,7 @@ lead の `team:out` と B の `parent:in`) ので、これを対応付けて 1 �
 
 実 record で `msg_id` の有無を先に確認する必要がある (= 未検証)。
 
-まずは read-only (`transcript_items_read` ×N、完了済みチームの分析用) から着手する。
+まずは read-only (`transcript.items.read` ×N、完了済みチームの分析用) から着手する。
 live 追従 (worker 側の追記をリアルタイムに流す経路) は現状 topic が main のみなので
 後回しでよい。
 
@@ -45,7 +45,7 @@ live 追従 (worker 側の追記をリアルタイムに流す経路) は現状 
 
 - 表示属性 2 面の実装
 - worker route (v0.4 系) の実装
-- 契約 1.18.0 (`message:parent` / `team`) への追従
+- 契約 1.18.0 (`message.parent` / `team`) への追従
 
 これらが終わってから着手する (= 現時点では前提未整備)。
 

@@ -5,7 +5,7 @@ import { frameByteLength, oversizeReason } from "../src/frame-limit.ts";
 
 describe("送る前に測る", () => {
   test("収まっていれば止めず、超えたら大きさを言って止める", () => {
-    const fits = { op: "message_send", request_id: "1", to: "s1", text: "こんにちは" };
+    const fits = { op: "message.send", request_id: "1", to: "s1", text: "こんにちは" };
     expect(oversizeReason(frameByteLength(fits))).toBeUndefined();
 
     const over = { ...fits, text: "あ".repeat(MAX_FRAME_BYTES) };

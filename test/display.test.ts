@@ -22,71 +22,71 @@ function face(settings: DisplaySettings, subject: Subject = "main") {
 
 describe("階層で継ぐ", () => {
   test("何も付いていない型は組み込みの既定に落ちる", () => {
-    expect(resolveDisplay(face({}), "message:user:in")).toEqual({ top: true, open: true });
+    expect(resolveDisplay(face({}), "message.user.in")).toEqual({ top: true, open: true });
     expect(resolveDisplay(face({}), "thinking")).toEqual({ top: true, open: true });
-    expect(resolveDisplay(face({}), "tool:Bash")).toEqual({ top: false, open: false });
+    expect(resolveDisplay(face({}), "tool.Bash")).toEqual({ top: false, open: false });
     // 組み込みが名乗っていない根も、根の既定で必ず答えが出る。
-    expect(resolveDisplay(face({}), "hook:PreToolUse")).toEqual({ top: false, open: false });
+    expect(resolveDisplay(face({}), "hook.PreToolUse")).toEqual({ top: false, open: false });
   });
 
   test("上の型に付けた値が配下に効く", () => {
     const settings = { tool: { open: true } };
-    expect(resolveDisplay(face(settings), "tool:Bash").open).toBe(true);
-    expect(resolveDisplay(face(settings), "tool:Read").open).toBe(true);
+    expect(resolveDisplay(face(settings), "tool.Bash").open).toBe(true);
+    expect(resolveDisplay(face(settings), "tool.Read").open).toBe(true);
     // 付けていない軸は組み込みのまま。
-    expect(resolveDisplay(face(settings), "tool:Bash").top).toBe(false);
+    expect(resolveDisplay(face(settings), "tool.Bash").top).toBe(false);
   });
 
   test("近い型に付けた値が、上の型より優先される", () => {
-    const settings = { tool: { open: true }, "tool:Read": { open: false } };
-    expect(resolveDisplay(face(settings), "tool:Read").open).toBe(false);
-    expect(resolveDisplay(face(settings), "tool:Bash").open).toBe(true);
+    const settings = { tool: { open: true }, "tool.Read": { open: false } };
+    expect(resolveDisplay(face(settings), "tool.Read").open).toBe(false);
+    expect(resolveDisplay(face(settings), "tool.Bash").open).toBe(true);
   });
 
   test("組み込みより、読み手が付けた値が強い", () => {
-    expect(resolveDisplay(face({ message: { top: false } }), "message:user:in").top).toBe(false);
+    expect(resolveDisplay(face({ message: { top: false } }), "message.user.in").top).toBe(false);
   });
 
   test("その型そのものに付いた値だけが「自分のもの」", () => {
     const settings = setDisplay({}, "tool", "open", true);
     expect(isOwnValue(settings, "tool", "open")).toBe(true);
-    expect(isOwnValue(settings, "tool:Bash", "open")).toBe(false);
+    expect(isOwnValue(settings, "tool.Bash", "open")).toBe(false);
     expect(isOwnValue(settings, "tool", "top")).toBe(false);
   });
 
   test("外すと、また上の型か組み込みが答える", () => {
-    const settings = setDisplay({ tool: { open: true } }, "tool:Read", "open", false);
-    expect(resolveDisplay(face(clearDisplay(settings, "tool:Read")), "tool:Read").open).toBe(true);
+    const settings = setDisplay({ tool: { open: true } }, "tool.Read", "open", false);
+    expect(resolveDisplay(face(clearDisplay(settings, "tool.Read")), "tool.Read").open).toBe(true);
   });
 
   // 主語が違えば、同じ型の同じ軸が違う答えになる。main は会話を読む画面なので
   // 道具は畳みの中、sub はやり方を読む画面なので道具がトップ層に 1 行ずつ並ぶ。
   test("組み込みの既定は主語ごと", () => {
-    expect(resolveDisplay(face({}, "main"), "tool:Bash")).toEqual({ top: false, open: false });
-    expect(resolveDisplay(face({}, "sub"), "tool:Bash")).toEqual({ top: true, open: false });
+    expect(resolveDisplay(face({}, "main"), "tool.Bash")).toEqual({ top: false, open: false });
+    expect(resolveDisplay(face({}, "sub"), "tool.Bash")).toEqual({ top: true, open: false });
     expect(resolveDisplay(face({}, "sub"), "thinking")).toEqual({ top: true, open: false });
-    expect(resolveDisplay(face({}, "sub"), "message:user:in")).toEqual({ top: true, open: true });
+    expect(resolveDisplay(face({}, "sub"), "message.user.in")).toEqual({ top: true, open: true });
   });
 
   // 契約に会話の型が増えても、表に行を足さずに `message` の階層が受ける。worker
   // の画面でも、親からの指示書と親への回答は会話として本文ごと立つ。
   test("会話の新しい型は message の階層が受ける", () => {
-    for (const type of ["message:parent:in", "message:parent:out", "message:team:in"]) {
+    for (const type of ["message.parent.in", "message.parent.out", "message.team.in"]) {
       expect(resolveDisplay(face({}, "main"), type)).toEqual({ top: true, open: true });
       expect(resolveDisplay(face({}, "sub"), type)).toEqual({ top: true, open: true });
     }
   });
 
   test("付けた値は面をまたがない (設定が別なら答えも別)", () => {
-    const settings = { "tool:Bash": { top: false } };
-    expect(resolveDisplay(face(settings, "sub"), "tool:Bash").top).toBe(false);
-    expect(resolveDisplay(face({}, "sub"), "tool:Bash").top).toBe(true);
+    const settings = { "tool.Bash": { top: false } };
+    expect(resolveDisplay(face(settings, "sub"), "tool.Bash").top).toBe(false);
+    expect(resolveDisplay(face({}, "sub"), "tool.Bash").top).toBe(true);
   });
 
   test("型と、その型を含む上の型", () => {
-    expect(typeAncestry("system:attachment:environment")).toEqual([
-      "system:attachment:environment",
-      "system:attachment",
+    expect(typeAncestry("system.attachment.environment")).toEqual([
+      "system.attachment.environment",
+      "system.attachment",
       "system",
     ]);
     expect(typeAncestry("thinking")).toEqual(["thinking"]);
@@ -95,17 +95,17 @@ describe("階層で継ぐ", () => {
 
 describe("設定画面に並べる型", () => {
   test("組み込みの型と、見た型とその上の型が並ぶ", () => {
-    expect(displayRows(face({}), ["tool:Bash"])).toEqual([
+    expect(displayRows(face({}), ["tool.Bash"])).toEqual([
       "message",
       "thinking",
       "tool",
-      "tool:Bash",
+      "tool.Bash",
     ]);
   });
 
   test("もう見ていない型でも、値が付いていれば並ぶ", () => {
-    expect(displayRows(face({ "hook:SessionStart": { top: true } }), [])).toContain(
-      "hook:SessionStart",
+    expect(displayRows(face({ "hook.SessionStart": { top: true } }), [])).toContain(
+      "hook.SessionStart",
     );
   });
 });
@@ -119,7 +119,7 @@ describe("覚えておく所", () => {
   });
 
   test("書いた形がそのまま読み戻せる", () => {
-    const settings = { "tool:Bash": { top: true, open: false } };
+    const settings = { "tool.Bash": { top: true, open: false } };
     expect(parseDisplaySettings(formatDisplaySettings(settings))).toEqual(settings);
   });
 
@@ -133,13 +133,13 @@ describe("覚えておく所", () => {
 
   test("壊れた entry はその entry だけ捨てる", () => {
     const raw = JSON.stringify({
-      "tool:Bash": { top: true, open: "はい" },
-      "tool:Read": { top: "いいえ" },
+      "tool.Bash": { top: true, open: "はい" },
+      "tool.Read": { top: "いいえ" },
       大文字ダメ: { top: true },
       thinking: { open: false },
     });
     expect(parseDisplaySettings(raw)).toEqual({
-      "tool:Bash": { top: true },
+      "tool.Bash": { top: true },
       thinking: { open: false },
     });
   });

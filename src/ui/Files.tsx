@@ -193,7 +193,7 @@ function useSplitWidth(): {
 /** The files reached outside the browsable root.
  *
  * The contract has no op that enumerates them — the allowlist is a fact about
- * the session, consulted about a path already in hand (`file_stat_batch`) —
+ * the session, consulted about a path already in hand (`file.stat`) —
  * so this is the trail of what this browser has opened rather than a listing.
  * Absolute paths, shown whole: there is no root to make them relative to. */
 function OutsideFiles({ view, selected }: { view: FilesView; selected?: string }) {
@@ -517,7 +517,7 @@ function FileBody({
       {file.truncated && (
         <p class="banner">
           先頭 {file.content.length} 文字だけを出しています (全 {file.size} バイト)。契約の
-          `file_read` は続きを求める引数を持たないので、この先はここからは読めません。
+          `file.read` は続きを求める引数を持たないので、この先はここからは読めません。
         </p>
       )}
       <div

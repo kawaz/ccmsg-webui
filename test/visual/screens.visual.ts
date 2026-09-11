@@ -71,7 +71,7 @@ test("timeline-display", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
   await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
   await page.locator("details.tl-display > summary").click();
-  await expect(page.getByRole("row", { name: /system:unknown/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /system\.unknown/ })).toBeVisible();
   await shot(page, "timeline-display.png");
 });
 

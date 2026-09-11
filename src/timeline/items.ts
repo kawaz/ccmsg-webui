@@ -46,7 +46,7 @@ export function buildTimeline(
   for (const [index, item] of items.entries()) {
     const call = callOf(item, at, calls);
     if (call === undefined) continue;
-    if (!item.type.startsWith("message:sub") && call !== index - 1) continue;
+    if (!item.type.startsWith("message.sub") && call !== index - 1) continue;
     child.set(call, index);
     folded.add(index);
   }
@@ -148,10 +148,10 @@ export function textField(item: TranscriptItem, name: string): string | undefine
   return typeof value === "string" ? value : undefined;
 }
 
-/** 型名の最後の 1 語。`tool:Bash` の `Bash`、`hook:PreToolUse` の
+/** 型名の最後の 1 語。`tool.Bash` の `Bash`、`hook.PreToolUse` の
  * `PreToolUse` — 誰かが付けた名前をそのまま出すところ。 */
 export function typeTail(type: string): string {
-  const at = type.lastIndexOf(":");
+  const at = type.lastIndexOf(".");
   return at < 0 ? type : type.slice(at + 1);
 }
 

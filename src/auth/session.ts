@@ -13,7 +13,7 @@ import { AuthError } from "./client.ts";
 export const access = signal<AuthSession["access"] | undefined>(undefined);
 export const subject = signal<Subject | undefined>(undefined);
 
-/** When the *connection* stops being authorized, as `hello` and `auth_refresh`
+/** When the *connection* stops being authorized, as `hello` and `auth.extend`
  * state it. Not the same as the token's own expiry: a connection opened with a
  * token keeps that deadline until it is moved on the connection itself. */
 export const connectionExpiresAt = signal<Timestamp | undefined>(undefined);
