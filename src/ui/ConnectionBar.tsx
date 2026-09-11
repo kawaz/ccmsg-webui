@@ -1,6 +1,49 @@
 import { connectionExpiresAt, subject } from "../auth/session.ts";
 import { instanceLabel } from "../instance-label.ts";
-import { connect, disconnect, endpoint, hello, status, statusDetail, wanted } from "../state.ts";
+import { statusBadge } from "../llm/status-view.ts";
+import { href } from "../base.ts";
+import {
+  can,
+  connect,
+  disconnect,
+  endpoint,
+  hello,
+  llmStatusReports,
+  navigate,
+  status,
+  statusDetail,
+  wanted,
+} from "../state.ts";
+
+/** 上流に問題がある時だけ出る印と、使用量の画面への入口。
+ *
+ * 正常は知らせることが無いので何も出さない — いつも出ている印は、出ている
+ * ことが意味を持たなくなる。押すと、その印が何のことかを書いてある所へ行く。
+ *
+ * 複数の instance から報告が届く mesh では、最も悪いものが印になる: バーは
+ * 1 行なので、そこに出せるのは「今いちばん困っていること」だけ。 */
+function UsageLink() {
+  const reports = llmStatusReports.value;
+  const worst = reports
+    .map((slot) => statusBadge(slot.data))
+    .filter((badge) => badge !== undefined)
+    .sort((a, b) => (a.tone === "bad" ? -1 : b.tone === "bad" ? 1 : 0))[0];
+  if (!can("llm_usage") && !can("llm_status")) return null;
+  return (
+    <a
+      class={worst === undefined ? "usage-link" : `usage-link tone-${worst.tone}`}
+      href={href({ at: "usage" })}
+      title={worst === undefined ? "使用量とクオータ" : `上流: ${worst.words}`}
+      onClick={(event: MouseEvent) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        navigate({ at: "usage" });
+      }}
+    >
+      {worst === undefined ? "使用量" : `${worst.mark} ${worst.words}`}
+    </a>
+  );
+}
 
 const WORDS: Record<string, string> = {
   idle: "未接続",
@@ -45,6 +88,7 @@ export function ConnectionBar() {
       >
         {on ? "切断" : "接続"}
       </button>
+      <UsageLink />
       {subject.value !== undefined && (
         <span class="meta">
           {subject.value}

@@ -1,5 +1,7 @@
+import { computed } from "@preact/signals";
 import type { InstanceInfo, PeerInfo, SessionState, Sid } from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
+import { CacheRing } from "./CacheRing.tsx";
 import { heldCounts } from "../conversation/held-messages.ts";
 import { instanceLabel } from "../instance-label.ts";
 import {
@@ -11,12 +13,14 @@ import {
   SORT_LABELS,
   isSortKey,
 } from "../sessions.ts";
+import { cacheRingStyle, sessionCacheWindows } from "../llm/cache-ring.ts";
 import { terminalUrl } from "../terminal-url.ts";
 import {
   agents,
   forgetLostSession,
   heldMessages,
   instances,
+  llmRequests,
   navigate,
   peers,
   sessionErrors,
@@ -26,6 +30,10 @@ import {
   terminalGateway,
   terminalIds,
 } from "../state.ts";
+
+/** セッションごとの、輪を描く窓。frame は系列ごとに 1 行来るので、行に 1 つを
+ * ここで選ぶ。 */
+const cacheWindows = computed(() => sessionCacheWindows(llmRequests.value));
 
 function open(sid: Sid): void {
   navigate({ at: "session", sid, tab: DEFAULT_TAB });
@@ -60,8 +68,19 @@ function groupTitle(state: SessionState | undefined, count: number): string {
 function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
   const failure = sessionErrors.value.get(peer.sid);
   const at = peer.stopped_at ?? peer.last_seen_at;
+  // prompt cache が生きている間だけ、名前の前の枠に輪が重なって時計回りに
+  // 欠けていく。窓の持ち主は会話の系列なので、どの窓を採るかは
+  // `sessionCacheWindows` が決める。入れ物は輪の有無に関わらず常に置く —
+  // 条件で包むと行が作り直され、輪が始まるたびに再描画が走る。
+  const ring = cacheRingStyle(cacheWindows.value.get(peer.sid), Date.now());
   return (
     <div class="row">
+      <span
+        class={ring === undefined ? "cache-slot" : `cache-slot ${ring.class}`}
+        style={ring?.style}
+      >
+        {ring !== undefined && <CacheRing />}
+      </span>
       <button
         type="button"
         class="name open"

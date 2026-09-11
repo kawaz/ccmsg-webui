@@ -47,6 +47,9 @@ export interface LineRange {
 
 export type Route =
   | { readonly at: "sessions" }
+  /** ホスト全体の話で、どのセッションのものでもない: gateway の上流と、
+   * credential ごとのクオータ。 */
+  | { readonly at: "usage" }
   | {
       readonly at: "session";
       readonly sid: Sid;
@@ -112,6 +115,7 @@ export function parseRoute(path: string, search = "", base = "/"): Route {
   if (below === undefined) return { at: "unknown", path };
   const parts = below.split("/").filter((part) => part !== "");
   if (parts.length === 0) return { at: "sessions" };
+  if (parts.length === 1 && parts[0] === "usage") return { at: "usage" };
   const [head, sid, tab] = parts;
   if (head !== "s" || sid === undefined || !SID.test(sid)) return { at: "unknown", path };
   if (tab === "agent") {
@@ -140,6 +144,8 @@ export function routePath(route: Route, base = "/"): string {
   switch (route.at) {
     case "sessions":
       return prefix;
+    case "usage":
+      return `${prefix}usage`;
     case "session": {
       const at = `${prefix}s/${route.sid}/${route.tab}`;
       if (route.tab !== "files" || route.path === undefined) return at;

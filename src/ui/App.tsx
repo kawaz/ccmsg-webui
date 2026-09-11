@@ -18,6 +18,7 @@ import { Register } from "./Register.tsx";
 import { SessionList } from "./SessionList.tsx";
 import { SignIn } from "./SignIn.tsx";
 import { TerminalPanel } from "./TerminalPanel.tsx";
+import { Usage } from "./Usage.tsx";
 import { Timeline } from "./Timeline.tsx";
 
 /** What each tab is called on screen. The URL keeps the English name — a link
@@ -104,6 +105,7 @@ export function App() {
         </p>
       )}
       {at.at === "sessions" && <SessionList />}
+      {at.at === "usage" && <Usage />}
       {at.at === "session" && (
         <>
           <SessionTabs sid={at.sid} tab={at.tab} />

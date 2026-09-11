@@ -1414,3 +1414,315 @@ select {
 .terminal-iframe.loading {
   opacity: 0;
 }
+
+/* --- 上流と使用量 --- */
+
+/* 接続バーの入口。上流に問題がある時だけ色が付く。 */
+.usage-link {
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 2px 6px;
+}
+
+.usage-link:hover {
+  border-color: var(--border);
+}
+
+.usage-link.tone-warn {
+  color: var(--waiting);
+  border-color: var(--waiting);
+}
+
+.usage-link.tone-bad {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.usage-block {
+  margin: 0 0 var(--gap);
+}
+
+.usage-block > h3 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.usage-credential {
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.usage-credential > h3 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.usage-kind {
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.usage-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 1 行は「名前・帯・割合・残り」。帯の長さが読み取りの主役で、名前と数字は
+   その注釈なので、帯だけが伸び縮みする。狭い画面では帯が 1 行を丸ごと使い、
+   数字はその下へ回る。 */
+.usage-row {
+  display: grid;
+  grid-template-columns: 6.5em 1fr 3em auto;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .usage-row {
+    grid-template-columns: 6.5em 1fr 3em;
+  }
+
+  /* 残りと注記は帯の下、名前の分だけ下げて。 */
+  .usage-left,
+  .usage-note {
+    grid-column: 2 / -1;
+  }
+}
+
+/* 注記は行の続きなので、次の行へ送る。 */
+.usage-note {
+  grid-column: 2 / -1;
+}
+
+.usage-row.is-expired {
+  opacity: 0.6;
+}
+
+.usage-key {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* 使った分の帯と、時計の目盛り。目盛りは線 1 本で、帯の上に重なる — 面で
+   塗ると、使った分とどちらが手前かが読めなくなる。 */
+.usage-bar {
+  position: relative;
+  height: 10px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.usage-bar-used {
+  height: 100%;
+  background: var(--live);
+}
+
+.usage-bar.tone-warn .usage-bar-used {
+  background: var(--waiting);
+}
+
+.usage-bar.tone-bad .usage-bar-used {
+  background: var(--danger);
+}
+
+.usage-bar-elapsed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.55;
+}
+
+.usage-used {
+  text-align: right;
+}
+
+.usage-used.tone-warn {
+  color: var(--waiting);
+}
+
+.usage-used.tone-bad {
+  color: var(--danger);
+}
+
+.usage-left,
+.usage-note {
+  color: var(--muted);
+}
+
+.usage-auth {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.usage-auth.tone-warn {
+  color: var(--waiting);
+}
+
+.usage-auth.tone-bad {
+  color: var(--danger);
+}
+
+/* 上流のサービス 1 行。provider 自身の言い分 (official) と、この gateway が
+   繋いでみた結果 (observed) は別の列に置く。 */
+.status-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.status-mark.tone-ok {
+  color: var(--live);
+}
+
+.status-mark.tone-warn,
+.status-severity.tone-warn {
+  color: var(--waiting);
+}
+
+.status-mark.tone-bad,
+.status-severity.tone-bad {
+  color: var(--danger);
+}
+
+.status-mark.tone-unknown,
+.status-severity.tone-unknown {
+  color: var(--muted);
+}
+
+.status-name {
+  font-weight: 600;
+}
+
+.status-official,
+.status-observed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.status-incidents {
+  flex: 1 1 100%;
+  margin: 2px 0 0;
+  padding-left: 1.2em;
+  color: var(--muted);
+}
+
+.status-incidents li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- prompt cache の輪 --- */
+
+/* 進みは 1 つの custom property の animation で、ブラウザが毎フレームを持つ。
+   JS が 1 秒ごとに進める作りだと、セッションの数だけ毎秒の仕事が増える。 */
+@property --cache-ring-progress {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes cache-ring-a {
+  from {
+    --cache-ring-progress: 1;
+  }
+
+  to {
+    --cache-ring-progress: 0;
+  }
+}
+
+/* 同じ進み方を持つ 2 つ目。名前が変わった時にだけ animation は始めから走る
+   ので、新しい窓には違う名前が要る (`src/llm/cache-ring.ts`)。 */
+@keyframes cache-ring-b {
+  from {
+    --cache-ring-progress: 1;
+  }
+
+  to {
+    --cache-ring-progress: 0;
+  }
+}
+
+/* 輪の置き場。輪が無い間も同じ幅を取るので、始まった時に行が動かない。 */
+.cache-slot {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.cache-ring {
+  animation-name: cache-ring-a;
+  animation-duration: var(--cache-ring-duration, 300s);
+  animation-delay: var(--cache-ring-delay, 0s);
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+}
+
+.cache-ring.cache-ring-b {
+  animation-name: cache-ring-b;
+}
+
+.cache-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 上の中央から時計回りに欠ける。円の path は 3 時から始まるので回しておく。 */
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.cache-ring-shape {
+  fill: none;
+  stroke: var(--live);
+  stroke-width: 2;
+  /* 周長を 1 に正規化してあるので、残りの割合がそのまま見えている弧になる。 */
+  stroke-dasharray: var(--cache-ring-progress) 1;
+}
+
+/* 合図が建て直している分。減っているものが別なので色を分ける。 */
+.cache-ring-extended .cache-ring-shape {
+  stroke: var(--waiting);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 進み方そのものが情報なので止めはしない。動きは 1 本の弧が縮むだけで、
+     点滅も移動もしない。 */
+  .cache-ring {
+    animation-timing-function: linear;
+  }
+}

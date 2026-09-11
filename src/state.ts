@@ -3,12 +3,17 @@ import type { Static } from "@sinclair/typebox";
 import type {
   AgentElement,
   AgentInfo,
+  Capability,
+  LlmRequestInfo,
+  LlmUsageReadResult,
   AuthRefreshReason,
   AuthSession,
   AgentsFrame,
   HelloResult,
   InstanceInfo,
   InstancesFrame,
+  LlmRequestsFrame,
+  LlmStatusFrame,
   MessageSendResult,
   Notification,
   PeerElement,
@@ -90,6 +95,8 @@ type PeersData = Static<typeof PeersFrame>["data"];
 type AgentsData = Static<typeof AgentsFrame>["data"];
 type ErrorsData = Static<typeof SessionErrorsFrame>["data"];
 type InstancesData = Static<typeof InstancesFrame>["data"];
+type LlmStatusData = Static<typeof LlmStatusFrame>["data"];
+type LlmRequestsData = Static<typeof LlmRequestsFrame>["data"];
 
 const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
 
@@ -97,6 +104,13 @@ const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
  * one topic that is about the person rather than about a session — a
  * notification is a line a session wrote for whoever is watching. */
 const TOPICS: readonly TopicName[] = ["peers", "instances", "agents", "session.errors", "notify"];
+
+/** 能力を持っている instance にだけ頼む topic。gateway を前に置いていない
+ * instance では、この 2 つはそもそも存在しない。 */
+const CAPABILITY_TOPICS: readonly (readonly [Capability, TopicName])[] = [
+  ["llm_status", "llm.status"],
+  ["llm_events", "llm.requests"],
+];
 
 /** The instance this page belongs to: the base URL it was served from.
  *
@@ -120,6 +134,8 @@ export const hello = signal<HelloResult | undefined>(undefined);
 export const generationWarning = signal<string | undefined>(undefined);
 
 const peerSlots = signal<readonly Slot<readonly PeerInfo[]>[]>([]);
+const llmStatusSlots = signal<readonly Slot<LlmStatusData>[]>([]);
+const llmRequestSlots = signal<readonly Slot<LlmRequestsData>[]>([]);
 const agentSlots = signal<readonly Slot<readonly AgentInfo[]>[]>([]);
 const errorSlots = signal<readonly Slot<ErrorsData>[]>([]);
 const instanceSlots = signal<readonly Slot<InstancesData>[]>([]);
@@ -141,6 +157,28 @@ export const agents = computed<readonly AgentInfo[]>(() =>
 export const instances = computed<readonly InstanceInfo[]>(() =>
   union(instanceSlots.value, "instances"),
 );
+/** What this instance can do, as it greeted. An op or a topic whose capability
+ * is outside this set is not offered — asking for one is how a screen learns by
+ * being refused, which is a screen that should not have been drawn. */
+export const capabilities = computed<readonly Capability[]>(() => hello.value?.capabilities ?? []);
+
+export function can(capability: Capability): boolean {
+  return capabilities.value.includes(capability);
+}
+
+/** 各 instance の gateway が言っている上流の様子。instance ごとに 1 通で、
+ * どれか 1 つに畳まない — 別々の gateway の別々の報告なので、混ぜると
+ * どちらの話かが消える。 */
+export const llmStatusReports = computed<readonly Slot<LlmStatusData>[]>(
+  () => llmStatusSlots.value,
+);
+
+/** 系列ごとの最新の 1 件を、mesh ぜんぶ分。cache の窓はセッションに付くもので、
+ * どの instance の gateway が見たかは窓の持ち主を変えない。 */
+export const llmRequests = computed<readonly LlmRequestInfo[]>(() =>
+  llmRequestSlots.value.flatMap((slot) => slot.data),
+);
+
 /** The gateway that fronts this instance's terminals, when it fronts any. */
 export const terminalGateway = computed<string | undefined>(() => hello.value?.terminal_gateway);
 /** The terminal each session runs in, over every row rather than the shown
@@ -271,6 +309,8 @@ export const connection = new Connection({
       agentSlots.value = [];
       errorSlots.value = [];
       instanceSlots.value = [];
+      llmStatusSlots.value = [];
+      llmRequestSlots.value = [];
       hello.value = undefined;
       // 期限は「この接続がいつまで許されているか」なので、接続と一緒に消える。
       // access token 自体はまだ生きているかもしれないので手を付けない。
@@ -290,6 +330,11 @@ export const connection = new Connection({
   },
   greeted(result) {
     hello.value = result;
+    // 能力で決まる topic は、greeting が来てから頼む。持っていない instance に
+    // 頼めば断られるだけで、断られたことを画面に出す意味も無い。
+    for (const [capability, topic] of CAPABILITY_TOPICS) {
+      if (result.capabilities.includes(capability)) connection.subscribe(topic);
+    }
     // The connection's own deadline, which is what is renewed on it. Absent
     // where reaching the instance is itself the permission, and then there is
     // nothing to renew.
@@ -320,6 +365,18 @@ export const connection = new Connection({
           message.instance,
           (message.data as AgentsData).agents,
           message.snapshot,
+        );
+        break;
+      case "llm.status":
+        llmStatusSlots.value = fold<LlmStatusData>("llm.status").push(
+          message.instance,
+          message.data as LlmStatusData,
+        );
+        break;
+      case "llm.requests":
+        llmRequestSlots.value = fold<LlmRequestsData>("llm.requests").push(
+          message.instance,
+          message.data as LlmRequestsData,
         );
         break;
       case "session.errors":
@@ -706,6 +763,17 @@ export function navigate(next: Route, options?: { replace?: boolean }): void {
 
 export function adoptLocation(): void {
   route.value = locationRoute();
+}
+
+/** gateway に聞いた、credential ごとのクオータ。
+ *
+ * `refresh` は **upstream に聞き直させる** 問い合わせで、契約が言うとおり
+ * upstream の rate limit を使いうる (既に上限に当たっている account では、
+ * その credential の error として返ってくる)。だから人が押した時にだけ渡し、
+ * 定期の読みでは決して渡さない。 */
+export async function readLlmUsage(refresh = false): Promise<LlmUsageReadResult> {
+  const reply = await connection.request("llm.usage.read", refresh ? { refresh: true } : {});
+  return reply as unknown as LlmUsageReadResult;
 }
 
 /** 人からセッションへ 1 通送る。
