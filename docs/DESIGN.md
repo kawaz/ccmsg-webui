@@ -110,6 +110,46 @@ on that connection.
 Only a press lets go of what is held. If a drop did that too, walking through a
 tunnel would mean signing in again.
 
+## Two translations, side by side, never merged
+
+There are two ways to read an English body in Japanese — the translator this
+browser has (`Translator`) and the one the instance's host has (`translate.run`,
+capability `translate`). **Both are kept, and offered as a choice.**
+
+They are not merged because they are different machines producing different
+sentences: one reads like a dictionary, the other rewrites. Folding them into a
+single "translation" would erase **which machine produced** a sentence that
+looks wrong — the first thing a reader of a translation wants to know, and
+exactly what the names on the choice (`日本語 (host)`, `日本語 (browser)`) answer.
+With neither available the choice is not drawn at all: nothing offers what
+cannot be pressed.
+
+The choice is one for the screen. Someone reading an English transcript decides
+"read this in Japanese" once, not per item. Translation runs only for **the
+items the window is drawing**, so scrolling back does not send hundreds of items
+nobody is reading.
+
+Only an item's **prose** is translated — never a tool's arguments, never a fenced
+block. Prose is the only thing that means the same after translation; an
+identifier or a path names something else the moment it is translated. So a body
+is cut at fences (``` / ~~~) before it is cut into paragraphs, and a fence is one
+piece, blank lines inside it and all, that is never sent. Each piece carries the
+separator that followed it, so rejoining moves not one character of what was not
+translated.
+
+Paragraphs are translated one by one and **shown as they arrive**. Waiting for a
+long stretch of thinking to finish would leave the screen unchanged for tens of
+seconds, so each paragraph is swapped in as it lands and the rest stay in the
+original. A paragraph that failed stays in the original too — losing the whole
+body to one failed paragraph is the worse outcome — and failures are not
+remembered, so a helper that comes back is tried again the next time the item is
+opened.
+
+A paragraph that is already Japanese is never sent. The test is a **ratio**: past
+a tenth of Japanese characters the paragraph counts as Japanese. "Skip anything
+with one Japanese character in it" would leave a whole paragraph of English
+thinking untranslated because someone was quoted in it.
+
 ## A type's display attributes
 
 **Where an item is drawn, and how far open, is decided by its type** (`src/timeline/display.ts`). There are two axes and no more:
