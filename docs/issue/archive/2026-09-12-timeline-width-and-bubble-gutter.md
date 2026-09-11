@@ -1,6 +1,6 @@
 ---
 title: TL の幅崩れとバブル左余白を最低限見やすくする
-status: open
+status: resolved
 category: bug
 created: 2026-09-12T07:52:27+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-12T08:10:27+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: webui v0.8.0 で修正。根本原因は開いた details の中身を Chrome が ::details-content の flex item として包み、min-width: auto (min-content) で縮まず親を押し広げていたこと。吹き出しを縦組み (名乗りの下に本文) にして本文が cross 軸で親幅を受ける形にし、同時にバブル左の余白 (.tl-who 68px + gap) を解消。横スクロールはコードブロックと表の内側だけに限定。harness に nothingOverflows (窓より広い要素が無いことの assert) と phone (375px) の visual 基準を追加"]
 blocked_by:
 origin: kawaz 実機確認 (スマホ, webui v0.7.0)
 ---
