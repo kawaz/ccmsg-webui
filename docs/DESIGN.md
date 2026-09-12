@@ -246,6 +246,34 @@ A counted match must be a match the reader can find, so the text searched is the
 
 Highlighting happens two ways. Prose is split at render time and `<mark>` put in (the `text` case in `markdown-view.tsx`). A highlighted code line is already a list of spans, so the same split is projected onto them and the spans are re-cut (`splitSpansForHighlight`), which is what keeps a match that crosses a colour boundary from erasing the colour. Both ways emit the same `<mark>` (`ui/search-marks.tsx`), so a file and a code block inside markdown light up alike. Code still waiting for its colours is lit the first way and switches to the second when they arrive.
 
+## Sessions that are not running are the instance's to find
+
+The list holds the sessions an instance is watching, so the ones that ended — or
+that never ran ccmsg at all — are not in it. Finding those is **the instance's
+work**: the transcripts are files on its host and a browser can read none of
+them (`session.search`). What the screen holds is the question and the rows that
+come back.
+
+The question is spelled the way the in-screen search spells it
+(`parseSearchQuery`): spaces are AND within a line, newlines are OR, and the
+words highlighted in a result come from that same parser. If the instance
+searched for one thing and the screen lit up another, a row would not say where
+it was hit.
+
+Blank fields are not sent. The contract reads an absent field as "do not narrow
+by this", so sending an empty string asks for whatever matches an empty string.
+The default window is five days, and a spelling that cannot be read leaves **no
+window at all** — a typo that quietly narrows the search is worse than a slow
+search that finds the thing.
+
+A truncated answer is not hidden. `truncated` says "there may be more", not "you
+hit a cap", and reading a partial answer as the whole one costs more than
+searching again.
+
+Pressing a row opens that transcript. No live connection is needed: the ops that
+read a transcript answer by sid, and the instance finds the file among its own
+config homes.
+
 ## The conversation lives on the Timeline
 
 There is no separate screen for talking to a session. **The session's own transcript is the record of the conversation**, and the screen that reads it already exists. The two directions look different in there.
