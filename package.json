@@ -1,6 +1,6 @@
 {
   "name": "@ccmsg/webui",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "private": true,
   "description": "The ccmsg web UI: a static site that speaks to a daemon instance through the wire contract alone",
   "license": "MIT",
