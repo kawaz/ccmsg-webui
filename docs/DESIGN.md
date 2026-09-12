@@ -169,6 +169,28 @@ a tenth of Japanese characters the paragraph counts as Japanese. "Skip anything
 with one Japanese character in it" would leave a whole paragraph of English
 thinking untranslated because someone was quoted in it.
 
+## Spend is a record of days, folded into the span being read
+
+What the gateway holds is **per day**, and the screen folds that into days,
+weeks or months (`src/llm/stats-view.ts`). A week is an ISO week number: "the
+last seven days" would make the same "last week" mean a different span depending
+on the day the screen is opened, and two such weeks cannot be compared.
+
+A day's total is **the gateway's own figure** when it sent one. That is the
+authoritative number — it counts what the gateway does not break out by model,
+so it can legitimately exceed the sum of the parts. Only a day without one is
+filled in by adding the parts up.
+
+Changing the span asks again. Re-folding is not enough: a month needs more days
+of history than a day does, and what is asked for is a little wider than what is
+drawn so the oldest bucket on screen is whole rather than cut.
+
+The bars stack by model, scaled to **the tallest bucket on screen** rather than
+to an absolute amount: what is being compared is one bucket against another, and
+fixing the scale flattens a quiet week into nothing. No charting library is
+pulled in — when the drawing is bars and the divisions inside them, writing what
+the reader sees is smaller than importing a way to write it.
+
 ## A type's display attributes
 
 **Where an item is drawn, and how far open, is decided by its type** (`src/timeline/display.ts`). There are two axes and no more:

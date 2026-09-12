@@ -1,6 +1,6 @@
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
-import type { LlmUsageCredential, LlmUsageReadResult } from "@ccmsg/protocol";
+import type { LlmStatsReadResult, LlmUsageCredential, LlmUsageReadResult } from "@ccmsg/protocol";
 import {
   type AuthNotice,
   authNotice,
@@ -16,8 +16,21 @@ import {
   windowRows,
 } from "../llm/usage-view.ts";
 import { serviceRows, severityCounts, type ServiceRow } from "../llm/status-view.ts";
+import {
+  type Bucket,
+  buckets,
+  modelsOf,
+  PERIOD_LABELS,
+  PERIODS,
+  type Period,
+  periodDays,
+  tokenTotals,
+  tokenWords,
+  usdWords,
+} from "../llm/stats-view.ts";
+import { SpendChart } from "./SpendChart.tsx";
 import { instanceLabel } from "../instance-label.ts";
-import { can, llmStatusReports, navigate, readLlmUsage, status } from "../state.ts";
+import { can, llmStatusReports, navigate, readLlmStats, readLlmUsage, status } from "../state.ts";
 
 /** 時計を進める間隔。残り時間と齢が画面に出ているので、これは「変わったかを
  * 見に行く polling」ではなく時計そのもの — 秒まで出さないので 30 秒で足りる。 */
@@ -206,6 +219,98 @@ function ServiceLine({ row }: { row: ServiceRow }) {
   );
 }
 
+/** 何にいくら使ったか。
+ *
+ * 読む単位 (日 / 週 / 月) を変えると、gateway に聞き直す — 束の作り方だけを
+ * 変えても、月別を埋めるには日ごとの記録がもっと要る。 */
+function Spend() {
+  const period = useSignal<Period>("daily");
+  const stats = useSignal<LlmStatsReadResult | undefined>(undefined);
+  const problem = useSignal<string | undefined>(undefined);
+  const held = period.value;
+
+  useEffect(() => {
+    let live = true;
+    readLlmStats(periodDays(held))
+      .then((read) => {
+        if (live) stats.value = read;
+      })
+      .catch((cause: unknown) => {
+        if (live) problem.value = String(cause);
+      });
+    return () => {
+      live = false;
+    };
+  }, [held, stats, problem]);
+
+  const read = stats.value;
+  const rows: readonly Bucket[] = read === undefined ? [] : buckets(read, held);
+  const models = modelsOf(rows);
+  const tokens = read === undefined ? undefined : tokenTotals(read);
+
+  return (
+    <div class="usage-block">
+      <h3>
+        費用
+        <span class="usage-periods">
+          {PERIODS.map((one) => (
+            <button
+              key={one}
+              type="button"
+              class={one === held ? "on" : undefined}
+              aria-pressed={one === held}
+              onClick={() => {
+                period.value = one;
+              }}
+            >
+              {PERIOD_LABELS[one]}
+            </button>
+          ))}
+        </span>
+      </h3>
+      {problem.value !== undefined && <p class="banner">{problem.value}</p>}
+      {read === undefined ? (
+        <p class="empty">読み込んでいます…</p>
+      ) : rows.length === 0 ? (
+        <p class="empty">gateway はこの範囲の費用を持っていません。</p>
+      ) : (
+        <>
+          <SpendChart rows={rows} models={models} />
+          <p class="spend-legend">
+            {models.map((model, at) => (
+              <span key={model}>
+                <span class={`spend-swatch tone-${String(at % 6)}`} aria-hidden="true" />
+                {model}
+              </span>
+            ))}
+          </p>
+          <div class="usage-rows">
+            {rows.slice(0, 14).map((row) => (
+              <div key={row.key} class="usage-row spend-row">
+                <span class="usage-key">{row.key}</span>
+                <span class="spend-models">
+                  {row.models
+                    .filter((part) => part.usd > 0)
+                    .map((part) => `${part.model} ${usdWords(part.usd)}`)
+                    .join(" / ")}
+                </span>
+                <span class="usage-used">{usdWords(row.usd)}</span>
+              </div>
+            ))}
+          </div>
+          {tokens !== undefined && (
+            <p class="meta">
+              {tokens.requests.toLocaleString()} 回 / 入 {tokenWords(tokens.input)} · 出{" "}
+              {tokenWords(tokens.output)} · cache 書 {tokenWords(tokens.cacheWrite)} · cache 読{" "}
+              {tokenWords(tokens.cacheRead)}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** 上流の様子と、credential ごとのクオータ。
  *
  * 上流を先に置くのは、数字が動かなくなった時に最初に問われるのがそこだから —
@@ -323,6 +428,7 @@ export function Usage() {
           )}
         </div>
       )}
+      {can("llm_stats") && <Spend />}
       <p class="auth-actions">
         <button
           type="button"

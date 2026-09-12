@@ -22,6 +22,7 @@ import type {
   SessionErrorEntry,
   SessionErrorsFrame,
   LauncherConfigReadResult,
+  LlmStatsReadResult,
   LauncherRunArgs,
   LauncherRunResult,
   SessionSearchArgs,
@@ -845,6 +846,14 @@ export function navigate(next: Route, options?: { replace?: boolean }): void {
 
 export function adoptLocation(): void {
   route.value = locationRoute();
+}
+
+/** gateway に聞いた、日ごとの費用。`days` は「どれだけ遡るか」で、gateway は
+ * 自分の持っている範囲へ狭めて答える — 持っている分より広く聞くのが「全部」の
+ * 言い方 (契約)。 */
+export async function readLlmStats(days: number): Promise<LlmStatsReadResult> {
+  const reply = await connection.request("llm.stats.read", { days });
+  return reply as unknown as LlmStatsReadResult;
 }
 
 /** 起動の献立 (どこで・どの手順で始められるか) を instance に聞く。

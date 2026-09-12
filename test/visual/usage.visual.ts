@@ -21,6 +21,26 @@ test("上流とクオータが 1 枚に出る", async ({ usage: page, instance }
   await shot(page, "usage.png");
 });
 
+test("費用は読む単位ごとに束ね直され、model で積んだ棒になる", async ({
+  usage: page,
+  instance,
+}) => {
+  await page.goto(`${instance.endpoint}usage`);
+  await expect(page.getByRole("heading", { name: /費用/ })).toBeVisible();
+  // 日別の束。gateway が日ごとに言った合計がそのまま行になる。
+  await expect(page.locator(".spend-row").first()).toBeVisible();
+  await expect(page.locator(".spend-chart .spend-part").first()).toBeVisible();
+  // 凡例は画面に出ている model を、多い順に。
+  await expect(page.locator(".spend-legend")).toContainText("claude-opus-5");
+  await shot(page, "usage-spend.png");
+
+  // 単位を変えると聞き直して束ね直す (月別は日ごとの記録がもっと要る)。
+  await page.getByRole("button", { name: "月別" }).click();
+  await expect(page.locator(".spend-row").first().locator(".usage-key")).toHaveText(
+    /^\d{4}-\d{2}$/,
+  );
+});
+
 test("「更新」で upstream に聞き直すと、limit が並ぶ", async ({ usage: page, instance }) => {
   await page.goto(`${instance.endpoint}usage`);
   await expect(page.getByText("claude-one")).toBeVisible();
@@ -28,9 +48,9 @@ test("「更新」で upstream に聞き直すと、limit が並ぶ", async ({ u
   await page.getByRole("button", { name: "更新" }).click();
   await expect(page.getByText("weekly_scoped")).toBeVisible();
   // 枠が絞られている model は、行を伸ばさずに注記の側で言う。
-  await expect(
-    page.getByText("claude-opus-5 / 計測中").or(page.getByText("claude-opus-5")),
-  ).toBeVisible();
+  // 枠が絞られている model は、行を伸ばさずに注記の側で言う (費用の行にも同じ
+  // 名前が並ぶので、どちらの注記かを名指す)。
+  await expect(page.locator(".usage-note", { hasText: "claude-opus-5" }).first()).toBeVisible();
   await shot(page, "usage-probed.png");
 });
 

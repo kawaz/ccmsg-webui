@@ -90,7 +90,7 @@
       "linux": "11d9e57239a7457c43f3815f63ee8cd7f89746d703eac774ff674f7d8f94a10b"
     },
     "usage": {
-      "darwin": "c8fe72547668dc576a5f5a08878f410e91b422794d68d3884d6def8324dc8e53",
+      "darwin": "65e59852dce490405a8b5533857c76ea7c8b94996c088fc7384024155b149db0",
       "linux": "a63f9af25b7c9914c4594fc704c5696044a245c18b7ea620d2e81aca2ad30355"
     },
     "usage-probed": {
@@ -98,7 +98,7 @@
       "linux": "88bfa40dfa1d9fb8a9220abb5f298726b56168104ea1c9b99b68ae2232066c81"
     },
     "usage-spend": {
-      "darwin": "c8fe72547668dc576a5f5a08878f410e91b422794d68d3884d6def8324dc8e53"
+      "darwin": "65e59852dce490405a8b5533857c76ea7c8b94996c088fc7384024155b149db0"
     }
   }
 }

@@ -155,7 +155,37 @@ function statusDocument(base: number): unknown {
   };
 }
 
-/** 走らせる。答えるのは gateway が公開している 2 つの道だけで、他は 404。 */
+/** 日ごとの費用。gateway の綴りで、日付は gateway 自身の時間帯の `YYYY-MM-DD`。
+ * 走った日から遡って書くので、束の作り方 (日 / 週 / 月) が絵に出る。 */
+function statsDocument(base: number, days: number): unknown {
+  const out: Record<string, unknown> = {};
+  for (let back = 0; back < Math.min(days, 40); back += 1) {
+    const at = new Date(base - back * 24 * HOUR);
+    const key = at.toISOString().slice(0, 10);
+    // 数字は**何日前か**から作る。日付そのものから作ると、走らせた日によって
+    // 棒の高さが変わり、基準画像が翌日には合わなくなる。
+    const seed = (back % 7) + 1;
+    out[key] = {
+      total_usd: 1.5 * seed,
+      credentials: {
+        "claude-one": {
+          "claude-opus-5": {
+            requests: 12 * seed,
+            input_tokens: 40_000 * seed,
+            output_tokens: 6_000 * seed,
+            cache_creation_input_tokens: 20_000 * seed,
+            cache_read_input_tokens: 300_000 * seed,
+            usd: 1.1 * seed,
+          },
+          "claude-sonnet-5": { requests: 4 * seed, input_tokens: 9_000 * seed, usd: 0.3 * seed },
+        },
+      },
+    };
+  }
+  return { generated_at: base - MINUTE, days: out };
+}
+
+/** 走らせる。答えるのは gateway が公開している道だけで、他は 404。 */
 export function startGateway(port: number, base: number): Promise<StubGateway> {
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -165,6 +195,10 @@ export function startGateway(port: number, base: number): Promise<StubGateway> {
     };
     if (url.pathname === "/llm-gateway/usage") {
       answer(usageDocument(base, url.searchParams.get("refresh") === "true"));
+      return;
+    }
+    if (url.pathname === "/llm-gateway/stats") {
+      answer(statsDocument(base, Number(url.searchParams.get("days") ?? "32")));
       return;
     }
     if (url.pathname === "/llm-gateway/status") {
