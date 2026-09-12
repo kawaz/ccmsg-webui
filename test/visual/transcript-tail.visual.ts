@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs";
-import { SID } from "./fixture.ts";
+import { TAIL_SID } from "./fixture.ts";
 import { expect, test } from "./harness.ts";
 
 /** 追いかけている transcript に何か書かれた時、画面がそれを受け取るか。
@@ -17,15 +17,14 @@ import { expect, test } from "./harness.ts";
 const AT = "2026-03-01T04:08:00.000Z";
 
 test("file に書かれた 1 行が、分類されて末尾に現れる", async ({ ui: page, instance }) => {
-  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  await page.goto(`${instance.endpoint}s/${TAIL_SID}/timeline`);
   const heading = page.getByRole("heading", { name: /transcript — / });
-  await expect(heading).toHaveText(/[1-9]\d* item/);
-  // 今いくつ持っているか。前に走った test が同じ file に書き足しているので、
-  // 数そのものではなく**1 つ増えること**を見る。
-  const before = Number(/(\d+) item/.exec((await heading.textContent()) ?? "")?.[1]);
+  // この transcript は誰も書き足さないので、持っている数は固定で読める。
+  await expect(heading).toHaveText(/2 item/);
+  const before = 2;
   const said = "追記はそのまま末尾に現れます。";
   appendFileSync(
-    `${instance.home}/projects/-visual-repo/${SID}.jsonl`,
+    `${instance.home}/projects/-visual-repo/${TAIL_SID}.jsonl`,
     `${JSON.stringify({
       uuid: "rec-live-01",
       type: "assistant",

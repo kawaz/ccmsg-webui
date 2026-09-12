@@ -12,6 +12,13 @@ import { join } from "node:path";
 
 export const SID = "11111111-2222-4333-8444-555555555555";
 export const OTHER_SID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+/** 追記が届くことを見る test が読むセッション。誰も書き足さない小さな
+ * transcript を持つ — 数で確かめるものなので、他の test が同じ file を伸ばすと
+ * 起点が動く。 */
+export const TAIL_SID = "88888888-9999-4aaa-8bbb-cccccccccccc";
+/** 状態の画面が読むセッション。道具の呼びしか持たない transcript で、絵に出る
+ * のは instance がそれを畳んだ結果。 */
+export const STATUS_SID = "77777777-8888-4999-8aaa-bbbbbbbbbbbb";
 /** The worker the session starts, which the agent screen reads as its subject.
  * Spelled the way the harness spells one, because the instance checks the shape
  * before it opens a file by that name. */
@@ -34,8 +41,8 @@ function user(text: string): string {
   return line({ type: "user", timestamp: AT, message: { role: "user", content: text } });
 }
 
-function assistant(content: readonly unknown[]): string {
-  return line({ type: "assistant", timestamp: AT, message: { role: "assistant", content } });
+function assistant(content: readonly unknown[], at: string = AT): string {
+  return line({ type: "assistant", timestamp: at, message: { role: "assistant", content } });
 }
 
 const PROSE = `## 畳んだ値の読み方
@@ -260,8 +267,60 @@ function phoneTranscript(): string {
   return [first, prose, english, ...rows.slice(1, -2)].join("");
 }
 
+/** 状態の画面が読むもの。
+ *
+ * instance が transcript から畳むので、ここに書くのは**道具の呼びと答え**だけ
+ * — 状態そのものは書かない。畳み方は instance の側にあり、この画面はその答えを
+ * 描くだけなので、fixture も道具の記録から始まらないと本物の道を通らない。 */
+function statusTranscript(): string {
+  // ここだけ「今」から書く。走っているものの経過時間が画面に出るので、固定の
+  // 時刻で書くと「4675 時間 走っている workflow」になる。分単位に丸めるのは
+  // 本物の今から離さないため (絵の側は経過の桁を覆うので、値そのものは基準に
+  // 写らない)。
+  const recent = new Date(Math.floor(Date.now() / 60_000) * 60_000 - 5 * 60_000).toISOString();
+  const call = (id: string, name: string, input: Record<string, unknown>): string =>
+    assistant([{ type: "tool_use", id, name, input }], recent);
+  const answer = (id: string, result: unknown): string =>
+    line({
+      type: "user",
+      timestamp: recent,
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: id, content: "ok" }],
+      },
+      toolUseResult: result,
+    });
+  return [
+    line({
+      type: "user",
+      timestamp: recent,
+      message: { role: "user", content: "束 0 を片付けて。" },
+    }),
+    call("tu_todo_1", "TaskCreate", { taskId: "t1", subject: "Status タブの中身を出す" }),
+    answer("tu_todo_1", { task: { id: "t1", subject: "Status タブの中身を出す" } }),
+    call("tu_todo_2", "TaskCreate", { taskId: "t2", subject: "基準画像を撮り直す" }),
+    answer("tu_todo_2", { task: { id: "t2", subject: "基準画像を撮り直す" } }),
+    call("tu_todo_3", "TaskUpdate", { taskId: "t1", status: "in_progress" }),
+    answer("tu_todo_3", { task: { id: "t1" } }),
+    call("tu_todo_4", "TaskCreate", { taskId: "t3", subject: "翻訳の入口を item に置く" }),
+    answer("tu_todo_4", { task: { id: "t3", subject: "翻訳の入口を item に置く" } }),
+    call("tu_todo_5", "TaskUpdate", { taskId: "t3", status: "completed" }),
+    answer("tu_todo_5", { task: { id: "t3" } }),
+    call("tu_flow", "Workflow", { name: "束 0", script: "bundle.ts" }),
+    answer("tu_flow", { taskId: "wf1", workflowName: "束 0 を片付ける", status: "async_launched" }),
+    call("tu_monitor", "Monitor", { description: "just watch の結果を見張る" }),
+    answer("tu_monitor", { taskId: "bg1" }),
+    call("tu_bash", "Bash", { description: "visual を回す", run_in_background: true }),
+    answer("tu_bash", { backgroundTaskId: "bg2" }),
+  ].join("");
+}
+
 export interface Fixture {
   readonly transcriptPath: string;
+  /** 状態の画面が読む方 (STATUS_SID)。 */
+  readonly statusTranscriptPath: string;
+  /** 追記を見る test が読む方 (TAIL_SID)。 */
+  readonly tailTranscriptPath: string;
   /** 狭い画面の基準が読む方 (OTHER_SID)。 */
   readonly phoneTranscriptPath: string;
 }
@@ -272,6 +331,16 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(project, { recursive: true });
   const transcriptPath = join(project, `${SID}.jsonl`);
   writeFileSync(transcriptPath, transcript());
+  const tailTranscriptPath = join(project, `${TAIL_SID}.jsonl`);
+  writeFileSync(
+    tailTranscriptPath,
+    [
+      user("追記が届くか確かめたい。"),
+      assistant([{ type: "text", text: "書かれた分はそのまま末尾に出ます。" }]),
+    ].join(""),
+  );
+  const statusTranscriptPath = join(project, `${STATUS_SID}.jsonl`);
+  writeFileSync(statusTranscriptPath, statusTranscript());
   const phoneTranscriptPath = join(project, `${OTHER_SID}.jsonl`);
   writeFileSync(phoneTranscriptPath, phoneTranscript());
   const agents = join(project, SID, "subagents");
@@ -281,5 +350,5 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(join(cwd, "src"), { recursive: true });
   writeFileSync(join(cwd, "src", "topic-fold.ts"), CODE);
   writeFileSync(join(cwd, "NOTES.md"), NOTES);
-  return { transcriptPath, phoneTranscriptPath };
+  return { transcriptPath, phoneTranscriptPath, statusTranscriptPath, tailTranscriptPath };
 }

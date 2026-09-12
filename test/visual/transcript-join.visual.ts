@@ -61,7 +61,11 @@ test("頁をまたいで並んだ呼び出しと答えは、遡ると 1 行に�
 
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
   const heading = page.getByRole("heading", { name: /transcript — / });
-  await expect(heading).toHaveText(/200 item/, { timeout: 20_000 });
+  // 開いた所は末尾。何 item 持っているかは固定しない — 同じ transcript に
+  // 書き足す test が前に走るし、購読が立っている間に届いた分も乗る。この test
+  // が見るのは**遡ると呼びと答えが 1 行に結ばれる**ことで、頁の大きさは
+  // `transcript-backfill` の主題。
+  await expect(heading).toHaveText(/\d+ item/, { timeout: 20_000 });
 
   /** 1 頁遡る。頁の大きさは instance が決めるので、数そのものではなく「手元が
    * 増えた」ことで待つ (この file の前に走った test も同じ transcript に書き足す)。 */

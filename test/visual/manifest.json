@@ -33,12 +33,15 @@
       "darwin": "41e7fc7db742458ed72d4bf3e2143998ba4149162bbc8f78acbe37bcfead01ba",
       "linux": "1361d348733f5284dd40f490b644ea2dd205e8e95cc83115893a7a8ae882e5be"
     },
+    "session-status": {
+      "darwin": "17a8459e4ef6c35eef97d294fce2b37bd08dca8e4309b1aade93cc5f0a94e2ec"
+    },
     "sessions": {
-      "darwin": "0d1fd8a33ed2dd8ad7288662617fa7c3d4a3a33d7c63918befe7b8bd3779b280",
+      "darwin": "381634225a3dc21813b9a9b1b6418f0d870e33dd14d6b5fc2866d11a5485fd4a",
       "linux": "b067e03f69a599f904c29186d185aec3185c4d7197f36ed570e97d9e6ae0041b"
     },
     "sessions-cache-ring": {
-      "darwin": "c32765a80f085bbbdf82a176fc8e170e512103c1d2d72e576dc29f06615e2aa7",
+      "darwin": "4fd8c90b645419468791432983065f36e6fe37501636c5a19c956d253256e6af",
       "linux": "ddacdac3e609fbc004295411dc34f8635268d3bc92be0fdd3b6c7a922836813d"
     },
     "sign-in": {

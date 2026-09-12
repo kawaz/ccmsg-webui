@@ -16,6 +16,9 @@ import { expect, test } from "./harness.ts";
 /** 頁 (200) をまたぐ長さ。3 頁目で fixture の分まで届く。 */
 const BULK = 500;
 
+/** 1 度遡ると増える分。instance が 1 頁で答える item の数。 */
+const PAGE = 200;
+
 test("末尾から始まり、遡ると手前が頁ずつ足される", async ({ ui: page, instance }) => {
   const path = `${instance.home}/projects/-visual-repo/${SID}.jsonl`;
   for (let n = 0; n < BULK; n += 1) {
@@ -34,15 +37,25 @@ test("末尾から始まり、遡ると手前が頁ずつ足される", async ({
   // 開いた所は末尾: 最後に書かれたものが見えている。始まりから読み下ろして
   // いたら、ここに居るのは `bulk 0` になる。
   await expect(page.getByText(`bulk ${String(BULK - 1)}`)).toBeVisible({ timeout: 20_000 });
-  await expect(heading).toHaveText(/200 item/);
 
+  const held = async (): Promise<number> =>
+    Number(/(\d+) item/.exec((await heading.textContent()) ?? "")?.[1]);
   const top = async () => {
     await page.evaluate(() => {
       window.scrollTo(0, 0);
     });
   };
+
+  // 開いた時点で持っているのは末尾の 1 頁**ぶん**。頁そのものの数は固定しない —
+  // 購読が先に立っているので、読み込みの答えに加えて「その間に届いた分」が
+  // 乗ることがあり、それは instance が追記を運んだという意味であって、頁の
+  // 区切り方の話ではない。ここで固定するのは **1 度遡ると 1 頁ぶん増える** こと。
+  const first = await held();
+  expect(first).toBeGreaterThan(0);
+  expect(first).toBeLessThan(BULK);
+
   await top();
-  await expect(heading).toHaveText(/400 item/);
+  await expect(heading).toHaveText(new RegExp(`${String(first + PAGE)} item`));
   await top();
   // fixture の 11 item ごと、transcript ぜんぶ。`prev` が返らなくなった所が始まり。
   await expect(heading).toHaveText(/511 item/);

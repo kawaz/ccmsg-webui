@@ -1,5 +1,5 @@
 import { expect, test as base, type Page } from "@playwright/test";
-import { OTHER_SID, SID, writeFixture } from "./fixture.ts";
+import { OTHER_SID, SID, STATUS_SID, TAIL_SID, writeFixture } from "./fixture.ts";
 import { type Instance, startInstance } from "./instance.ts";
 import { type FakeSession, greetAsSession } from "./session.ts";
 
@@ -55,6 +55,24 @@ export const test = base.extend<object, Fixtures>({
             cwd: instance.cwd,
             transcriptPath: fixture.phoneTranscriptPath,
             title: "基準画像の置き場を決める",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-sonnet-5",
+          }),
+          await greetAsSession(instance.stateDir, {
+            sid: STATUS_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.statusTranscriptPath,
+            title: "束 0 を片付ける",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-opus-5",
+          }),
+          await greetAsSession(instance.stateDir, {
+            sid: TAIL_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.tailTranscriptPath,
+            title: "追記を見る",
             repo: "kawaz/ccmsg-webui",
             branch: "main",
             model: "claude-sonnet-5",
@@ -247,6 +265,8 @@ export async function register(page: Page, code: string): Promise<void> {
  * - `.host` on a mesh row is the **machine this ran on**, which is the one
  *   thing on these screens the run cannot fix: a baseline drawn on one host
  *   would fail on every other one
+ * - `.status-item .meta` is **how long something has been running**, which is a
+ *   number that grows while the picture is being taken
  *
  * A mask keeps the element's own box, so the bar moving or changing size still
  * fails; what is given up is the text inside those few hundred pixels.
@@ -261,7 +281,14 @@ export async function shot(
 ): Promise<void> {
   await fontsReady(page);
   await expect(page).toHaveScreenshot(name, {
-    mask: [page.locator(".bar .meta"), page.locator(".bar .footer"), page.locator(".host")],
+    mask: [
+      page.locator(".bar .meta"),
+      page.locator(".bar .footer"),
+      page.locator(".host"),
+      // 走っているものの経過時間。走っている限り増え続けるので、絵にすると
+      // 撮った瞬間が写る。
+      page.locator(".status-item .meta"),
+    ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });
 }
