@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.12.0",
+  "webui_version": "0.13.0",
   "screens": {
     "conversation": {
       "darwin": "a1777b2ea35bd44a95f22cf3306b41df95af1b61e5d2d7095132164e7bf33594",
@@ -18,7 +18,8 @@
       "linux": "1cd23c6e062c2058f6391fd924f2326213201532a63e4775ec2892116f9b060f"
     },
     "launcher": {
-      "darwin": "81abeb748c6589352f7c59b57a333cc54cdf9bf3ff378982073b2059ce6106a7"
+      "darwin": "81abeb748c6589352f7c59b57a333cc54cdf9bf3ff378982073b2059ce6106a7",
+      "linux": "a29b5d46e0cd3dfd256751e53321cae57661c18f680127680b47404a5955f194"
     },
     "notification": {
       "darwin": "0eab5b7d8177817716b982edcfb6d4890913b3115f4bd265c0dd12026b612f9c",
@@ -38,7 +39,7 @@
     },
     "session-search": {
       "darwin": "03c8f312ad5271d96e78c597ed454adae7019e22803ec30b50320ffdfe17eeb6",
-      "linux": "049a5742f701a9014b2d5f4d79c05f9421e15f8f88f5eea6dfbf7861c005ae6b"
+      "linux": "57bb1cefa09725cf9799a00060f7c3f5cb2713f74e1eac9f199cf4701efe127a"
     },
     "session-status": {
       "darwin": "17a8459e4ef6c35eef97d294fce2b37bd08dca8e4309b1aade93cc5f0a94e2ec",
@@ -46,11 +47,11 @@
     },
     "sessions": {
       "darwin": "a2b06136f76ef09bbf71a1ca42ab1aa770b88bf775eede76bd561c025107b912",
-      "linux": "0cbeba42de6647efd9ed3dbe561a2e03c5e69de5187079078e5eec0e4007d03b"
+      "linux": "e01dfaaa580d482ce470666e0c3ea14b2f7ee7662e0b32f5269ba7623838d887"
     },
     "sessions-cache-ring": {
       "darwin": "e78a7bcf91e552337607fdd0fedfc6a1f53c1e1a5b6ca8b48ef42274631a244e",
-      "linux": "d81a4523e9fa8858e5da14dce7f8b702a740eeea6fc7e1c00c8fb95a9ad09378"
+      "linux": "6a7f690f1f8ba06be19eb64dd987d2305beda72e4bf4fa4ec03e06ac5b3803db"
     },
     "sign-in": {
       "darwin": "2e6b62796d2a37ae25bc5fbee4629f2f0b791d0e4d8c009553bac893866a9986",
@@ -89,12 +90,15 @@
       "linux": "11d9e57239a7457c43f3815f63ee8cd7f89746d703eac774ff674f7d8f94a10b"
     },
     "usage": {
-      "darwin": "75c25788af556a5d459cee173fb1f31e3e98661dc87d9b1013cd6a8456e2c9d5",
+      "darwin": "c8fe72547668dc576a5f5a08878f410e91b422794d68d3884d6def8324dc8e53",
       "linux": "a63f9af25b7c9914c4594fc704c5696044a245c18b7ea620d2e81aca2ad30355"
     },
     "usage-probed": {
       "darwin": "d56e23d5cc79a6941d8383160dd96de6ba017f6848e5bf208d17e7c5a913f1f1",
       "linux": "88bfa40dfa1d9fb8a9220abb5f298726b56168104ea1c9b99b68ae2232066c81"
+    },
+    "usage-spend": {
+      "darwin": "c8fe72547668dc576a5f5a08878f410e91b422794d68d3884d6def8324dc8e53"
     }
   }
 }
