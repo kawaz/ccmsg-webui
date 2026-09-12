@@ -1820,3 +1820,107 @@ select {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* --- 動いていないセッションを探す --- */
+
+/* 一覧の下に畳んで置く。開いている一覧が主で、探すのは「そこに居ないもの」を
+   取りに行く時だけなので、既定では 1 行しか場所を取らない。 */
+.search-sessions > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.search-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.search-form input[type="search"],
+.search-form input[type="text"] {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.search-query {
+  flex: 1 1 18em;
+  min-width: 0;
+}
+
+.search-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.search-toggles label {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 1 件。見出しの行と、その下に当たった所の抜き書き。 */
+.hit {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.hit-matches {
+  flex: 1 1 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hit-match {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.hit-role {
+  flex: none;
+  width: 5em;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.hit-role.role-user {
+  color: var(--accent);
+}
+
+.hit-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

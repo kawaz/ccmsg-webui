@@ -21,6 +21,8 @@ import type {
   PeersFrame,
   SessionErrorEntry,
   SessionErrorsFrame,
+  SessionSearchArgs,
+  SessionSearchResult,
   SessionStatusSnapshot,
   Sid,
   TopicName,
@@ -840,6 +842,17 @@ export function navigate(next: Route, options?: { replace?: boolean }): void {
 
 export function adoptLocation(): void {
   route.value = locationRoute();
+}
+
+/** まだ開いていない transcript を instance に探させる (`session.search`)。
+ *
+ * 走るのは instance の側で、読むのはその host に置いてある file — この画面が
+ * 持っているのは問いと、返ってきた行だけ。打ち切られた時は `truncated` がそう
+ * 言うので、画面はそれを隠さずに出す (足りない結果を全部だと思って読む方が、
+ * 探し直すより高く付く)。 */
+export async function searchSessions(args: SessionSearchArgs): Promise<SessionSearchResult> {
+  const reply = await connection.request("session.search", args);
+  return reply as unknown as SessionSearchResult;
 }
 
 /** host の翻訳機に本文を渡す (`translate.run`)。呼ぶのは 1 段落ずつで、理由は
