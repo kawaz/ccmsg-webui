@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.11.0",
+  "webui_version": "0.12.0",
   "screens": {
     "conversation": {
       "darwin": "a1777b2ea35bd44a95f22cf3306b41df95af1b61e5d2d7095132164e7bf33594",
@@ -34,18 +34,20 @@
       "linux": "1361d348733f5284dd40f490b644ea2dd205e8e95cc83115893a7a8ae882e5be"
     },
     "session-search": {
-      "darwin": "04c37e81aae910ed08de5a29810984c4a608d74560d68de099dcbbb2e0522283"
+      "darwin": "04c37e81aae910ed08de5a29810984c4a608d74560d68de099dcbbb2e0522283",
+      "linux": "049a5742f701a9014b2d5f4d79c05f9421e15f8f88f5eea6dfbf7861c005ae6b"
     },
     "session-status": {
-      "darwin": "17a8459e4ef6c35eef97d294fce2b37bd08dca8e4309b1aade93cc5f0a94e2ec"
+      "darwin": "17a8459e4ef6c35eef97d294fce2b37bd08dca8e4309b1aade93cc5f0a94e2ec",
+      "linux": "8f10cbbf3eca42e16eb9841d14ce4d7fac253e5d1a00e5c44a878b853370e741"
     },
     "sessions": {
       "darwin": "1eb332c84a91da1f9ffc2c62651887786f981769dd649b7d23990d71162dd1f0",
-      "linux": "b067e03f69a599f904c29186d185aec3185c4d7197f36ed570e97d9e6ae0041b"
+      "linux": "0cbeba42de6647efd9ed3dbe561a2e03c5e69de5187079078e5eec0e4007d03b"
     },
     "sessions-cache-ring": {
       "darwin": "e7edb7169319062de59571f7adbf8589d0cca5c2e18fb2461a187c81e944fdf9",
-      "linux": "ddacdac3e609fbc004295411dc34f8635268d3bc92be0fdd3b6c7a922836813d"
+      "linux": "d81a4523e9fa8858e5da14dce7f8b702a740eeea6fc7e1c00c8fb95a9ad09378"
     },
     "sign-in": {
       "darwin": "2e6b62796d2a37ae25bc5fbee4629f2f0b791d0e4d8c009553bac893866a9986",
