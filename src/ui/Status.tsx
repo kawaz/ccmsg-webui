@@ -4,7 +4,7 @@ import type {
   SessionTodo,
   SessionWorkflowStatus,
 } from "@ccmsg/protocol";
-import { sessionStatus, status } from "../state.ts";
+import { sessionStatus } from "../state.ts";
 
 /** セッションが**今何をしているか**。
  *
@@ -118,15 +118,9 @@ function Section({
 export function Status() {
   const held: SessionStatusSnapshot | undefined = sessionStatus.value;
   const now = Date.now();
-  if (status.value !== "open") {
-    return (
-      <section class="section">
-        <h2>状態</h2>
-        <p class="empty">instance に繋いでいません。</p>
-      </section>
-    );
-  }
   if (held === undefined) {
+    // 切れている間に開いた時もここ。畳んだ答えは instance のものなので、聞ける
+    // 相手が居なければ出せるものは無い (切れていることは帯が言う)。
     return (
       <section class="section">
         <h2>状態</h2>

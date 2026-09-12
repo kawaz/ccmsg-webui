@@ -14,8 +14,9 @@ test("first-connect", async ({ page, instance }) => {
   // The built-in `page`, not `ui`: what these two screens are is a browser that
   // has not registered, and a context of its own is exactly that.
   await page.goto(instance.endpoint);
-  await expect(page.getByRole("heading", { name: "接続していません" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "接続" }).first()).toBeVisible();
+  // 押す所は接続バーの 1 つだけ。本文には何も置かない — 繋がっていないことも、
+  // 繋ぐ手も、バーが既に持っている。
+  await expect(page.getByRole("button", { name: "接続" })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "passkey で認証する" })).toBeHidden();
   // 一覧そのものが無いこと。行が 0 件の一覧は「セッションが 1 つも無い」と
   // 読めてしまい、繋がっていないことを言わない。
@@ -35,7 +36,7 @@ test("sign-in", async ({ page, instance }) => {
   // which is the state a person is in when they have been sent a link.
   await instance.passkey();
   await page.goto(instance.endpoint);
-  await page.getByRole("button", { name: "接続" }).first().click();
+  await page.getByRole("button", { name: "接続" }).click();
   await expect(page.getByRole("heading", { name: "passkey で認証する" })).toBeVisible();
   await expect(page.getByText("登録 URL と 6 桁のコード")).toBeVisible();
   await shot(page, "sign-in.png");

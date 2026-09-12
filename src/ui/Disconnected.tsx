@@ -1,45 +1,21 @@
-import { connect, generationWarning, listed, status, statusDetail, wanted } from "../state.ts";
+import { connect, generationWarning, status, statusDetail, wanted } from "../state.ts";
 
-/** まだ一度も一覧を受け取っていない画面。
+/** まだ一度も一覧を受け取っていない画面の**本文**。
  *
- * 一覧も transcript も mesh の行も描かない。そこに出るのは全て「instance が今
- * そう言っている」ことなので、聞く前に枠だけ描くと**空の一覧**になり、それは
- * 「セッションが 1 つも無い」であって「繋がっていない」ではない。
+ * 何も描かない。一覧も transcript も mesh の行も「instance が今そう言っている
+ * こと」なので、聞く前に枠だけ描くと空の一覧になり、それは「セッションが 1 つも
+ * 無い」であって「繋がっていない」ではない。かといって代わりに説明を置くのも
+ * 要らない — 繋がっていないことも、繋ぐ手も、接続バーが既に持っている。押す所を
+ * 2 つに増やすと、どちらが本物かを読む人が考えることになる。
  *
- * 出るのは繋がった瞬間ではなく**一覧の snapshot が届いてから** (`listed`)。
- * 開いた直後はまだ何も聞いていないので、そこで出すと一覧が一度空で描かれる。 */
+ * 例外は契約の世代が食い違った時だけ。これは繋ぎ直しても直らない唯一のことで、
+ * 接続バーには「読み込み直せ」と言う場所が無い。 */
 export function Disconnected() {
-  const state = status.value;
-  const working = wanted.value && state !== "closed";
+  if (generationWarning.value === undefined) return null;
   return (
-    <section class="section">
-      <h2>接続していません</h2>
-      {generationWarning.value !== undefined && (
-        <p class="banner">
-          {generationWarning.value} — この画面を再読み込みしてください (互換経路はありません)。
-        </p>
-      )}
-      <p class="empty">
-        {working
-          ? state === "open" && !listed.value
-            ? "instance から一覧を受け取っています…"
-            : "instance に繋いでいます…"
-          : "この instance に繋ぐと、セッションの一覧が出ます。"}
-      </p>
-      {statusDetail.value !== undefined && <p class="meta">{statusDetail.value}</p>}
-      {!working && (
-        <p class="auth-actions">
-          <button
-            type="button"
-            onClick={() => {
-              void connect();
-            }}
-          >
-            接続
-          </button>
-        </p>
-      )}
-    </section>
+    <p class="banner">
+      {generationWarning.value} — この画面を再読み込みしてください (互換経路はありません)。
+    </p>
   );
 }
 

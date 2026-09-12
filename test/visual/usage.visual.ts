@@ -123,10 +123,10 @@ test("人が切断したら持ち物ごと畳み、繋ぎ直すと snapshot で�
   await expect(page.locator(".row").first()).toBeVisible();
 
   await page.getByRole("button", { name: "切断" }).click();
-  await expect(page.getByRole("heading", { name: "接続していません" })).toBeVisible();
+  await expect(page.locator(".row")).toHaveCount(0);
   await expect(page.locator(".row")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "接続" }).first().click();
+  await page.getByRole("button", { name: "接続" }).click();
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
   await expect(page.locator(".row").first()).toBeVisible();
 });

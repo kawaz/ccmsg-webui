@@ -89,9 +89,15 @@ disconnection does is a question of what is worth losing. There are three.
 
 | The disconnection | The screen |
 |---|---|
-| **Nothing has been heard yet** (a first visit) | no list, no transcript, no mesh row — the connecting screen alone (`src/ui/Disconnected.tsx`) |
+| **Nothing has been heard yet** (a first visit) | no list, no transcript, no mesh row, and an empty body: the bar alone says the state and offers the one way to connect (`src/ui/Disconnected.tsx`) |
 | **Nobody asked for it** (the network went, the instance left) | what was heard stays on screen, with a band saying it is no longer current. The next snapshot replaces the same rows |
 | **Someone pressed 切断** | the equivalent of logging out: everything held in memory goes (the lists, the transcript, the fold state, the access token). The preferences in localStorage stay |
+
+The body carries neither an explanation nor a second button. The bar already
+says there is no connection and already offers the way to make one; a second
+place to press it only asks the reader which one is real. What stays in the body
+is the one line about a contract generation that does not match, because that is
+the one thing reconnecting cannot fix and the bar has nowhere to say "reload".
 
 Nothing is framed before it is heard, because that frame is an **empty list** —
 a list of no rows says "this host has no sessions" rather than "you are not

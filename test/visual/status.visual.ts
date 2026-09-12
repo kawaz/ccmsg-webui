@@ -31,8 +31,8 @@ test("繋いでいない間は、状態も畳んだ答えを出さない", async
   await expect(page.getByText("束 0 を片付ける")).toBeVisible();
   await page.getByRole("button", { name: "切断" }).click();
   // 明示的な切断は持ち物を畳むので、状態の画面ごと接続の画面に戻る。
-  await expect(page.getByRole("heading", { name: "接続していません" })).toBeVisible();
+  await expect(page.locator(".row")).toHaveCount(0);
   await expect(page.getByText("束 0 を片付ける")).toHaveCount(0);
-  await page.getByRole("button", { name: "接続" }).first().click();
+  await page.getByRole("button", { name: "接続" }).click();
   await expect(page.getByText("束 0 を片付ける")).toBeVisible();
 });
