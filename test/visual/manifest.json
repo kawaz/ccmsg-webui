@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.10.0",
+  "webui_version": "0.11.0",
   "screens": {
     "conversation": {
       "darwin": "a1777b2ea35bd44a95f22cf3306b41df95af1b61e5d2d7095132164e7bf33594",
