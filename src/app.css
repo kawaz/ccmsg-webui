@@ -1769,3 +1769,54 @@ select {
   opacity: 1;
   border-color: var(--border);
 }
+
+/* --- セッションの状態 --- */
+
+.status-block {
+  margin: 0 0 var(--gap);
+}
+
+.status-block > h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+/* 1 行は「立ち方・主語・その内訳」。走っているものは濃く、終わったものは薄く
+   — 同じ並びに居ても、読む理由が違う。 */
+.status-item {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.status-item.state-done {
+  opacity: 0.55;
+}
+
+.status-state {
+  flex: none;
+  min-width: 5.5em;
+  color: var(--muted);
+}
+
+.status-item.state-on .status-state {
+  color: var(--live);
+}
+
+.status-kind {
+  flex: none;
+  color: var(--accent);
+}
+
+.status-subject {
+  flex: 1 1 12em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

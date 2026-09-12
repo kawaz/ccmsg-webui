@@ -21,6 +21,7 @@ import type {
   PeersFrame,
   SessionErrorEntry,
   SessionErrorsFrame,
+  SessionStatusSnapshot,
   Sid,
   TopicName,
   TranscriptItem,
@@ -209,6 +210,13 @@ export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
  * kept for a session nobody is looking at is a file being tailed for nobody. */
 export const transcript = signal<TranscriptItemsView | undefined>(undefined);
 
+/** 今開いている 1 つのセッションの状態 (`session.status:<sid>`)。
+ *
+ * transcript と同じで**一度に 1 つ**。畳んだ状態は instance が transcript から
+ * 導いたもので、誰も見ていないセッションの分まで購読するのは、読まれない写しを
+ * 運ばせることになる。 */
+export const sessionStatus = signal<SessionStatusSnapshot | undefined>(undefined);
+
 /** One notification as this page holds it: the contract's frame plus a key of
  * this page's own, since two notifications are told apart by nothing on the
  * wire (a notification is an event, not a record — the contract keeps none). */
@@ -354,6 +362,11 @@ export const connection = new Connection({
     connectionExpiresAt.value = result.auth_expires_at;
   },
   topic(message) {
+    if (message.topic.startsWith("session.status:")) {
+      // whole 粒度なので、届いた frame がそのまま今の状態。
+      sessionStatus.value = message.data as SessionStatusSnapshot;
+      return;
+    }
     const view = transcript.value;
     if (view !== undefined && message.topic === view.topic) {
       view.take(message.data as { sid: Sid; items?: TranscriptItem[] });
@@ -424,6 +437,25 @@ export const connection = new Connection({
   generationMismatch(reason) {
     generationWarning.value = reason;
   },
+});
+
+/** 状態の画面を開いている間だけ購読する。URL がその tab を指していることが
+ * 「読んでいる」の唯一の根拠で、離れた時に解くのも同じ 1 か所。 */
+effect(() => {
+  const at = route.value;
+  const wanted =
+    at.at === "session" && at.tab === "status"
+      ? (`session.status:${at.sid}` as TopicName)
+      : undefined;
+  if (wanted === undefined) {
+    sessionStatus.value = undefined;
+    return;
+  }
+  connection.subscribe(wanted);
+  return () => {
+    connection.unsubscribe(wanted);
+    sessionStatus.value = undefined;
+  };
 });
 
 // Which transcript is being read is decided by the URL and by nothing else, so

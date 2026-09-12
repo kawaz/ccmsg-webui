@@ -19,6 +19,7 @@ import { Files } from "./Files.tsx";
 import { Register } from "./Register.tsx";
 import { SessionList } from "./SessionList.tsx";
 import { SignIn } from "./SignIn.tsx";
+import { Status } from "./Status.tsx";
 import { TerminalPanel } from "./TerminalPanel.tsx";
 import { Usage } from "./Usage.tsx";
 import { Timeline } from "./Timeline.tsx";
@@ -126,22 +127,7 @@ export function App() {
           {at.tab === "timeline" && <Timeline sid={at.sid} />}
           {at.tab === "files" && <Files sid={at.sid} path={at.path} lines={at.lines} />}
           {at.tab === "terminal" && <TerminalPanel sid={at.sid} />}
-          {at.tab !== "timeline" && at.tab !== "files" && at.tab !== "terminal" && (
-            <section class="section">
-              <h2>{TAB_LABELS[at.tab]}</h2>
-              <p class="empty">
-                <code>{at.sid}</code> の {at.tab} は未実装です。
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate({ at: "sessions" });
-                }}
-              >
-                一覧に戻る
-              </button>
-            </section>
-          )}
+          {at.tab === "status" && <Status />}
         </>
       )}
       {at.at === "agent" && (
