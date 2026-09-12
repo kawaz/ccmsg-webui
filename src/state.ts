@@ -25,6 +25,9 @@ import type {
   LlmStatsReadResult,
   LauncherRunArgs,
   LauncherRunResult,
+  DumpPresetsReadResult,
+  SessionDumpWriteArgs,
+  SessionDumpWriteResult,
   SessionKillResult,
   SessionRenameResult,
   SessionSearchArgs,
@@ -849,6 +852,27 @@ export function togglePinned(sid: Sid): void {
   if (!next.delete(sid)) next.add(sid);
   pinned.value = next;
   localStore.set(PINNED_STORAGE, JSON.stringify([...next]));
+}
+
+/** instance が持っている dump の献立。名前を列挙できるのはこの op だけなので、
+ * これが無ければ画面は自由入力を出して instance に断らせるしかない (契約)。 */
+export async function readDumpPresets(): Promise<DumpPresetsReadResult> {
+  const reply = await connection.request("dump.presets.read", {});
+  return reply as unknown as DumpPresetsReadResult;
+}
+
+/** transcript を 1 つの file に書き出す。**書くのは instance の host** で、
+ * 返ってくるのはその場所と、何をどれだけ書いたか — 中身はここへ運ばない
+ * (運ぶなら transcript を読めば足りる。この op の値打ちは、後で誰かに渡せる
+ * file がそこに残ること)。 */
+export async function writeSessionDump(
+  args: SessionDumpWriteArgs,
+): Promise<SessionDumpWriteResult> {
+  const reply = await connection.request(
+    "session.dump.write",
+    args as unknown as Record<string, unknown>,
+  );
+  return reply as unknown as SessionDumpWriteResult;
 }
 
 /** セッションを終わらせる。`force` は**人が 1 度普通に頼んでから**選ぶもので、

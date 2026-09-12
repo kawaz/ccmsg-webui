@@ -169,6 +169,20 @@ a tenth of Japanese characters the paragraph counts as Japanese. "Skip anything
 with one Japanese character in it" would leave a whole paragraph of English
 thinking untranslated because someone was quoted in it.
 
+## A dump is worth having because the file stays (a prototype)
+
+The status screen carries a way to write a session's transcript to one file.
+The only choice offered is **which preset** — the contract also takes a range
+and a type selection, but this starts at "make one file somebody can be handed
+later" (adding fields once their absence is felt is smaller than laying out
+fields nobody asked for). Nothing else can list the preset names, so they are
+asked for rather than typed into a free-text field for the instance to refuse.
+
+The writing happens on **the instance's host**, and what the screen shows is
+where it landed and how much of what was written. The content does not travel:
+reading it is what the transcript screen is for, and the worth of this op is on
+the other side — a file that stays, to be handed on.
+
 ## What a row can do (a prototype)
 
 Three things are added to a row in the list, and nothing else: no new screen and

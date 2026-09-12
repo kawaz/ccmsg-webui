@@ -295,6 +295,8 @@ export async function register(page: Page, code: string): Promise<void> {
  *   number that grows while the picture is being taken
  * - `.spend-row .usage-key` is **the day a bucket is**, which is the day the run
  *   happened
+ * - `.dump-path` is **where a dump landed**: a path on this host, named after
+ *   the moment it was written
  * - `.launch-cwd` holds **absolute paths on this host**, spelled differently on
  *   each operating system
  *
@@ -330,6 +332,8 @@ export async function shot(
       // 起動の画面が出す **host の絶対パス**。使い捨ての場所は OS で綴りが違う
       // (macOS の temp と Linux の temp)、`.host` と同じ理由で覆う。
       page.locator(".launcher[open] .launch-cwd"),
+      // 書き出した file の場所。host の綴りと、書いた時刻が入っている。
+      page.locator(".dump-path"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });

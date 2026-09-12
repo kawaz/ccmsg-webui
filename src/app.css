@@ -2131,3 +2131,9 @@ select {
   color: var(--text);
   font: inherit;
 }
+
+/* 書き出した file の場所。長いので 1 行を丸ごと使い、前後の文と重ならない。 */
+.dump-path {
+  display: block;
+  overflow-wrap: anywhere;
+}

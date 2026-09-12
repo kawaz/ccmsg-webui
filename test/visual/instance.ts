@@ -134,6 +134,11 @@ export async function startInstance(): Promise<Instance> {
       name: "visual",
       dir: home,
       entry: { host: "127.0.0.1", port: DAEMON_PORT },
+      // 書き出しの献立。名前を列挙できるのは `dump.presets.read` だけなので、
+      // 1 つ置いて「選べること」が絵に出るようにする。
+      dump: {
+        presets: [{ name: "conversation", description: "会話だけ", opts: { types: ["message"] } }],
+      },
       upstream: {
         // 起動の献立。使い捨ての host なので、走らせるのは「始めたふり」の
         // 1 行 — 画面が見せるのは**献立どおりに欄が並び、走らせた結果が返る**

@@ -127,7 +127,7 @@ export function App() {
           {at.tab === "timeline" && <Timeline sid={at.sid} />}
           {at.tab === "files" && <Files sid={at.sid} path={at.path} lines={at.lines} />}
           {at.tab === "terminal" && <TerminalPanel sid={at.sid} />}
-          {at.tab === "status" && <Status />}
+          {at.tab === "status" && <Status sid={at.sid} />}
         </>
       )}
       {at.at === "agent" && (

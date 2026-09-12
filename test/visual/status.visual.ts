@@ -36,3 +36,17 @@ test("繋いでいない間は、状態も畳んだ答えを出さない", async
   await page.getByRole("button", { name: "接続" }).click();
   await expect(page.getByText("束 0 を片付ける")).toBeVisible();
 });
+
+test("書き出すと、instance の host に残った場所が返る", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
+  await expect(page.getByRole("heading", { name: "書き出す" })).toBeVisible();
+  // 献立は instance が持っているものだけが並ぶ (自由入力は出さない)。
+  await expect(page.getByRole("combobox", { name: "献立" })).toBeVisible();
+  await page.getByRole("button", { name: "file に書き出す" }).click();
+  // 返るのは場所と、何をどれだけ書いたか。中身は運ばない。
+  await expect(page.getByText("instance の host に書きました")).toBeVisible({ timeout: 20_000 });
+  // 場所は instance の host のもの (絵では覆う: 走らせた時刻と host の綴りが
+  // 入っている)。
+  await expect(page.locator(".dump-path")).toContainText(".dump.json");
+  await shot(page, "session-dump.png");
+});

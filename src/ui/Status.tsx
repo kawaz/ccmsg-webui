@@ -1,10 +1,15 @@
+import { useSignal } from "@preact/signals";
+import { useEffect } from "preact/hooks";
 import type {
+  DumpPreset,
   SessionBackgroundStatus,
+  SessionDumpWriteResult,
+  Sid,
   SessionStatusSnapshot,
   SessionTodo,
   SessionWorkflowStatus,
 } from "@ccmsg/protocol";
-import { sessionStatus } from "../state.ts";
+import { readDumpPresets, sessionStatus, writeSessionDump } from "../state.ts";
 
 /** セッションが**今何をしているか**。
  *
@@ -115,7 +120,95 @@ function Section({
   );
 }
 
-export function Status() {
+/** transcript を file に書き出す (試作)。
+ *
+ * 選ぶのは**献立の名前だけ**。範囲も型の選択も契約は受けるが、まずは「後で渡せる
+ * file を 1 つ作る」に絞る — 使って足りない所が分かってから足す方が、要らない欄を
+ * 先に並べるより小さい。
+ *
+ * 出来上がりは**その instance の host に残る**ので、画面が出すのは場所と、何を
+ * どれだけ書いたか。中身は運ばない (読むだけなら transcript の画面がある)。 */
+function Dump({ sid }: { sid: Sid }) {
+  const presets = useSignal<readonly DumpPreset[] | undefined>(undefined);
+  const preset = useSignal<string>("");
+  const written = useSignal<SessionDumpWriteResult | undefined>(undefined);
+  const problem = useSignal<string | undefined>(undefined);
+  const running = useSignal(false);
+
+  useEffect(() => {
+    let live = true;
+    readDumpPresets()
+      .then((read) => {
+        if (live) presets.value = read.presets;
+      })
+      .catch((cause: unknown) => {
+        if (live) problem.value = String(cause);
+      });
+    return () => {
+      live = false;
+    };
+  }, [presets, problem]);
+
+  const write = (): void => {
+    running.value = true;
+    problem.value = undefined;
+    writeSessionDump({ sid, ...(preset.value === "" ? {} : { preset: preset.value }) })
+      .then((said) => {
+        written.value = said;
+      })
+      .catch((cause: unknown) => {
+        problem.value = String(cause);
+      })
+      .finally(() => {
+        running.value = false;
+      });
+  };
+
+  const held = presets.value ?? [];
+  const counted = Object.entries(written.value?.entries ?? {})
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
+  return (
+    <div class="status-block">
+      <h3>書き出す</h3>
+      {problem.value !== undefined && <p class="banner">{problem.value}</p>}
+      <p class="auth-actions">
+        {held.length > 0 && (
+          <select
+            aria-label="献立"
+            value={preset.value}
+            onChange={(event) => {
+              preset.value = event.currentTarget.value;
+            }}
+          >
+            <option value="">全部 (添付を除く)</option>
+            {held.map((one) => (
+              <option key={one.name} value={one.name} title={one.description}>
+                {one.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button type="button" disabled={running.value} onClick={write}>
+          {running.value ? "書いています…" : "file に書き出す"}
+        </button>
+      </p>
+      {written.value !== undefined && (
+        <>
+          <p class="meta">
+            instance の host に書きました — <code class="dump-path">{written.value.path}</code> (
+            {written.value.bytes.toLocaleString()} バイト)
+          </p>
+          <p class="meta">
+            {counted.map(([type, count]) => `${type} ${String(count)}`).join(" / ")}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function Status({ sid }: { sid: Sid }) {
   const held: SessionStatusSnapshot | undefined = sessionStatus.value;
   const now = Date.now();
   if (held === undefined) {
@@ -175,6 +268,7 @@ export function Status() {
           <BackgroundRow key={task.task_id} task={task} now={now} />
         ))}
       </Section>
+      <Dump sid={sid} />
       <Section title="TODO" count={todos.length} empty="このセッションは TODO を持っていません。">
         <>
           {todos.map((todo) => (
