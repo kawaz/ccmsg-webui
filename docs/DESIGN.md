@@ -307,6 +307,25 @@ chain is drawn **only while the window is still alive**, since `cache_until_at`
 is a projection of keepalives yet to be sent and a gateway that stops sending
 them must not leave a ring running for the hours that projection reached.
 
+## The status is what the instance folded
+
+What a session is **doing right now** — the workflows running, the work in the
+background, the task list — is written in its transcript as tool calls and their
+results. Folding that is the instance's, and the screen draws what arrives on
+`session.status:<sid>` (`src/ui/Status.tsx`). Two screens reading the same
+transcript agree because there is one fold, not two.
+
+It is subscribed to **only while that tab is open**. The URL naming the screen is
+the whole of what "someone is reading this" means, and no session nobody is
+looking at has its status carried.
+
+What is running comes first. The reasons for reading differ — a running thing is
+"where is this now", a finished one is "what happened" — so the finished sink
+into the background. What stopped the session (`api_error`) comes before all of
+it: on a screen with nothing running, "idle because there is nothing to do" and
+"stopped here" are different situations, and they change what the reader does
+next.
+
 ## The terminal is borrowed, not built
 
 A session's own terminal can be opened from here. **Drawing it is not this build's job**: the page borrows the screen of the gateway the instance names in `hello` (`terminal_gateway`) in an iframe, and holds neither the rendering nor the input. Holding them would be a second implementation of the same thing.
