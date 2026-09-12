@@ -2,6 +2,7 @@ import { computed } from "@preact/signals";
 import type { InstanceInfo, PeerInfo, SessionState, Sid } from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
 import { CacheRing } from "./CacheRing.tsx";
+import { Launcher } from "./Launcher.tsx";
 import { SessionSearch } from "./SessionSearch.tsx";
 import { heldCounts } from "../conversation/held-messages.ts";
 import { instanceLabel } from "../instance-label.ts";
@@ -167,6 +168,7 @@ export function SessionList() {
         </select>
       </div>
 
+      <Launcher />
       <SessionSearch />
 
       {groups.length === 0 && (

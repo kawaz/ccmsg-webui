@@ -135,6 +135,27 @@ export async function startInstance(): Promise<Instance> {
       dir: home,
       entry: { host: "127.0.0.1", port: DAEMON_PORT },
       upstream: {
+        // 起動の献立。使い捨ての host なので、走らせるのは「始めたふり」の
+        // 1 行 — 画面が見せるのは**献立どおりに欄が並び、走らせた結果が返る**
+        // ことで、何が起動したかではない。
+        launcher: {
+          root_dirs: [cwd, ROOT],
+          templates: [
+            {
+              name: "new",
+              command: 'printf "started %s in %s\\n" "$NAME" "$PWD"',
+              params: [
+                { name: "NAME", default: "visual" },
+                { name: "PROMPT", default: "ccmsg subscribe 起動。\nこのセッションでは…" },
+              ],
+            },
+            {
+              name: "resume",
+              command: 'printf "resumed %s\\n" "$SID"',
+              params: [{ name: "SID", default: "" }],
+            },
+          ],
+        },
         // 本物の helper と同じ行を話す使い捨て (`translate-helper.ts`)。翻訳の
         // 経路そのものは daemon の実装をそのまま通る。
         translate_helper: fileURLToPath(new URL("translate-helper.ts", import.meta.url)),

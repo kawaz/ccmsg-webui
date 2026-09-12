@@ -293,6 +293,8 @@ export async function register(page: Page, code: string): Promise<void> {
  *   would fail on every other one
  * - `.status-item .meta` is **how long something has been running**, which is a
  *   number that grows while the picture is being taken
+ * - `.launch-cwd` holds **absolute paths on this host**, spelled differently on
+ *   each operating system
  *
  * A mask keeps the element's own box, so the bar moving or changing size still
  * fails; what is given up is the text inside those few hundred pixels.
@@ -317,6 +319,9 @@ export async function shot(
       // 探して見つけた行が持つ **file の更新時刻**。走らせた時刻そのものなので、
       // 同じ理由で覆う (id と大きさは動かないが、同じ帯に並んでいる)。
       page.locator(".hit .meta"),
+      // 起動の画面が出す **host の絶対パス**。使い捨ての場所は OS で綴りが違う
+      // (macOS の temp と Linux の temp)、`.host` と同じ理由で覆う。
+      page.locator(".launch-cwd"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });

@@ -246,6 +246,26 @@ A counted match must be a match the reader can find, so the text searched is the
 
 Highlighting happens two ways. Prose is split at render time and `<mark>` put in (the `text` case in `markdown-view.tsx`). A highlighted code line is already a list of spans, so the same split is projected onto them and the spans are re-cut (`splitSpansForHighlight`), which is what keeps a match that crosses a colour boundary from erasing the colour. Both ways emit the same `<mark>` (`ui/search-marks.tsx`), so a file and a code block inside markdown light up alike. Code still waiting for its colours is lit the first way and switches to the second when they arrive.
 
+## How a session starts is the instance's to say
+
+The recipes for starting one — where it may start (`root_dirs`), which recipes
+exist, which values each reads — live in the instance's config, and the screen
+lays out the fields **exactly as it was told** by `launcher.config.read`
+(`src/ui/Launcher.tsx`). The names of the recipes and of their parameters are
+the words of whoever wrote the config, not renamed here. An instance without the
+`launcher` capability is not offered the entry at all.
+
+A recipe's command is shown as it is and can be edited: it is what a person
+could type in a terminal, so there is no reason to hide it — and an unedited one
+is not sent, so what runs is the recipe the instance holds. Values travel as
+values and are never spliced into the command; the contract is what decided
+that.
+
+**Nothing is followed after the launch.** What comes back is how the command
+went (its output, and how it ended). The session that started announces itself
+to the instance and appears in the list when it does; there is no screen here
+watching a process.
+
 ## Sessions that are not running are the instance's to find
 
 The list holds the sessions an instance is watching, so the ones that ended — or

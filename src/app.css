@@ -1924,3 +1924,87 @@ select {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+/* --- セッションを始める --- */
+
+.launcher > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.launch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.launch-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.launch-form input[type="text"],
+.launch-form textarea,
+.launch-form select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.launch-form textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* 始める場所の候補。config が許した根だけが並ぶので、押せば正しい所から
+   書き始められる (その下の欄で深く書き足す)。 */
+.launch-roots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.launch-roots button {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.launch-roots button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.launch-command > span {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* 走らせた結果。出力は打った通りに読めることが要点なので、折り返しだけして
+   そのまま出す。 */
+.launch-out {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 12px;
+  max-height: 30vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.launch-err {
+  border-color: var(--danger);
+}

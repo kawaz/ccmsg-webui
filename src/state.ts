@@ -21,6 +21,9 @@ import type {
   PeersFrame,
   SessionErrorEntry,
   SessionErrorsFrame,
+  LauncherConfigReadResult,
+  LauncherRunArgs,
+  LauncherRunResult,
   SessionSearchArgs,
   SessionSearchResult,
   SessionStatusSnapshot,
@@ -842,6 +845,26 @@ export function navigate(next: Route, options?: { replace?: boolean }): void {
 
 export function adoptLocation(): void {
   route.value = locationRoute();
+}
+
+/** 起動の献立 (どこで・どの手順で始められるか) を instance に聞く。
+ *
+ * 木も起動そのものも、選べる場所と手順を教えてはくれない — それを答えるのが
+ * この op で、能力 `launcher` を持たない instance では入口自体を出さない。 */
+export async function readLauncherConfig(): Promise<LauncherConfigReadResult> {
+  const reply = await connection.request("launcher.config.read", {});
+  return reply as unknown as LauncherConfigReadResult;
+}
+
+/** セッションを 1 つ始める。返ってくるのは**走らせた結果**で、始まった
+ * セッションそのものではない — 立ち上がったセッションは自分で instance に
+ * 名乗り、一覧にはその時に出る (ここでプロセスを追いかけない)。 */
+export async function runLauncher(args: LauncherRunArgs): Promise<LauncherRunResult> {
+  const reply = await connection.request(
+    "launcher.run",
+    args as unknown as Record<string, unknown>,
+  );
+  return reply as unknown as LauncherRunResult;
 }
 
 /** まだ開いていない transcript を instance に探させる (`session.search`)。
