@@ -1,5 +1,13 @@
 import { expect, test as base, type Page } from "@playwright/test";
-import { OTHER_SID, SID, STATUS_SID, TAIL_SID, writeFixture } from "./fixture.ts";
+import {
+  BULK_SID,
+  JOIN_SID,
+  OTHER_SID,
+  SID,
+  STATUS_SID,
+  TAIL_SID,
+  writeFixture,
+} from "./fixture.ts";
 import { type Instance, startInstance } from "./instance.ts";
 import { type FakeSession, greetAsSession } from "./session.ts";
 
@@ -67,6 +75,24 @@ export const test = base.extend<object, Fixtures>({
             repo: "kawaz/ccmsg-webui",
             branch: "main",
             model: "claude-opus-5",
+          }),
+          await greetAsSession(instance.stateDir, {
+            sid: JOIN_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.joinTranscriptPath,
+            title: "頁をまたぐ呼びと答え",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-sonnet-5",
+          }),
+          await greetAsSession(instance.stateDir, {
+            sid: BULK_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.bulkTranscriptPath,
+            title: "長い transcript",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-sonnet-5",
           }),
           await greetAsSession(instance.stateDir, {
             sid: TAIL_SID,

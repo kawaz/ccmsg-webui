@@ -12,6 +12,26 @@ import { join } from "node:path";
 
 export const SID = "11111111-2222-4333-8444-555555555555";
 export const OTHER_SID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+/** 呼び出しと答えが頁の境をまたぐ transcript。これも fixture が先に書く —
+ * 境界の位置は行の数で決まるので、test が書き足して instance の取り込みを待つ
+ * 形にすると、境界がどこに落ちたかまで取り込みの速さに乗ってしまう。 */
+export const JOIN_SID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+/** 答えの後ろに積む行。頁 (200) の 2 つ分に 1 行足りない数にすると、答えは
+ * 遡り読みの頁の先頭に、呼び出しはその 1 つ手前の頁の末尾に落ちる。 */
+export const JOIN_AFTER = 399;
+/** その呼び出しを名指す鍵と、答えが持っている文。 */
+export const JOIN_KEY = "toolu_join_01";
+export const JOIN_SAID = "頁をまたいで結んだ結果です。";
+
+/** 頁をまたいで遡る test が読むセッション。
+ *
+ * 長さは fixture が**先に**書く (daemon が起動して読む前に file がある)。test が
+ * 走ってから 500 行を書き足す形だと、見ているのは「遡れるか」ではなく「instance
+ * が書き足しの束をどれだけ速く取り込むか」になり、遅い機械では取り込みが追い
+ * つかないまま assert に着く。追記が届くことは `TAIL_SID` の側が見る。 */
+export const BULK_SID = "99999999-aaaa-4bbb-8ccc-dddddddddddd";
+/** 頁 (200) をまたぐ長さ。3 頁目で先頭まで届く。 */
+export const BULK_ITEMS = 500;
 /** 追記が届くことを見る test が読むセッション。誰も書き足さない小さな
  * transcript を持つ — 数で確かめるものなので、他の test が同じ file を伸ばすと
  * 起点が動く。 */
@@ -321,6 +341,10 @@ export interface Fixture {
   readonly statusTranscriptPath: string;
   /** 追記を見る test が読む方 (TAIL_SID)。 */
   readonly tailTranscriptPath: string;
+  /** 頁をまたいで遡る test が読む方 (BULK_SID)。 */
+  readonly bulkTranscriptPath: string;
+  /** 呼び出しと答えが頁の境をまたぐ方 (JOIN_SID)。 */
+  readonly joinTranscriptPath: string;
   /** 狭い画面の基準が読む方 (OTHER_SID)。 */
   readonly phoneTranscriptPath: string;
 }
@@ -331,6 +355,33 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(project, { recursive: true });
   const transcriptPath = join(project, `${SID}.jsonl`);
   writeFileSync(transcriptPath, transcript());
+  const joinTranscriptPath = join(project, `${JOIN_SID}.jsonl`);
+  writeFileSync(
+    joinTranscriptPath,
+    [
+      user("道具を 1 つ呼んで。"),
+      assistant([{ type: "tool_use", id: JOIN_KEY, name: "Bash", input: { command: "echo 鍵" } }]),
+      line({
+        type: "user",
+        timestamp: AT,
+        message: { role: "user", content: [{ type: "tool_result", tool_use_id: JOIN_KEY }] },
+        toolUseResult: { stdout: JOIN_SAID },
+      }),
+      ...Array.from({ length: JOIN_AFTER }, (_unused, n) =>
+        assistant([{ type: "text", text: `join after ${String(n)}` }]),
+      ),
+    ].join(""),
+  );
+  const bulkTranscriptPath = join(project, `${BULK_SID}.jsonl`);
+  writeFileSync(
+    bulkTranscriptPath,
+    [
+      user("長い transcript を遡りたい。"),
+      ...Array.from({ length: BULK_ITEMS }, (_unused, n) =>
+        assistant([{ type: "text", text: `bulk ${String(n)}` }]),
+      ),
+    ].join(""),
+  );
   const tailTranscriptPath = join(project, `${TAIL_SID}.jsonl`);
   writeFileSync(
     tailTranscriptPath,
@@ -350,5 +401,12 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(join(cwd, "src"), { recursive: true });
   writeFileSync(join(cwd, "src", "topic-fold.ts"), CODE);
   writeFileSync(join(cwd, "NOTES.md"), NOTES);
-  return { transcriptPath, phoneTranscriptPath, statusTranscriptPath, tailTranscriptPath };
+  return {
+    transcriptPath,
+    phoneTranscriptPath,
+    statusTranscriptPath,
+    tailTranscriptPath,
+    bulkTranscriptPath,
+    joinTranscriptPath,
+  };
 }

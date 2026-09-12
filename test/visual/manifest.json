@@ -34,17 +34,17 @@
       "linux": "1361d348733f5284dd40f490b644ea2dd205e8e95cc83115893a7a8ae882e5be"
     },
     "session-search": {
-      "darwin": "7168c5cd2852f38f302301a2c18253b3b35f2a7fa9df814f7aa589875288fbb8"
+      "darwin": "04c37e81aae910ed08de5a29810984c4a608d74560d68de099dcbbb2e0522283"
     },
     "session-status": {
       "darwin": "17a8459e4ef6c35eef97d294fce2b37bd08dca8e4309b1aade93cc5f0a94e2ec"
     },
     "sessions": {
-      "darwin": "35ab65454027ca2a10fb5cf60beba98f0705dc0c9e40ccf701021613650f2d26",
+      "darwin": "1eb332c84a91da1f9ffc2c62651887786f981769dd649b7d23990d71162dd1f0",
       "linux": "b067e03f69a599f904c29186d185aec3185c4d7197f36ed570e97d9e6ae0041b"
     },
     "sessions-cache-ring": {
-      "darwin": "3cec3754e79803ec49c5d1b8b36f7f64221738ea6903d975b70c186e15bb4421",
+      "darwin": "e7edb7169319062de59571f7adbf8589d0cca5c2e18fb2461a187c81e944fdf9",
       "linux": "ddacdac3e609fbc004295411dc34f8635268d3bc92be0fdd3b6c7a922836813d"
     },
     "sign-in": {
