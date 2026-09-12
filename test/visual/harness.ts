@@ -288,6 +288,9 @@ export async function shot(
       // 走っているものの経過時間。走っている限り増え続けるので、絵にすると
       // 撮った瞬間が写る。
       page.locator(".status-item .meta"),
+      // 探して見つけた行が持つ **file の更新時刻**。走らせた時刻そのものなので、
+      // 同じ理由で覆う (id と大きさは動かないが、同じ帯に並んでいる)。
+      page.locator(".hit .meta"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });
