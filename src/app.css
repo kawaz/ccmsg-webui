@@ -2104,3 +2104,30 @@ select {
   overflow-wrap: anywhere;
   color: var(--muted);
 }
+
+/* 行の上の操作。既にある行の語彙 (button と meta) をそのまま使い、形は足さない。 */
+.row-pin {
+  padding: 2px 6px;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.row-pin[aria-pressed="true"] {
+  color: var(--waiting);
+}
+
+.row-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.row-rename {
+  flex: 1 1 12em;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}

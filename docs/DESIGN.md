@@ -169,6 +169,26 @@ a tenth of Japanese characters the paragraph counts as Japanese. "Skip anything
 with one Japanese character in it" would leave a whole paragraph of English
 thinking untranslated because someone was quoted in it.
 
+## What a row can do (a prototype)
+
+Three things are added to a row in the list, and nothing else: no new screen and
+no new shape, since this is a prototype meant to be used and then kept or
+dropped.
+
+- **Pinning** is this browser's own memory (localStorage) and is never sent to
+  the instance: which session someone is following is theirs, and no reason to
+  move the list of everyone else watching the same instance. A pinned row comes
+  first whatever the chosen order
+- **Renaming** turns the name into a field in place. The instance types the
+  session's own rename command into its terminal, so success means the
+  keystrokes arrived, not that the name changed — the new name arrives later on
+  the `agents` topic. It is not offered by an instance with no terminal in front
+  of it (the `terminal` capability)
+- **Ending** takes two presses. The first asks politely, and the forceful one is
+  offered **only when that did not work**: it costs the session its chance to
+  flush its transcript, so the screen never chooses it — the contract defines
+  `force` that way and a person decides
+
 ## Spend is a record of days, folded into the span being read
 
 What the gateway holds is **per day**, and the screen folds that into days,

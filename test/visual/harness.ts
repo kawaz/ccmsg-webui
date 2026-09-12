@@ -320,13 +320,16 @@ export async function shot(
       page.locator(".status-item .meta"),
       // 探して見つけた行が持つ **file の更新時刻**。走らせた時刻そのものなので、
       // 同じ理由で覆う (id と大きさは動かないが、同じ帯に並んでいる)。
-      page.locator(".hit .meta"),
+      // 畳んである間も箱は残る (閉じた `details` の中身は隠れているだけ) ので、
+      // **開いている時だけ**覆う — 閉じたままの入口を覆うと、その裏の行まで
+      // 塗り潰してしまう。
+      page.locator(".search-sessions[open] .hit .meta"),
       // 費用の行が持つ**束の名前** (日付)。走らせた日そのものなので、絵にすると
       // 翌日には合わなくなる (棒の高さは何日前かで決まるので動かない)。
       page.locator(".spend-row .usage-key"),
       // 起動の画面が出す **host の絶対パス**。使い捨ての場所は OS で綴りが違う
       // (macOS の temp と Linux の temp)、`.host` と同じ理由で覆う。
-      page.locator(".launch-cwd"),
+      page.locator(".launcher[open] .launch-cwd"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });

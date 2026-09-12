@@ -31,9 +31,19 @@ function byInstant(a: number | undefined, b: number | undefined): number {
   return b - a;
 }
 
-export function sortPeers(peers: readonly PeerInfo[], key: SortKey): readonly PeerInfo[] {
+/** 並び。**留めた行が先**で、その中では選ばれた並びのまま。
+ *
+ * 留めるのは「今これを追いかけている」という人の側の印なので、instance が言う
+ * どの順よりも先に効く。 */
+export function sortPeers(
+  peers: readonly PeerInfo[],
+  key: SortKey,
+  pinned: ReadonlySet<string> = new Set(),
+): readonly PeerInfo[] {
   const rows = [...peers];
   rows.sort((a, b) => {
+    const held = Number(pinned.has(b.sid)) - Number(pinned.has(a.sid));
+    if (held !== 0) return held;
     switch (key) {
       case "user_input":
         return byInstant(a.last_user_input_at, b.last_user_input_at) || a.sid.localeCompare(b.sid);

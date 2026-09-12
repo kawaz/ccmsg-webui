@@ -1,4 +1,4 @@
-import { computed } from "@preact/signals";
+import { computed, useSignal } from "@preact/signals";
 import type { InstanceInfo, PeerInfo, SessionState, Sid } from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
 import { CacheRing } from "./CacheRing.tsx";
@@ -22,9 +22,14 @@ import {
   forgetLostSession,
   heldMessages,
   instances,
+  can,
+  killSession,
   llmRequests,
   navigate,
   peers,
+  pinned,
+  renameSession,
+  togglePinned,
   sessionErrors,
   setSortKey,
   sortKey,
@@ -67,6 +72,123 @@ function groupTitle(state: SessionState | undefined, count: number): string {
 /** セッション 1 行。どう立っているかは instance が言う `state` で、行に付いて
  * いる時刻はその立ち方の内訳 — 失われた行なら最後に見えた時、終了と言って
  * 去った行ならそう言った時。 */
+/** 行の上でできること。**増やすのは行の中だけ**で、新しい画面も新しい形も
+ * 作らない (試作なので、要る/要らないは使ってから決める)。
+ *
+ * - 留める: このブラウザの覚え。並びの先頭に来る
+ * - 改名: 名前がその場で入力欄になる。instance は端末に打鍵を送るだけなので、
+ *   変わった名前は後から topic で届く
+ * - 終了: 2 度押し。1 度目は普通に頼み、消えなかった時だけ強い方を出す —
+ *   強い方は transcript を書き切る機会ごと奪うので、人が決める (契約) */
+function RowActions({ peer }: { peer: PeerInfo }) {
+  const renaming = useSignal(false);
+  const draft = useSignal("");
+  const asked = useSignal<"none" | "sure" | "force">("none");
+  const problem = useSignal<string | undefined>(undefined);
+  const held = pinned.value.has(peer.sid);
+
+  const rename = (): void => {
+    const title = draft.value.trim();
+    renaming.value = false;
+    if (title === "") return;
+    renameSession(peer.sid, title).catch((cause: unknown) => {
+      problem.value = String(cause);
+    });
+  };
+
+  const kill = (force: boolean): void => {
+    killSession(peer.sid, force)
+      .then((said) => {
+        // 消えなかったのは失敗ではなく、次に何を選ぶかの材料 (契約)。
+        asked.value = said.terminated ? "none" : "force";
+      })
+      .catch((cause: unknown) => {
+        asked.value = "none";
+        problem.value = String(cause);
+      });
+  };
+
+  if (renaming.value) {
+    return (
+      <input
+        class="row-rename"
+        type="text"
+        autoFocus
+        value={draft.value}
+        aria-label="新しい名前"
+        onInput={(event) => {
+          draft.value = event.currentTarget.value;
+        }}
+        onKeyDown={(event: KeyboardEvent) => {
+          if (event.key === "Enter") rename();
+          if (event.key === "Escape") renaming.value = false;
+        }}
+        onBlur={rename}
+      />
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        class="row-pin"
+        aria-pressed={held}
+        title={held ? "留めるのをやめる" : "一覧の先頭に留める"}
+        onClick={() => {
+          togglePinned(peer.sid);
+        }}
+      >
+        {held ? "★" : "☆"}
+      </button>
+      {can("terminal") && (
+        <button
+          type="button"
+          onClick={() => {
+            draft.value = sessionLabel(peer);
+            renaming.value = true;
+          }}
+        >
+          改名
+        </button>
+      )}
+      {asked.value === "none" && (
+        <button
+          type="button"
+          onClick={() => {
+            asked.value = "sure";
+          }}
+        >
+          終了
+        </button>
+      )}
+      {asked.value === "sure" && (
+        <button
+          type="button"
+          class="row-danger"
+          onClick={() => {
+            kill(false);
+          }}
+        >
+          本当に終了
+        </button>
+      )}
+      {asked.value === "force" && (
+        <button
+          type="button"
+          class="row-danger"
+          title="普通に頼んでも消えなかった。強い方は transcript を書き切る機会を奪う"
+          onClick={() => {
+            kill(true);
+          }}
+        >
+          消えない — 強制終了
+        </button>
+      )}
+      {problem.value !== undefined && <span class="meta">{problem.value}</span>}
+    </>
+  );
+}
+
 function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
   const failure = sessionErrors.value.get(peer.sid);
   const at = peer.stopped_at ?? peer.last_seen_at;
@@ -105,6 +227,7 @@ function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
         </span>
       )}
       <TerminalLink sid={peer.sid} />
+      <RowActions peer={peer} />
       {at !== undefined && <span class="meta">{when(at)}</span>}
       <span class="meta mono">{peer.instance}</span>
       {isLost(peer.state) && (

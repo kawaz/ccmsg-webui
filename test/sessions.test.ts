@@ -140,3 +140,20 @@ describe("what a row is called", () => {
     expect(sessionLabel({ sid })).toBe(sid);
   });
 });
+
+describe("留めた行", () => {
+  const rows: PeerInfo[] = [
+    peer("1111", { last_user_input_at: 300 }),
+    peer("2222", { last_user_input_at: 200 }),
+    peer("3333", { last_user_input_at: 100 }),
+  ];
+
+  test("留めた行が先に来て、その中では選んだ並びのまま", () => {
+    const said = sortPeers(rows, "user_input", new Set(["3333", "2222"]));
+    expect(said.map((row) => row.sid)).toEqual(["2222", "3333", "1111"]);
+  });
+
+  test("留めていなければ、並びは選んだ通り", () => {
+    expect(sortPeers(rows, "user_input").map((row) => row.sid)).toEqual(["1111", "2222", "3333"]);
+  });
+});

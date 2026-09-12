@@ -25,6 +25,8 @@ import type {
   LlmStatsReadResult,
   LauncherRunArgs,
   LauncherRunResult,
+  SessionKillResult,
+  SessionRenameResult,
   SessionSearchArgs,
   SessionSearchResult,
   SessionStatusSnapshot,
@@ -109,6 +111,10 @@ type LlmStatusData = Static<typeof LlmStatusFrame>["data"];
 type LlmRequestsData = Static<typeof LlmRequestsFrame>["data"];
 
 const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
+/** 留めたセッション。**このブラウザの覚え**で、instance には送らない — 「今
+ * 追いかけている仕事」は人ごとに違い、同じ instance を見ている他の人の一覧を
+ * 動かす理由が無い。 */
+const PINNED_STORAGE = "ccmsg.sessions.pinned";
 
 /** The topics this build stands on: what the session list is made of, plus the
  * one topic that is about the person rather than about a session — a
@@ -165,7 +171,7 @@ export const sortKey = signal<SortKey>(loadSortKey());
 export const route = signal<Route>(locationRoute());
 
 export const peers = computed<readonly PeerInfo[]>(() =>
-  sortPeers(rows(peerSlots.value), sortKey.value),
+  sortPeers(rows(peerSlots.value), sortKey.value, pinned.value),
 );
 export const agents = computed<readonly AgentInfo[]>(() =>
   sortAgents(rows(agentSlots.value), rows(peerSlots.value)),
@@ -821,6 +827,48 @@ effect(() => {
     void renewConnection();
   }, wait);
 });
+
+/** 留めてあるセッション。並びの先頭に来て、印が付く。 */
+export const pinned = signal<ReadonlySet<Sid>>(loadPinned());
+
+function loadPinned(): ReadonlySet<Sid> {
+  const held = localStore.get(PINNED_STORAGE);
+  if (held === undefined) return new Set();
+  try {
+    const read: unknown = JSON.parse(held);
+    return new Set(
+      Array.isArray(read) ? (read.filter((one) => typeof one === "string") as Sid[]) : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function togglePinned(sid: Sid): void {
+  const next = new Set(pinned.value);
+  if (!next.delete(sid)) next.add(sid);
+  pinned.value = next;
+  localStore.set(PINNED_STORAGE, JSON.stringify([...next]));
+}
+
+/** セッションを終わらせる。`force` は**人が 1 度普通に頼んでから**選ぶもので、
+ * 画面が自分で選ぶことはない (契約): 強い方は transcript を書き切る機会ごと
+ * 奪うので、待った上で人が決める。 */
+export async function killSession(sid: Sid, force = false): Promise<SessionKillResult> {
+  const reply = await connection.request("session.kill", {
+    sid,
+    ...(force ? { force: true } : {}),
+  });
+  return reply as unknown as SessionKillResult;
+}
+
+/** 名前を変える。instance は端末にそのセッション自身の改名コマンドを打つので、
+ * 成功は「打鍵が届いた」であって「名前が変わった」ではない — 変わった名前は
+ * 後から `agents` topic で届く (契約)。 */
+export async function renameSession(sid: Sid, title: string): Promise<SessionRenameResult> {
+  const reply = await connection.request("session.rename", { sid, title });
+  return reply as unknown as SessionRenameResult;
+}
 
 export function setSortKey(key: SortKey): void {
   sortKey.value = key;
