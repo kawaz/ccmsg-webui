@@ -27,6 +27,8 @@ kawaz が v1 webui (`~/.local/share/repos/github.com/kawaz/claude-ccmsg/main`) �
 
 ## 背景
 
+方針補正 (kawaz 2026-09-12): 画面 9 件は全て移植が必要なわけではなく候補。移植する場合も v1 のフォームデザインや機能は踏襲不要 (良いデザインとして再設計したいものが多い)。手っ取り早く試作して意見を聞きながら直す進め方でよい。全体のデザインシステムとしてまとまりを出したい (色 + 型 + 部品の語彙、issue `color-system-three-layers` を広げて扱う)。1〜7 は配信済み (v0.7.0〜v0.14.0)、残りは 9 (kill / rename / pinned) → 8 (dump) を試作として最小に。
+
 優先順 (使用頻度 → 実装の軽さ):
 
 1. Usage / クォータ画面 — `llm.usage.read` 実装済み
