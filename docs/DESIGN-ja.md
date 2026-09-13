@@ -534,6 +534,12 @@ vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-v
 
 見た目の比較は本物の上で走る: 使い捨ての config home に **daemon を 1 つ実際に起動**し、dev server を本番の reverse proxy と同じ位置に立たせ、ブラウザは CDP の virtual authenticator で **passkey を本当に登録する**。作り物なのは指だけで、登録も署名も daemon の検証をそのまま通る。セッションは harness を動かす代わりに、session として greeting する接続を書いてある — 本物の Claude Code は pid と時計と誰かの機械のパスを画面に載せるので、そのどれも基準画像にできない。
 
+**基準は面ごとに持つ**。走らせるのは同じ test を 2 度、色の面 (light / dark) だけ
+変えて — 同じ画面でも 2 つは別の絵で、片方しか見ていないと、もう片方だけが壊れて
+いることに気づけない。置き場は `<platform>/<面>/<画面>.png` で、manifest の鍵も
+その 2 段 (`darwin/dark` 等)。platform を分ける理由は下の通りで、色の面は**どちらも
+その platform が描く**ので、片方が無ければその場で失敗になる。
+
 **同じ絵が 2 度描けることが、この比較の前提**。だから使い捨てのはずの path と port が固定してある (`test/visual/instance.ts`): 画面に出る endpoint も instance id もそこから derive されるので、乱数の付いた temp ディレクトリでは毎回違う文字列が写る。instance の id は daemon が作る前に置いてあり、transcript は時刻まで書き下した fixture で、残る 1 箇所 — 接続バーの、期限を数える所 — だけは mask で覆う。
 
 ### 基準画像は別リポにある

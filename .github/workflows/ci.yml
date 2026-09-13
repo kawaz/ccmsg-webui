@@ -95,6 +95,8 @@ jobs:
           CCMSG_CLI: ${{ github.workspace }}/ccmsg/src/cli.ts
           CCMSG_WEBUI_SNAPSHOTS: ${{ github.workspace }}/snapshots
 
+      # `linux/light/` と `linux/dark/` の両方が入る: 色の面ごとに基準があり、
+      # 描くのはどちらもこの runner。
       - uses: actions/upload-artifact@v4
         if: inputs.redraw_baselines == true
         with:

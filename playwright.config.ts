@@ -32,7 +32,10 @@ export default defineConfig({
   // is text. So each platform keeps its own baseline and compares against it —
   // the alternative, one baseline drawn inside a container, buys a single set
   // of images at the price of making `just visual` need docker.
-  snapshotPathTemplate: `${SNAPSHOTS}/{platform}/{arg}{ext}`,
+  // 色の面も基準を分ける: 同じ画面でも light と dark は別の絵で、片方だけ
+  // 見ていると、もう片方だけが壊れていることに気づけない (色の体系はこの 2 面の
+  // 上で決める)。
+  snapshotPathTemplate: `${SNAPSHOTS}/{platform}/{projectName}/{arg}{ext}`,
   expect: {
     toHaveScreenshot: {
       // Antialiasing moves a handful of pixels between runs of the same
@@ -48,10 +51,14 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1,
-    colorScheme: "light",
     locale: "ja-JP",
     timezoneId: "Asia/Tokyo",
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium" }],
+  // 走らせるのは同じ test を 2 度、色の面だけ変えて。project の名前がそのまま
+  // 基準画像の置き場になる (`snapshotPathTemplate`)。
+  projects: [
+    { name: "light", use: { colorScheme: "light" } },
+    { name: "dark", use: { colorScheme: "dark" } },
+  ],
 });

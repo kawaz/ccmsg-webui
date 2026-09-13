@@ -33,9 +33,12 @@ function snapshotsDir(): string {
 interface Manifest {
   /** The build whose drawing these images are of. */
   readonly webui_version: string;
-  /** Screen name → platform → digest. Per platform because a baseline belongs
-   * to the platform that drew it: the same page on a mac and on a CI runner is
-   * a different image everywhere there is text. */
+  /** Screen name → `<platform>/<scheme>` → digest.
+   *
+   * Per platform because a baseline belongs to the platform that drew it: the
+   * same page on a mac and on a CI runner is a different image everywhere there
+   * is text. Per colour scheme because light and dark are two drawings of the
+   * same screen, and holding only one leaves the other free to break unseen. */
   readonly screens: Record<string, Record<string, string>>;
 }
 
@@ -43,17 +46,34 @@ function digest(file: string): string {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
+/** `<platform>/<scheme>` の面。manifest の鍵で、置き場の相対パスでもある。 */
+function faceOf(platform: string, scheme: string): string {
+  return `${platform}/${scheme}`;
+}
+
+/** この run が描く面か。無い file を責めるのは自分の platform の分だけで、
+ * 色の面は両方ともこの platform が描く。 */
+function ours(face: string): boolean {
+  return face.startsWith(`${process.platform}/`);
+}
+
 /** Every image in the snapshots checkout, as the manifest spells them. */
 function drawn(dir: string): Map<string, Map<string, string>> {
   const screens = new Map<string, Map<string, string>>();
   for (const platform of readdirSync(dir, { withFileTypes: true })) {
     if (!platform.isDirectory() || platform.name.startsWith(".")) continue;
-    for (const image of readdirSync(join(dir, platform.name))) {
-      if (!image.endsWith(".png")) continue;
-      const name = image.slice(0, -".png".length);
-      const per = screens.get(name) ?? new Map<string, string>();
-      per.set(platform.name, digest(join(dir, platform.name, image)));
-      screens.set(name, per);
+    for (const scheme of readdirSync(join(dir, platform.name), { withFileTypes: true })) {
+      if (!scheme.isDirectory() || scheme.name.startsWith(".")) continue;
+      for (const image of readdirSync(join(dir, platform.name, scheme.name))) {
+        if (!image.endsWith(".png")) continue;
+        const name = image.slice(0, -".png".length);
+        const per = screens.get(name) ?? new Map<string, string>();
+        per.set(
+          faceOf(platform.name, scheme.name),
+          digest(join(dir, platform.name, scheme.name, image)),
+        );
+        screens.set(name, per);
+      }
     }
   }
   return screens;
@@ -75,29 +95,30 @@ function write(): void {
 
 /** Answer whether the images beside this checkout are the ones it names.
  *
- * Every platform's digest is checked where the file is there, so a checkout
- * carrying both platforms' baselines has both checked from either. A file that
- * is missing is a failure only for the platform this run is on: the other
- * platform's baseline is drawn where that platform is. */
+ * Every face's digest is checked where the file is there, so a checkout carrying
+ * both platforms' baselines has both checked from either. A file that is
+ * missing is a failure only for the platform this run is on: the other
+ * platform's baselines are drawn where that platform is. Both colour faces are
+ * this platform's, so a missing one of those is a failure here. */
 function verify(): number {
   const manifest = read();
   const dir = snapshotsDir();
   const complaints: string[] = [];
   for (const [name, per] of Object.entries(manifest.screens)) {
-    for (const [platform, said] of Object.entries(per)) {
-      const file = join(dir, platform, `${name}.png`);
+    for (const [face, said] of Object.entries(per)) {
+      const file = join(dir, face, `${name}.png`);
       if (!existsSync(file)) {
-        if (platform === process.platform) complaints.push(`${platform}/${name}.png がありません`);
+        if (ours(face)) complaints.push(`${face}/${name}.png がありません`);
         continue;
       }
       const found = digest(file);
       if (found !== said) {
-        complaints.push(`${platform}/${name}.png の sha256 が manifest と違います (${found})`);
+        complaints.push(`${face}/${name}.png の sha256 が manifest と違います (${found})`);
       }
     }
   }
   for (const [name, per] of drawn(dir)) {
-    if (!per.has(process.platform)) continue;
+    if (![...per.keys()].some((face) => ours(face))) continue;
     if (manifest.screens[name] === undefined) complaints.push(`${name} が manifest にありません`);
   }
   if (complaints.length > 0) {

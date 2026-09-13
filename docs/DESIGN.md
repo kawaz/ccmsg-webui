@@ -593,6 +593,14 @@ vite with esbuild's automatic JSX (`jsxImportSource: preact`). `@preact/preset-v
 
 It runs against the real thing: **one daemon is actually started** against a disposable config home, the dev server stands where a reverse proxy stands in a real deployment, and the browser **really registers a passkey** through a CDP virtual authenticator. Only the finger is simulated — the registration and every signature go through the daemon's own verification. Sessions are connections that greet as sessions rather than a running harness: a real Claude Code puts a pid, a clock and somebody's own paths on screen, and none of those can be a baseline.
 
+**A baseline per face.** The same tests run twice, differing only in the colour
+scheme (light and dark): one screen is two drawings, and holding only one leaves
+the other free to break unseen. The images live at
+`<platform>/<face>/<screen>.png` and the manifest's key is that pair
+(`darwin/dark`). Platforms are separated for the reason below; both colour faces
+are drawn by **the same** platform, so a missing one of those fails where it is
+missing.
+
 **The whole comparison rests on the same picture being drawable twice**, which is why the disposable paths and ports are fixed (`test/visual/instance.ts`): the endpoint and the instance id on screen are derived from them, and a temp directory with a random suffix would write a different string every run. The instance's id is laid down before the daemon can make one, the transcript is a fixture with its instants written out, and the one place left — the stretch of the connection bar counting down to an expiry — is masked.
 
 ### The baselines live in another repository
