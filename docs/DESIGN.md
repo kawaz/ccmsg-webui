@@ -82,6 +82,29 @@ A `<details>` inside a flex layout has a trap in it. The browser puts an open el
 
 It shows up only after scrolling back, because what pushes (a table, a code block) is in an earlier page — not because of anything the window computes. So the baseline is drawn **on a narrow screen after scrolling back** (`test/visual/phone.visual.ts`), and it measures, beside the picture, that no element is wider than the window: a broken layout is indistinguishable from an intended one in a picture, while the name of the element that overflowed says who broke it.
 
+## Colour is a vocabulary, and a part writes only the names
+
+The only colours a part's CSS may write are **the semantic names in `app.css`'s
+`:root`** (`--bg`, `--surface`, `--border`, `--fg`, `--brand-*`, `--info-*`,
+`--success-*`, `--warning-*`, `--danger-*`, `--tag-*`). No raw hex, no mixes, no
+translucent one-offs — a colour that is not in the vocabulary is added to the
+vocabulary first (and if it cannot be, it is something to express by other means
+than colour).
+
+A step is **one role**. `--surface` is what a part stands on, `--surface-hover`
+is while a finger is on it, `--border-strong` says a thing can be pressed. The
+same role takes the same shape of name in every colour, so "neutral here, danger
+just here" is written by swapping the name.
+
+Speakers are not given colours: who said something is what the name beside it
+says, and colour is left to say what kind of thing it is. Colours that exist
+only to be told apart (search bands, spend series) come from an independent
+family (`--tag-*`) rather than borrowed from the meanings — borrowed, a green
+series reads as "healthy".
+
+How the whole thing is decided (inputs, steps, computation, checks) is in
+`docs/design/color-system.md`.
+
 ## The parts, and what each of them holds
 
 So that changing one thing means touching one place, every layer states what it
