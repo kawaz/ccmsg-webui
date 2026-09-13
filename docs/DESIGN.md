@@ -102,8 +102,19 @@ only to be told apart (search bands, spend series) come from an independent
 family (`--tag-*`) rather than borrowed from the meanings — borrowed, a green
 series reads as "healthy".
 
-How the whole thing is decided (inputs, steps, computation, checks) is in
-`docs/design/color-system.md`.
+The values are **computed from inputs**. What a person picks is only the layer-0
+block in `app.css` (the brand colour, the neutral and semantic hues, the
+identification family's spacing); the twelve steps fall out of it through CSS's
+relative colour syntax — no colour is computed in JavaScript. Light and dark are
+the same table with a different row of lightnesses.
+
+Being readable is **held inside the step table**: text meets 4.5 and a line meant
+to be read as a boundary meets 3.0, and the check for that is
+`test/color-contrast.test.ts`, which reads `app.css` and works it out (the ratio
+cannot be written as a CSS expression).
+
+How the whole thing is decided (inputs, steps, computation, checks, browser
+support) is in `docs/design/color-system.md`.
 
 ## The parts, and what each of them holds
 
