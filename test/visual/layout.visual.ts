@@ -50,6 +50,18 @@ test("境目を動かすと一覧の幅が変わり、その instance に覚え�
 
   await page.reload();
   expect(await width()).toBe(after);
+
+  // 動かした幅はこのブラウザに残る。この頁は後の test と同じ browser context を
+  // 使うので、残したままだと**この後に撮る絵ぜんぶが「広げた一覧」で撮られる**
+  // — 基準がその幅を焼き込み、その file だけを単体で走らせると既定の幅で描かれて
+  // 一致しなくなる。覚えたことを確かめたら、覚えを消して既定に戻す。
+  await page.evaluate(() => {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("ccmsg.layout.sessions-split:")) localStorage.removeItem(key);
+    }
+  });
+  await page.reload();
+  expect(await width()).toBe(before);
 });
 
 test("狭い画面では並べず、選ぶと本文へ滑る", async ({ phone: page, instance }) => {

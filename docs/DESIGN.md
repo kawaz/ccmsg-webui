@@ -648,6 +648,8 @@ missing.
 
 **The whole comparison rests on the same picture being drawable twice**, which is why the disposable paths and ports are fixed (`test/visual/instance.ts`): the endpoint and the instance id on screen are derived from them, and a temp directory with a random suffix would write a different string every run. The instance's id is laid down before the daemon can make one, the transcript is a fixture with its instants written out, and the one place left — the stretch of the connection bar counting down to an expiry — is masked.
 
+**A screen is drawn with the preferences at their defaults.** A test that moves one that is kept in `localStorage` — the width of the list, say — **puts it back** once it has checked that it was remembered: the browser context is shared with the tests that follow, so a preference left behind is baked into every baseline drawn after it, and the baselines then depend on what ran before them (running that file on its own no longer matches).
+
 ### The baselines live in another repository
 
 The images are in `kawaz/ccmsg-webui-snapshots`; what this repository keeps is their digests (`test/visual/manifest.json`). A baseline's worth is its history — the same screen, version after version — and that is too heavy for everyone who clones the source to carry. What the manifest answers is whether the baselines being compared against are the ones this version accepted; a screen that actually changed fails at the comparison itself, with a diff image.

@@ -575,6 +575,8 @@ vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-v
 
 **同じ絵が 2 度描けることが、この比較の前提**。だから使い捨てのはずの path と port が固定してある (`test/visual/instance.ts`): 画面に出る endpoint も instance id もそこから derive されるので、乱数の付いた temp ディレクトリでは毎回違う文字列が写る。instance の id は daemon が作る前に置いてあり、transcript は時刻まで書き下した fixture で、残る 1 箇所 — 接続バーの、期限を数える所 — だけは mask で覆う。
 
+**画面は既定の好みで描く。** 一覧の幅のように localStorage に残る好みを動かす test は、確かめ終わったら**消して既定に戻す** — 同じ browser context を後の test が使うので、残すと「その後に撮った絵ぜんぶ」がその好みで焼き込まれ、基準画像が走った順番に依存する (その file だけを単体で走らせると一致しなくなる)。
+
 ### 基準画像は別リポにある
 
 画像は `kawaz/ccmsg-webui-snapshots` にあり、この repo が持つのは digest だけ (`test/visual/manifest.json`)。基準画像の価値はその履歴 — 同じ画面の、version ごとの並び — で、それは source を clone する全員が払うには重い。manifest が答えるのは「今比べている基準画像は、この version が受け入れたものか」で、画面が変わったこと自体は比較の側が diff 画像付きで落ちる。
