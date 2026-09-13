@@ -82,6 +82,28 @@ A `<details>` inside a flex layout has a trap in it. The browser puts an open el
 
 It shows up only after scrolling back, because what pushes (a table, a code block) is in an earlier page — not because of anything the window computes. So the baseline is drawn **on a narrow screen after scrolling back** (`test/visual/phone.visual.ts`), and it measures, beside the picture, that no element is wider than the window: a broken layout is indistinguishable from an intended one in a picture, while the name of the element that overflowed says who broke it.
 
+## The parts, and what each of them holds
+
+So that changing one thing means touching one place, every layer states what it
+**holds** and what it does not. When it is unclear where something belongs, ask
+which layer would have to change if it changed.
+
+| Part | Holds | Does not hold |
+|---|---|---|
+| `App` | which form the page takes (registering / signing in / nothing heard yet / the app) | arrangement, screens, reading |
+| `Shell` | the arrangement: the bar, the notices that cover everything, the two panes | which screen, what is read |
+| `ConnectionBar` | the connection's state, and the ways in (the list, usage) | what is in the list or the body |
+| `Panes` (inside `Shell`) | where the two panes sit, the remembered divider, the narrow-screen slide | what is inside them |
+| `Splitter` | grabbing, arrow keys, reading and writing the remembered width | what the two sides mean (its label and key are given to it) |
+| `SessionList` | the sessions and what a row can do | the screens, the layout |
+| `Main` | **URL to screen** | what a screen reads, the layout |
+| each screen (`Timeline`, `Files`, `Status`, `Usage`, `TerminalPanel`) | what it reads (topics, ops) and how it draws it | where it has been placed |
+
+Colours come from **the existing tokens only** (`--accent`, `--live`,
+`--waiting`, `--danger`, `--muted`, `--border`, `--surface`, `--bg`, `--text`).
+A part that adds a value of its own leaves one exception per part to sort out
+when the colour system is settled.
+
 ## The list and the body sit side by side, except where they cannot
 
 The page is the bar along the top (the connection and the ways in) and two panes
