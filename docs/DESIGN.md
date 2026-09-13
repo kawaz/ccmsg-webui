@@ -82,6 +82,33 @@ A `<details>` inside a flex layout has a trap in it. The browser puts an open el
 
 It shows up only after scrolling back, because what pushes (a table, a code block) is in an earlier page — not because of anything the window computes. So the baseline is drawn **on a narrow screen after scrolling back** (`test/visual/phone.visual.ts`), and it measures, beside the picture, that no element is wider than the window: a broken layout is indistinguishable from an intended one in a picture, while the name of the element that overflowed says who broke it.
 
+## The list and the body sit side by side, except where they cannot
+
+The page is the bar along the top (the connection and the ways in) and two panes
+below it: the list on the left, whatever the URL names on the right, and a
+divider that can be dragged (`src/ui/Splitter.tsx` — the same part the file tree
+and file body use; only the label and the key it remembers differ).
+
+**The body has no maximum width.** A wide desk reads wide and a small device
+reads narrow: capping it would be a claim about the right width to read at, and
+that is the reader's to make.
+
+On a narrow screen they are **not** side by side. The two stay in a row and the
+row slides to whichever is being read (90ms — the shortest slide that still
+shows which way it went). Which one that is comes from the **URL**: the list
+while the list is what is named, the body otherwise, so no second piece of state
+has to agree with it. While they are not side by side, the one not being read
+**does not set the page's height** — a pane merely standing next door has no
+business adding blank space below.
+
+The bar's 一覧 means different things at different widths: fold or unfold the
+left pane where they are side by side, and go back to the list where they are
+not. **Which of the two is the CSS's to say** (the width threshold lives in one
+place and is read at the moment of the press). Whether it is folded and where
+the divider sits are remembered in localStorage — the first is this browser's
+preference, the second is per instance, since how much room one wants depends on
+who is being read.
+
 ## There are three disconnections, and they do three different things
 
 Every row on screen is **something the instance is saying now**, so what a
