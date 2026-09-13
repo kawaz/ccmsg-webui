@@ -186,7 +186,10 @@ export async function nothingOverflows(page: Page): Promise<void> {
     // the point of putting one there. What has to fit is the scroller itself.
     const scrolls = (one: Element): boolean => {
       const how = getComputedStyle(one).overflowX;
-      return how === "auto" || how === "scroll";
+      // 切っている箱も同じ扱い: 中がどれだけ広くても、窓の外へは出ない。
+      // 狭い画面の 2 ペインは「並んだまま横へ滑る」形なので、並びの幅は
+      // 窓の 2 倍あるが、見えるのは常に 1 枚ぶん。
+      return how === "auto" || how === "scroll" || how === "clip" || how === "hidden";
     };
     const inside = (one: Element): boolean => {
       for (let at = one.parentElement; at !== null; at = at.parentElement) {
@@ -314,8 +317,8 @@ export async function shot(
   await fontsReady(page);
   await expect(page).toHaveScreenshot(name, {
     mask: [
-      page.locator(".bar .meta"),
-      page.locator(".bar .footer"),
+      page.locator(".app-bar .meta"),
+      page.locator(".app-bar .footer"),
       page.locator(".host"),
       // 走っているものの経過時間。走っている限り増え続けるので、絵にすると
       // 撮った瞬間が写る。
