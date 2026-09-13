@@ -164,8 +164,8 @@
       "linux/light": "8fbcf55edaadfc3fd3e5272c949c1f0ccebb23cd76511dbac0ca62da35f8a5e1"
     },
     "usage": {
-      "darwin/dark": "718e4a96c48704c84d60b750e7e2bfd40487764e217b88041748483819d35592",
-      "darwin/light": "7355b3245d81624cc4f1f5268d5d48a985b08d0c13702e9b7788b98fcbe5e380",
+      "darwin/dark": "4838a2655b333f70a334de6f20591b520c0044c032113f8031962adc75fa0975",
+      "darwin/light": "f76371b978df22474f372e2972aff17fbf145daabc5600605c8b96f938ad8a8d",
       "linux/dark": "f26a482a9b7789a42bf603bb045fc6c8687e01e2b15f36444d1ee6b9deb2559b",
       "linux/light": "bb6c50fc463e4ba8f39754cefd0649feb8d65b3e51637a20ea8d994009d9a56c"
     },
@@ -176,8 +176,8 @@
       "linux/light": "12247a6381ae107e1691554bc0f400d20763ce7245fd6bb38b72a46432ce83df"
     },
     "usage-spend": {
-      "darwin/dark": "718e4a96c48704c84d60b750e7e2bfd40487764e217b88041748483819d35592",
-      "darwin/light": "7355b3245d81624cc4f1f5268d5d48a985b08d0c13702e9b7788b98fcbe5e380",
+      "darwin/dark": "4838a2655b333f70a334de6f20591b520c0044c032113f8031962adc75fa0975",
+      "darwin/light": "f76371b978df22474f372e2972aff17fbf145daabc5600605c8b96f938ad8a8d",
       "linux/dark": "f26a482a9b7789a42bf603bb045fc6c8687e01e2b15f36444d1ee6b9deb2559b",
       "linux/light": "bb6c50fc463e4ba8f39754cefd0649feb8d65b3e51637a20ea8d994009d9a56c"
     }

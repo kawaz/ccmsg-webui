@@ -1,15 +1,70 @@
 :root {
   color-scheme: light dark;
 
-  --bg: #fbfaf8;
-  --surface: #ffffff;
-  --border: #e3e0da;
-  --text: #24211d;
-  --muted: #6f6a62;
-  --accent: #3a5f8a;
-  --live: #3f7d52;
-  --waiting: #a8721f;
-  --danger: #a3402f;
+  /* 層 2: 部品が書いてよい名前は**ここにあるものだけ**。段は役割と 1 対 1 で、
+     同じ役割は色が違っても同じ名前の形を取る (`--danger-fill` は「危険の塗り」)。
+     値は段 1 の段階では直に置き、段 2 で入力から算出する形に差し替える。 */
+
+  /* 中立 12 段: 地 → 文字へ単調に離れていく。 */
+  --bg: oklch(1 0 0);
+  --bg-subtle: oklch(0.985 0.002 250);
+  --surface: oklch(0.967 0.003 250);
+  --surface-hover: oklch(0.943 0.004 250);
+  --surface-active: oklch(0.917 0.005 250);
+  --border-subtle: oklch(0.883 0.006 250);
+  --border: oklch(0.836 0.007 250);
+  --border-strong: oklch(0.755 0.008 250);
+  --fill: oklch(0.556 0.012 250);
+  --fill-hover: oklch(0.497 0.013 250);
+  --fg-muted: oklch(0.523 0.012 250);
+  --fg: oklch(0.271 0.011 250);
+
+  /* 塗りの上に乗る文字。塗りは段 9 で、そこに乗せて読めるのは地の側。 */
+  --on-fill: oklch(1 0 0);
+
+  /* brand: 押せるもの・選ばれているもの・この画面の主語。 */
+  --brand-surface: oklch(0.932 0.033 253);
+  --brand-border: oklch(0.742 0.077 253);
+  --brand-fill: oklch(0.512 0.128 253);
+  --brand-fg: oklch(0.452 0.113 253);
+
+  /* 意味色 4 つ。役割は中立と同じ番号で、色だけが違う。 */
+  --info-surface: oklch(0.936 0.032 236);
+  --info-border: oklch(0.748 0.079 236);
+  --info-fill: oklch(0.545 0.126 236);
+  --info-fg: oklch(0.472 0.109 236);
+
+  --success-surface: oklch(0.936 0.036 152);
+  --success-border: oklch(0.75 0.081 152);
+  --success-fill: oklch(0.536 0.107 152);
+  --success-fg: oklch(0.462 0.092 152);
+
+  --warning-surface: oklch(0.945 0.05 76);
+  --warning-border: oklch(0.79 0.105 76);
+  --warning-fill: oklch(0.64 0.126 76);
+  --warning-fg: oklch(0.5 0.098 76);
+
+  --danger-surface: oklch(0.938 0.038 30);
+  --danger-border: oklch(0.762 0.098 30);
+  --danger-fill: oklch(0.564 0.164 30);
+  --danger-fg: oklch(0.492 0.145 30);
+
+  /* 識別のための族。意味を持たない「見分けが付けばよい」色で、色相だけを
+     動かして増やす — 意味色から借りると、緑の系列が「正常」に見える。 */
+  --tag-h0: 86;
+  --tag-step: 58;
+  --tag-l: 0.91;
+  --tag-c: 0.075;
+  --tag-0: oklch(var(--tag-l) var(--tag-c) var(--tag-h0));
+  --tag-1: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 1 * var(--tag-step)));
+  --tag-2: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 2 * var(--tag-step)));
+  --tag-3: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 3 * var(--tag-step)));
+  --tag-4: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 4 * var(--tag-step)));
+  --tag-5: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 5 * var(--tag-step)));
+  /* 識別の帯の上に乗る文字。帯は明るい段なので、両方の面で暗い文字が乗る。 */
+  --on-tag: oklch(0.271 0.011 250);
+
+  --shadow: oklch(0.271 0.011 250 / 18%);
 
   --radius: 6px;
   --gap: 12px;
@@ -17,15 +72,53 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #17161a;
-    --surface: #1f1e23;
-    --border: #34323a;
-    --text: #e6e3dd;
-    --muted: #97928c;
-    --accent: #8fb5e0;
-    --live: #7fc094;
-    --waiting: #d9ad5e;
-    --danger: #e08b7c;
+    color-scheme: dark;
+
+    --bg: oklch(0.178 0.006 275);
+    --bg-subtle: oklch(0.208 0.007 275);
+    --surface: oklch(0.238 0.008 275);
+    --surface-hover: oklch(0.272 0.009 275);
+    --surface-active: oklch(0.306 0.01 275);
+    --border-subtle: oklch(0.35 0.011 275);
+    --border: oklch(0.398 0.012 275);
+    --border-strong: oklch(0.474 0.013 275);
+    --fill: oklch(0.62 0.015 275);
+    --fill-hover: oklch(0.678 0.014 275);
+    --fg-muted: oklch(0.714 0.013 275);
+    --fg: oklch(0.925 0.006 275);
+
+    --on-fill: oklch(0.178 0.006 275);
+
+    --brand-surface: oklch(0.305 0.043 253);
+    --brand-border: oklch(0.46 0.081 253);
+    --brand-fill: oklch(0.66 0.104 253);
+    --brand-fg: oklch(0.776 0.082 253);
+
+    --info-surface: oklch(0.305 0.042 236);
+    --info-border: oklch(0.462 0.08 236);
+    --info-fill: oklch(0.672 0.103 236);
+    --info-fg: oklch(0.783 0.079 236);
+
+    --success-surface: oklch(0.303 0.04 152);
+    --success-border: oklch(0.454 0.073 152);
+    --success-fill: oklch(0.673 0.099 152);
+    --success-fg: oklch(0.79 0.077 152);
+
+    --warning-surface: oklch(0.313 0.045 76);
+    --warning-border: oklch(0.474 0.079 76);
+    --warning-fill: oklch(0.729 0.121 76);
+    --warning-fg: oklch(0.83 0.09 76);
+
+    --danger-surface: oklch(0.313 0.049 30);
+    --danger-border: oklch(0.474 0.096 30);
+    --danger-fill: oklch(0.657 0.15 30);
+    --danger-fg: oklch(0.79 0.099 30);
+
+    --tag-l: 0.75;
+    --tag-c: 0.085;
+    --on-tag: oklch(0.178 0.006 275);
+
+    --shadow: oklch(0.05 0.006 275 / 45%);
   }
 }
 
@@ -36,7 +129,7 @@
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   font:
     14px/1.5 ui-sans-serif,
     system-ui,
@@ -79,7 +172,7 @@ code,
   flex: 1 1 220px;
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 button {
@@ -87,13 +180,13 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
   cursor: pointer;
 }
 
 button:hover {
-  border-color: var(--accent);
+  border-color: var(--brand-fg);
 }
 
 select {
@@ -101,7 +194,7 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
 }
 
@@ -109,23 +202,23 @@ select {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--fg-muted);
   flex: none;
 }
 
 .dot.open {
-  background: var(--live);
+  background: var(--success-fg);
 }
 
 .dot.closed {
-  background: var(--danger);
+  background: var(--danger-fg);
 }
 
 .banner {
   padding: 10px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--danger-fg);
   border-radius: var(--radius);
-  color: var(--danger);
+  color: var(--danger-fg);
   background: var(--surface);
 }
 
@@ -134,7 +227,7 @@ select {
   font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .rows {
@@ -182,7 +275,7 @@ select {
 }
 
 .row .meta {
-  color: var(--muted);
+  color: var(--fg-muted);
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -211,13 +304,13 @@ select {
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--fg-muted);
   text-decoration: none;
 }
 
 .terminal-link:hover {
-  color: var(--text);
-  border-color: var(--accent);
+  color: var(--fg);
+  border-color: var(--brand-fg);
 }
 
 .state {
@@ -226,30 +319,30 @@ select {
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .state.live {
-  color: var(--live);
-  border-color: var(--live);
+  color: var(--success-fg);
+  border-color: var(--success-fg);
 }
 
 .state.waiting {
-  color: var(--waiting);
-  border-color: var(--waiting);
+  color: var(--warning-fg);
+  border-color: var(--warning-fg);
 }
 
 .error {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 .empty {
   padding: 10px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .footer {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -320,7 +413,7 @@ select {
    (`.generic`) — そこが「元の行を見ないと分からない」所だから。 */
 .tl-raw > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 11px;
   opacity: 0.25;
   width: fit-content;
@@ -351,17 +444,17 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .tl-line.user .tl-who {
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .tl-line.broken .tl-who {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 .tl-body {
@@ -376,7 +469,7 @@ select {
 
 .tl-note {
   margin: 0 0 6px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -389,7 +482,7 @@ select {
 
 .tl-tool-name {
   flex: none;
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .tl-tool-detail {
@@ -397,7 +490,7 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .tl-fold,
@@ -411,7 +504,7 @@ select {
 .tl-fold > summary,
 .tl-aside > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -442,7 +535,7 @@ select {
 
 .tl-display > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -454,8 +547,8 @@ select {
 }
 
 .tl-display-tabs button[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--brand-fg);
+  color: var(--brand-fg);
 }
 
 /* worker へ降りる入口。行の中身ではなく行から出る道なので、道具の 1 行とは
@@ -464,12 +557,12 @@ select {
   display: inline-block;
   margin: 2px 0 4px;
   font-size: 12px;
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .tl-display-note {
   margin: 6px 0;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -487,7 +580,7 @@ select {
 }
 
 .tl-display-table thead th {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 /* 継いでいる値は薄く。ただし薄さだけだと**外れている**印同士が見分けられない
@@ -497,7 +590,7 @@ select {
 }
 
 .tl-display-table input:not(.inherited) {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand-fg);
   outline-offset: 1px;
 }
 
@@ -559,7 +652,7 @@ select {
   margin: 0 0 8px;
   padding: 2px 0 2px 10px;
   border-left: 3px solid var(--border);
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .md hr {
@@ -569,13 +662,13 @@ select {
 }
 
 .md a {
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .md-inline-code {
   padding: 1px 4px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--border) 45%, transparent);
+  background: var(--surface-active);
 }
 
 /* Raw HTML is shown as the characters it is made of, never parsed — the
@@ -632,7 +725,7 @@ select {
 }
 
 .md-table-scroll th {
-  background: color-mix(in srgb, var(--border) 30%, transparent);
+  background: var(--surface-hover);
   font-weight: 600;
 }
 
@@ -645,7 +738,7 @@ select {
 
 .md-details > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .md-task-item {
@@ -669,7 +762,7 @@ select {
   margin: 0 0 8px;
   padding: 2px 0 2px 10px;
   border-left: 3px solid var(--border);
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 /* --- 会話 (人 ↔ セッション) --- */
@@ -682,14 +775,14 @@ select {
   gap: 8px;
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--brand-fg);
   border-radius: var(--radius);
   background: var(--surface);
 }
 
 .toast-who {
   flex: none;
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .toast-text {
@@ -698,7 +791,9 @@ select {
   overflow-wrap: anywhere;
 }
 
-/* 会話の 2 方向を色で分ける: 届いたものと、このセッションが返したもの。
+/* 会話の吹き出し。**話者で色を変えない** — 誰が言ったかは名乗りが言っていて、
+ * 色で言い直す必要が無い。色が言うのは型の違い (確定した行か、まだ transcript に
+ * 追いついていない知らせか) だけ。
  *
  * 名乗りは本文の**上**に置く。横に並べると本文の左に名乗りの幅だけ余白が立ち、
  * 狭い画面では読む所が窓の半分になる。縦に積めば本文は吹き出しの左端から始まり、
@@ -733,7 +828,7 @@ select {
   width: 10px;
   font-size: 9px;
   line-height: 1.6;
-  color: var(--muted);
+  color: var(--fg-muted);
   opacity: 0.7;
 }
 
@@ -742,22 +837,14 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
-}
-
-.tl-bubble.incoming {
-  border-left-color: var(--accent);
-}
-
-.tl-bubble.reply {
-  border-left-color: var(--live);
 }
 
 /* 通知の吹き出しは transcript が追いつくまでの仮の姿なので、確定した行と
  * 同じ重さで置かない。 */
 .tl-bubble.notice {
-  border-left-color: var(--waiting);
+  border-left-color: var(--warning-border);
   border-style: dashed;
   border-width: 0 0 0 3px;
 }
@@ -783,14 +870,14 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
   resize: vertical;
 }
 
 .composer > textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--brand-fg);
 }
 
 .composer-foot {
@@ -800,7 +887,7 @@ select {
 }
 
 .composer-outcome {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .composer-closed {
@@ -808,7 +895,7 @@ select {
   padding: 8px 10px;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 /* ---- タブ ---- */
@@ -825,19 +912,19 @@ select {
   border: 1px solid transparent;
   border-bottom: none;
   border-radius: var(--radius) var(--radius) 0 0;
-  color: var(--muted);
+  color: var(--fg-muted);
   text-decoration: none;
 }
 
 .tabs a:hover {
-  color: var(--text);
+  color: var(--fg);
 }
 
 .tabs a.on {
   border-color: var(--border);
   margin-bottom: -1px;
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
 }
 
 /* ---- Markdown の見出しセクション ---- */
@@ -866,7 +953,7 @@ select {
   padding: 0;
   border: none;
   background: none;
-  color: var(--muted);
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
@@ -879,7 +966,7 @@ select {
 }
 
 .md-sec-caret:hover {
-  color: var(--text);
+  color: var(--fg);
 }
 
 .md-sec-menu {
@@ -894,20 +981,20 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
 .md-sec-menu button {
   padding: 4px 8px;
   border: none;
   background: none;
-  color: var(--text);
+  color: var(--fg);
   text-align: left;
   cursor: pointer;
 }
 
 .md-sec-menu button:hover {
-  background: color-mix(in srgb, var(--border) 40%, transparent);
+  background: var(--surface-hover);
 }
 
 .md-sec-body {
@@ -928,7 +1015,7 @@ select {
 }
 
 .md-sec-guide:hover {
-  border-right-color: var(--accent);
+  border-right-color: var(--brand-fg);
 }
 
 .md-sec-content {
@@ -951,7 +1038,7 @@ select {
 }
 
 .md-toc > summary {
-  color: var(--muted);
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
@@ -969,16 +1056,16 @@ select {
   display: flex;
   gap: 6px;
   padding: 1px 0;
-  color: var(--text);
+  color: var(--fg);
   text-decoration: none;
 }
 
 .md-toc a:hover {
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .md-toc-number {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -988,7 +1075,7 @@ select {
 
 /* transcript や文書の中から、このセッションのファイルを開くリンク */
 .md-path-link {
-  color: var(--accent);
+  color: var(--brand-fg);
   text-decoration-style: dotted;
 }
 
@@ -1034,7 +1121,7 @@ select {
 
 .files-split:hover::after,
 .files-split:focus-visible::after {
-  background: var(--accent);
+  background: var(--brand-fg);
 }
 
 .files-split:focus-visible {
@@ -1043,7 +1130,7 @@ select {
 
 .files-section {
   margin: 8px 8px 2px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1057,7 +1144,7 @@ select {
   padding: 2px 8px 2px calc(6px + var(--files-depth, 0) * 12px);
   border: none;
   background: none;
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
   text-align: left;
   text-decoration: none;
@@ -1065,17 +1152,17 @@ select {
 }
 
 .files-row:hover {
-  background: color-mix(in srgb, var(--border) 35%, transparent);
+  background: var(--surface-hover);
 }
 
 .files-row-on {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent);
+  background: var(--brand-surface);
+  color: var(--brand-fg);
 }
 
 .files-caret {
   flex: 0 0 10px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 10px;
 }
 
@@ -1083,7 +1170,7 @@ select {
   flex: 0 0 14px;
   width: 14px;
   height: 14px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .files-name {
@@ -1095,12 +1182,12 @@ select {
 .files-note {
   margin: 2px 0;
   padding-left: calc(20px + var(--files-depth, 0) * 12px);
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
 .files-note.error {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 .files-viewer {
@@ -1124,7 +1211,7 @@ select {
 }
 
 .viewer-meta {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -1141,8 +1228,8 @@ select {
 }
 
 .viewer-modes button.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--brand-fg);
+  color: var(--brand-fg);
 }
 
 .viewer-scroll {
@@ -1170,13 +1257,13 @@ select {
 }
 
 .viewer-line-on {
-  background: color-mix(in srgb, var(--waiting) 22%, transparent);
+  background: var(--warning-surface);
 }
 
 .viewer-lineno {
   flex: 0 0 auto;
   min-width: 3.5ch;
-  color: var(--muted);
+  color: var(--fg-muted);
   text-align: right;
   user-select: none;
 }
@@ -1231,7 +1318,7 @@ select {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
   resize: vertical;
 }
@@ -1248,12 +1335,12 @@ select {
 }
 
 .search-count {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .search-bad {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 .search-hl {
@@ -1263,41 +1350,38 @@ select {
 
 .search-hl[data-search-color="0"],
 .search-chip[data-search-color="0"] {
-  background: #ffe08a;
+  background: var(--tag-0);
 }
 
 .search-hl[data-search-color="1"],
 .search-chip[data-search-color="1"] {
-  background: #a8e6c1;
+  background: var(--tag-1);
 }
 
 .search-hl[data-search-color="2"],
 .search-chip[data-search-color="2"] {
-  background: #b7d4f5;
+  background: var(--tag-2);
 }
 
 .search-hl[data-search-color="3"],
 .search-chip[data-search-color="3"] {
-  background: #f5c2d6;
+  background: var(--tag-3);
 }
 
 .search-hl[data-search-color="4"],
 .search-chip[data-search-color="4"] {
-  background: #d8c4f0;
+  background: var(--tag-4);
 }
 
 .search-hl[data-search-color="5"],
 .search-chip[data-search-color="5"] {
-  background: #f7c9a3;
+  background: var(--tag-5);
 }
 
-/* 暗い側では同じ色相を暗く敷き、文字は地の色のままにする (明るい背景に
- * 明るい文字が乗ると読めなくなるため)。 */
-@media (prefers-color-scheme: dark) {
-  .search-hl,
-  .search-chip {
-    color: #17161a;
-  }
+/* 帯の上の文字。帯は識別の族の明るい段なので、どちらの面でも暗い側の色が乗る。 */
+.search-hl,
+.search-chip {
+  color: var(--on-tag);
 }
 
 /* この画面から送って、まだ渡っていない 1 通たち。届いていない事実そのものは
@@ -1307,7 +1391,7 @@ select {
   margin: 0 0 var(--gap);
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--waiting);
+  border-left: 3px solid var(--warning-fg);
   border-radius: 4px;
   background: var(--surface);
   font-size: 13px;
@@ -1315,7 +1399,7 @@ select {
 
 .held-head {
   margin: 0 0 4px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -1327,7 +1411,7 @@ select {
 }
 
 .held-who {
-  color: var(--muted);
+  color: var(--fg-muted);
   white-space: nowrap;
 }
 
@@ -1337,14 +1421,14 @@ select {
 }
 
 .held-why {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
 .held-badge {
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--waiting);
+  background: var(--warning-fg);
   color: var(--bg);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1363,7 +1447,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -1372,7 +1456,7 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
 }
 
@@ -1384,7 +1468,7 @@ select {
 }
 
 .auth-claims dt {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -1428,7 +1512,7 @@ select {
 
 /* 接続バーの入口。上流に問題がある時だけ色が付く。 */
 .usage-link {
-  color: var(--muted);
+  color: var(--fg-muted);
   text-decoration: none;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -1440,13 +1524,13 @@ select {
 }
 
 .usage-link.tone-warn {
-  color: var(--waiting);
-  border-color: var(--waiting);
+  color: var(--warning-fg);
+  border-color: var(--warning-fg);
 }
 
 .usage-link.tone-bad {
-  color: var(--danger);
-  border-color: var(--danger);
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
 }
 
 .usage-block {
@@ -1480,7 +1564,7 @@ select {
 }
 
 .usage-kind {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-weight: normal;
   font-size: 12px;
 }
@@ -1524,7 +1608,7 @@ select {
 }
 
 .usage-key {
-  color: var(--muted);
+  color: var(--fg-muted);
   overflow-wrap: anywhere;
 }
 
@@ -1542,15 +1626,15 @@ select {
 
 .usage-bar-used {
   height: 100%;
-  background: var(--live);
+  background: var(--success-fg);
 }
 
 .usage-bar.tone-warn .usage-bar-used {
-  background: var(--waiting);
+  background: var(--warning-fg);
 }
 
 .usage-bar.tone-bad .usage-bar-used {
-  background: var(--danger);
+  background: var(--danger-fg);
 }
 
 .usage-bar-elapsed {
@@ -1558,7 +1642,7 @@ select {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--text);
+  background: var(--fg);
   opacity: 0.55;
 }
 
@@ -1567,16 +1651,16 @@ select {
 }
 
 .usage-used.tone-warn {
-  color: var(--waiting);
+  color: var(--warning-fg);
 }
 
 .usage-used.tone-bad {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 .usage-left,
 .usage-note {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .usage-auth {
@@ -1589,11 +1673,11 @@ select {
 }
 
 .usage-auth.tone-warn {
-  color: var(--waiting);
+  color: var(--warning-fg);
 }
 
 .usage-auth.tone-bad {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 /* 上流のサービス 1 行。provider 自身の言い分 (official) と、この gateway が
@@ -1609,22 +1693,22 @@ select {
 }
 
 .status-mark.tone-ok {
-  color: var(--live);
+  color: var(--success-fg);
 }
 
 .status-mark.tone-warn,
 .status-severity.tone-warn {
-  color: var(--waiting);
+  color: var(--warning-fg);
 }
 
 .status-mark.tone-bad,
 .status-severity.tone-bad {
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 
 .status-mark.tone-unknown,
 .status-severity.tone-unknown {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .status-name {
@@ -1643,7 +1727,7 @@ select {
   flex: 1 1 100%;
   margin: 2px 0 0;
   padding-left: 1.2em;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .status-incidents li {
@@ -1717,7 +1801,7 @@ select {
 
 .cache-ring-shape {
   fill: none;
-  stroke: var(--live);
+  stroke: var(--success-fg);
   stroke-width: 2;
   /* 周長を 1 に正規化してあるので、残りの割合がそのまま見えている弧になる。 */
   stroke-dasharray: var(--cache-ring-progress) 1;
@@ -1725,7 +1809,7 @@ select {
 
 /* 合図が建て直している分。減っているものが別なので色を分ける。 */
 .cache-ring-extended .cache-ring-shape {
-  stroke: var(--waiting);
+  stroke: var(--warning-fg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1745,10 +1829,10 @@ select {
   gap: 8px;
   margin: 0;
   padding: 6px 10px;
-  border: 1px solid var(--waiting);
+  border: 1px solid var(--warning-fg);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--waiting) 12%, var(--surface));
-  color: var(--waiting);
+  background: var(--warning-surface);
+  color: var(--warning-fg);
 }
 
 /* 訳がまだ全部は届いていない、と言う 1 行。段落ごとに届くので、出ている本文は
@@ -1756,7 +1840,7 @@ select {
 .tl-translating {
   display: block;
   margin: 0 0 4px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 11px;
 }
 
@@ -1767,7 +1851,7 @@ select {
   margin: 0 0 2px 8px;
   padding: 0 5px;
   border-color: transparent;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 11px;
   line-height: 1.6;
   opacity: 0.45;
@@ -1812,16 +1896,16 @@ select {
 .status-state {
   flex: none;
   min-width: 5.5em;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .status-item.state-on .status-state {
-  color: var(--live);
+  color: var(--success-fg);
 }
 
 .status-kind {
   flex: none;
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .status-subject {
@@ -1836,7 +1920,7 @@ select {
    取りに行く時だけなので、既定では 1 行しか場所を取らない。 */
 .search-sessions > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 13px;
 }
 
@@ -1853,7 +1937,7 @@ select {
   flex-direction: column;
   gap: 2px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .search-form input[type="search"],
@@ -1862,7 +1946,7 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
   font-size: 13px;
 }
@@ -1877,7 +1961,7 @@ select {
   flex-wrap: wrap;
   gap: 10px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .search-toggles label {
@@ -1920,12 +2004,12 @@ select {
 .hit-role {
   flex: none;
   width: 5em;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 11px;
 }
 
 .hit-role.role-user {
-  color: var(--accent);
+  color: var(--brand-fg);
 }
 
 .hit-text {
@@ -1938,7 +2022,7 @@ select {
 
 .launcher > summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: 13px;
 }
 
@@ -1954,7 +2038,7 @@ select {
   flex-direction: column;
   gap: 2px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .launch-form input[type="text"],
@@ -1964,7 +2048,7 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
   font-size: 13px;
 }
@@ -1989,8 +2073,8 @@ select {
 }
 
 .launch-roots button.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--brand-fg);
+  color: var(--brand-fg);
 }
 
 .launch-command > span {
@@ -2015,7 +2099,7 @@ select {
 }
 
 .launch-err {
-  border-color: var(--danger);
+  border-color: var(--danger-fg);
 }
 
 /* --- 費用 --- */
@@ -2032,8 +2116,8 @@ select {
 }
 
 .usage-periods button.on {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--brand-fg);
+  color: var(--brand-fg);
 }
 
 /* 棒は横幅いっぱいに伸び、高さはその画面のいちばん高い束を基準にする
@@ -2045,42 +2129,43 @@ select {
   margin: 4px 0;
 }
 
-/* model ごとの色。数が増えたら先頭へ戻る — 6 色で見分けが付かない画面は、
-   色を増やしても読めない。 */
+/* 系列の色は**識別の族**から取る。意味色を借りると、緑の系列が「正常」に
+   見えてしまう — ここで要るのは見分けが付くことだけ。色相だけを動かして
+   増やせるので、系列が増えても値を選ぶ必要が無い。 */
 .spend-part.tone-0,
 .spend-swatch.tone-0 {
-  fill: var(--accent);
-  background: var(--accent);
+  fill: var(--tag-0);
+  background: var(--tag-0);
 }
 
 .spend-part.tone-1,
 .spend-swatch.tone-1 {
-  fill: var(--live);
-  background: var(--live);
+  fill: var(--tag-1);
+  background: var(--tag-1);
 }
 
 .spend-part.tone-2,
 .spend-swatch.tone-2 {
-  fill: var(--waiting);
-  background: var(--waiting);
+  fill: var(--tag-2);
+  background: var(--tag-2);
 }
 
 .spend-part.tone-3,
 .spend-swatch.tone-3 {
-  fill: var(--danger);
-  background: var(--danger);
+  fill: var(--tag-3);
+  background: var(--tag-3);
 }
 
 .spend-part.tone-4,
 .spend-swatch.tone-4 {
-  fill: var(--muted);
-  background: var(--muted);
+  fill: var(--tag-4);
+  background: var(--tag-4);
 }
 
 .spend-part.tone-5,
 .spend-swatch.tone-5 {
-  fill: var(--text);
-  background: var(--text);
+  fill: var(--tag-5);
+  background: var(--tag-5);
 }
 
 .spend-legend {
@@ -2089,7 +2174,7 @@ select {
   gap: 10px;
   margin: 0 0 6px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .spend-legend span {
@@ -2111,33 +2196,33 @@ select {
 .spend-models {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 /* 行の上の操作。既にある行の語彙 (button と meta) をそのまま使い、形は足さない。 */
 .row-pin {
   padding: 2px 6px;
   border-color: transparent;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .row-pin[aria-pressed="true"] {
-  color: var(--waiting);
+  color: var(--warning-fg);
 }
 
 .row-danger {
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
 }
 
 .row-rename {
   flex: 1 1 12em;
   min-width: 0;
   padding: 4px 8px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--brand-fg);
   border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
   font: inherit;
 }
 
@@ -2207,7 +2292,7 @@ select {
 }
 
 .panes-split:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand-fg);
   outline-offset: -2px;
 }
 

@@ -898,8 +898,6 @@ function MessageView({ item }: { item: TranscriptItem }) {
   const pathLinker = useContext(PathLinkerContext);
   const words = useContext(SearchWordsContext);
   const prose = itemProse(item);
-  // 会話の 2 方向を色で分ける: 届いたものと、このセッションが出したもの。
-  const way = item.type.endsWith(":in") ? "incoming" : "reply";
   const key = messageFoldKey(item.id);
   // 要約は閉じている間だけ出す。開いた本文の上に同じ文を残すと、探す所も読み
   // 上げる所も同じ文を 2 度数える。
@@ -909,7 +907,7 @@ function MessageView({ item }: { item: TranscriptItem }) {
   );
   return (
     <Fold
-      class={`tl-bubble ${way}`}
+      class="tl-bubble"
       folds={timelineFolds.value}
       foldKey={key}
       fallback={resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open}
