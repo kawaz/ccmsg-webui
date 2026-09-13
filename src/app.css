@@ -1,59 +1,58 @@
 :root {
   color-scheme: light dark;
 
-  /* 層 2: 部品が書いてよい名前は**ここにあるものだけ**。段は役割と 1 対 1 で、
-     同じ役割は色が違っても同じ名前の形を取る (`--danger-fill` は「危険の塗り」)。
-     値は段 1 の段階では直に置き、段 2 で入力から算出する形に差し替える。 */
+  /* 層 2: 部品が書いてよい色の名前は**ここにあるものだけ**。段は役割と 1 対 1 で、
+     同じ役割は色が違っても同じ形の名前を取る (`--danger-fill` は「危険の塗り」)。
+     値は段表 (`docs/design/color-system.md` §4.2) から素直に置いてある — 段 2 で
+     入力からの算出に差し替わるので、ここにある数そのものは設計の主題ではない。 */
 
-  /* 中立 12 段: 地 → 文字へ単調に離れていく。 */
-  --bg: oklch(1 0 0);
+  /* 中立 12 段: 段の番号が役割で、L は段表 (§4.2) のまま。 */
+  --bg: oklch(1 0 250);
   --bg-subtle: oklch(0.985 0.002 250);
-  --surface: oklch(0.967 0.003 250);
-  --surface-hover: oklch(0.943 0.004 250);
-  --surface-active: oklch(0.917 0.005 250);
-  --border-subtle: oklch(0.883 0.006 250);
-  --border: oklch(0.836 0.007 250);
-  --border-strong: oklch(0.755 0.008 250);
-  --fill: oklch(0.556 0.012 250);
-  --fill-hover: oklch(0.497 0.013 250);
-  --fg-muted: oklch(0.523 0.012 250);
-  --fg: oklch(0.271 0.011 250);
+  --surface: oklch(0.967 0.002 250);
+  --surface-hover: oklch(0.943 0.003 250);
+  --surface-active: oklch(0.917 0.004 250);
+  --border-subtle: oklch(0.883 0.005 250);
+  --border: oklch(0.836 0.006 250);
+  --border-strong: oklch(0.755 0.006 250);
+  --fill: oklch(0.556 0.008 250);
+  --fill-hover: oklch(0.497 0.008 250);
+  --fg-muted: oklch(0.523 0.007 250);
+  --fg: oklch(0.271 0.003 250);
 
-  /* 塗りの上に乗る文字。塗りは段 9 で、そこに乗せて読めるのは地の側。 */
-  --on-fill: oklch(1 0 0);
+  /* 塗りの上に乗る文字。塗りは段 9 なので、乗せて読めるのは地の側。 */
+  --on-fill: oklch(1 0 250);
 
-  /* brand: 押せるもの・選ばれているもの・この画面の主語。 */
-  --brand-surface: oklch(0.932 0.033 253);
-  --brand-border: oklch(0.742 0.077 253);
-  --brand-fill: oklch(0.512 0.128 253);
-  --brand-fg: oklch(0.452 0.113 253);
+  --brand-surface: oklch(0.917 0.065 253);
+  --brand-border: oklch(0.755 0.104 253);
+  --brand-fill: oklch(0.556 0.13 253);
+  --brand-fg: oklch(0.523 0.117 253);
 
-  /* 意味色 4 つ。役割は中立と同じ番号で、色だけが違う。 */
-  --info-surface: oklch(0.936 0.032 236);
-  --info-border: oklch(0.748 0.079 236);
-  --info-fill: oklch(0.545 0.126 236);
-  --info-fg: oklch(0.472 0.109 236);
+  --info-surface: oklch(0.917 0.065 236);
+  --info-border: oklch(0.755 0.104 236);
+  --info-fill: oklch(0.556 0.13 236);
+  --info-fg: oklch(0.523 0.117 236);
 
-  --success-surface: oklch(0.936 0.036 152);
-  --success-border: oklch(0.75 0.081 152);
-  --success-fill: oklch(0.536 0.107 152);
-  --success-fg: oklch(0.462 0.092 152);
+  --success-surface: oklch(0.917 0.055 152);
+  --success-border: oklch(0.755 0.088 152);
+  --success-fill: oklch(0.556 0.11 152);
+  --success-fg: oklch(0.523 0.099 152);
 
-  --warning-surface: oklch(0.945 0.05 76);
-  --warning-border: oklch(0.79 0.105 76);
-  --warning-fill: oklch(0.64 0.126 76);
-  --warning-fg: oklch(0.5 0.098 76);
+  --warning-surface: oklch(0.917 0.065 76);
+  --warning-border: oklch(0.755 0.104 76);
+  --warning-fill: oklch(0.556 0.13 76);
+  --warning-fg: oklch(0.523 0.117 76);
 
-  --danger-surface: oklch(0.938 0.038 30);
-  --danger-border: oklch(0.762 0.098 30);
-  --danger-fill: oklch(0.564 0.164 30);
-  --danger-fg: oklch(0.492 0.145 30);
+  --danger-surface: oklch(0.917 0.075 30);
+  --danger-border: oklch(0.755 0.12 30);
+  --danger-fill: oklch(0.556 0.15 30);
+  --danger-fg: oklch(0.523 0.135 30);
 
-  /* 識別のための族。意味を持たない「見分けが付けばよい」色で、色相だけを
-     動かして増やす — 意味色から借りると、緑の系列が「正常」に見える。 */
+  /* 識別のための族。意味を持たない「見分けが付けばよい」色で、目立ち方 (L と C)
+     を先に決め、色相だけを動かして増やす。 */
   --tag-h0: 86;
   --tag-step: 58;
-  --tag-l: 0.91;
+  --tag-l: 0.917;
   --tag-c: 0.075;
   --tag-0: oklch(var(--tag-l) var(--tag-c) var(--tag-h0));
   --tag-1: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 1 * var(--tag-step)));
@@ -61,10 +60,10 @@
   --tag-3: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 3 * var(--tag-step)));
   --tag-4: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 4 * var(--tag-step)));
   --tag-5: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 5 * var(--tag-step)));
-  /* 識別の帯の上に乗る文字。帯は明るい段なので、両方の面で暗い文字が乗る。 */
-  --on-tag: oklch(0.271 0.011 250);
+  /* 族の明るさは揃っているので、その上に乗る文字は 1 つで足りる。 */
+  --on-tag: oklch(0.271 0.003 250);
 
-  --shadow: oklch(0.271 0.011 250 / 18%);
+  --shadow: oklch(0.271 0.003 250 / 18%);
 
   --radius: 6px;
   --gap: 12px;
@@ -74,51 +73,53 @@
   :root {
     color-scheme: dark;
 
-    --bg: oklch(0.178 0.006 275);
-    --bg-subtle: oklch(0.208 0.007 275);
-    --surface: oklch(0.238 0.008 275);
-    --surface-hover: oklch(0.272 0.009 275);
-    --surface-active: oklch(0.306 0.01 275);
-    --border-subtle: oklch(0.35 0.011 275);
-    --border: oklch(0.398 0.012 275);
-    --border-strong: oklch(0.474 0.013 275);
-    --fill: oklch(0.62 0.015 275);
-    --fill-hover: oklch(0.678 0.014 275);
-    --fg-muted: oklch(0.714 0.013 275);
-    --fg: oklch(0.925 0.006 275);
+    /* 中立 12 段: 段の番号が役割で、L は段表 (§4.2) のまま。 */
+    --bg: oklch(0.178 0 250);
+    --bg-subtle: oklch(0.208 0.002 250);
+    --surface: oklch(0.238 0.002 250);
+    --surface-hover: oklch(0.272 0.003 250);
+    --surface-active: oklch(0.306 0.004 250);
+    --border-subtle: oklch(0.35 0.005 250);
+    --border: oklch(0.398 0.006 250);
+    --border-strong: oklch(0.474 0.006 250);
+    --fill: oklch(0.62 0.008 250);
+    --fill-hover: oklch(0.678 0.008 250);
+    --fg-muted: oklch(0.714 0.007 250);
+    --fg: oklch(0.925 0.003 250);
 
-    --on-fill: oklch(0.178 0.006 275);
+    /* 塗りの上に乗る文字。塗りは段 9 なので、乗せて読めるのは地の側。 */
+    --on-fill: oklch(0.178 0 250);
 
-    --brand-surface: oklch(0.305 0.043 253);
-    --brand-border: oklch(0.46 0.081 253);
-    --brand-fill: oklch(0.66 0.104 253);
-    --brand-fg: oklch(0.776 0.082 253);
+    --brand-surface: oklch(0.306 0.065 253);
+    --brand-border: oklch(0.474 0.104 253);
+    --brand-fill: oklch(0.62 0.13 253);
+    --brand-fg: oklch(0.714 0.117 253);
 
-    --info-surface: oklch(0.305 0.042 236);
-    --info-border: oklch(0.462 0.08 236);
-    --info-fill: oklch(0.672 0.103 236);
-    --info-fg: oklch(0.783 0.079 236);
+    --info-surface: oklch(0.306 0.065 236);
+    --info-border: oklch(0.474 0.104 236);
+    --info-fill: oklch(0.62 0.13 236);
+    --info-fg: oklch(0.714 0.117 236);
 
-    --success-surface: oklch(0.303 0.04 152);
-    --success-border: oklch(0.454 0.073 152);
-    --success-fill: oklch(0.673 0.099 152);
-    --success-fg: oklch(0.79 0.077 152);
+    --success-surface: oklch(0.306 0.055 152);
+    --success-border: oklch(0.474 0.088 152);
+    --success-fill: oklch(0.62 0.11 152);
+    --success-fg: oklch(0.714 0.099 152);
 
-    --warning-surface: oklch(0.313 0.045 76);
-    --warning-border: oklch(0.474 0.079 76);
-    --warning-fill: oklch(0.729 0.121 76);
-    --warning-fg: oklch(0.83 0.09 76);
+    --warning-surface: oklch(0.306 0.065 76);
+    --warning-border: oklch(0.474 0.104 76);
+    --warning-fill: oklch(0.62 0.13 76);
+    --warning-fg: oklch(0.714 0.117 76);
 
-    --danger-surface: oklch(0.313 0.049 30);
-    --danger-border: oklch(0.474 0.096 30);
-    --danger-fill: oklch(0.657 0.15 30);
-    --danger-fg: oklch(0.79 0.099 30);
+    --danger-surface: oklch(0.306 0.075 30);
+    --danger-border: oklch(0.474 0.12 30);
+    --danger-fill: oklch(0.62 0.15 30);
+    --danger-fg: oklch(0.714 0.135 30);
 
-    --tag-l: 0.75;
+    --tag-l: 0.755;
     --tag-c: 0.085;
-    --on-tag: oklch(0.178 0.006 275);
+    --on-tag: oklch(0.178 0.002 250);
 
-    --shadow: oklch(0.05 0.006 275 / 45%);
+    --shadow: oklch(0.05 0.002 250 / 45%);
   }
 }
 

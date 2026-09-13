@@ -1,5 +1,5 @@
 {
-  "webui_version": "0.15.1",
+  "webui_version": "0.16.0",
   "screens": {
     "conversation": {
       "darwin/dark": "87397a01c14ece4b206e417630ec894f82c9b29852435e31b423930d48d4a986",
@@ -166,8 +166,8 @@
     "usage": {
       "darwin/dark": "4838a2655b333f70a334de6f20591b520c0044c032113f8031962adc75fa0975",
       "darwin/light": "f76371b978df22474f372e2972aff17fbf145daabc5600605c8b96f938ad8a8d",
-      "linux/dark": "f26a482a9b7789a42bf603bb045fc6c8687e01e2b15f36444d1ee6b9deb2559b",
-      "linux/light": "bb6c50fc463e4ba8f39754cefd0649feb8d65b3e51637a20ea8d994009d9a56c"
+      "linux/dark": "8b81f3cf6babbb2fb88c1a1284ad58566a54477814ed2cb682d6be7151d3fea9",
+      "linux/light": "b2ab39643139c78de93ced27eaa03e406f2aaacfcfe1c293415c17829841854c"
     },
     "usage-probed": {
       "darwin/dark": "25847ea9d2db6d78d0ab9395f18757196015d9b6a04b2e194e59ec6363594cb6",
@@ -178,8 +178,8 @@
     "usage-spend": {
       "darwin/dark": "4838a2655b333f70a334de6f20591b520c0044c032113f8031962adc75fa0975",
       "darwin/light": "f76371b978df22474f372e2972aff17fbf145daabc5600605c8b96f938ad8a8d",
-      "linux/dark": "f26a482a9b7789a42bf603bb045fc6c8687e01e2b15f36444d1ee6b9deb2559b",
-      "linux/light": "bb6c50fc463e4ba8f39754cefd0649feb8d65b3e51637a20ea8d994009d9a56c"
+      "linux/dark": "8b81f3cf6babbb2fb88c1a1284ad58566a54477814ed2cb682d6be7151d3fea9",
+      "linux/light": "b2ab39643139c78de93ced27eaa03e406f2aaacfcfe1c293415c17829841854c"
     }
   }
 }
