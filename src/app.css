@@ -1,59 +1,104 @@
 :root {
   color-scheme: light dark;
 
-  /* 層 2: 部品が書いてよい色の名前は**ここにあるものだけ**。段は役割と 1 対 1 で、
-     同じ役割は色が違っても同じ形の名前を取る (`--danger-fill` は「危険の塗り」)。
-     値は段表 (`docs/design/color-system.md` §4.2) から素直に置いてある — 段 2 で
-     入力からの算出に差し替わるので、ここにある数そのものは設計の主題ではない。 */
+  /* --- 層 0: 入力 --- */
+  /* 人が選ぶのはここだけ。これ以外の色は全部この下で算出される。 */
 
-  /* 中立 12 段: 段の番号が役割で、L は段表 (§4.2) のまま。 */
-  --bg: oklch(1 0 250);
-  --bg-subtle: oklch(0.985 0.002 250);
-  --surface: oklch(0.967 0.002 250);
-  --surface-hover: oklch(0.943 0.003 250);
-  --surface-active: oklch(0.917 0.004 250);
-  --border-subtle: oklch(0.883 0.005 250);
-  --border: oklch(0.836 0.006 250);
-  --border-strong: oklch(0.755 0.006 250);
-  --fill: oklch(0.556 0.008 250);
-  --fill-hover: oklch(0.497 0.008 250);
-  --fg-muted: oklch(0.523 0.007 250);
-  --fg: oklch(0.271 0.003 250);
-
-  /* 塗りの上に乗る文字。塗りは段 9 なので、乗せて読めるのは地の側。 */
-  --on-fill: oklch(1 0 250);
-
-  --brand-surface: oklch(0.917 0.065 253);
-  --brand-border: oklch(0.755 0.104 253);
-  --brand-fill: oklch(0.556 0.13 253);
-  --brand-fg: oklch(0.523 0.117 253);
-
-  --info-surface: oklch(0.917 0.065 236);
-  --info-border: oklch(0.755 0.104 236);
-  --info-fill: oklch(0.556 0.13 236);
-  --info-fg: oklch(0.523 0.117 236);
-
-  --success-surface: oklch(0.917 0.055 152);
-  --success-border: oklch(0.755 0.088 152);
-  --success-fill: oklch(0.556 0.11 152);
-  --success-fg: oklch(0.523 0.099 152);
-
-  --warning-surface: oklch(0.917 0.065 76);
-  --warning-border: oklch(0.755 0.104 76);
-  --warning-fill: oklch(0.556 0.13 76);
-  --warning-fg: oklch(0.523 0.117 76);
-
-  --danger-surface: oklch(0.917 0.075 30);
-  --danger-border: oklch(0.755 0.12 30);
-  --danger-fill: oklch(0.556 0.15 30);
-  --danger-fg: oklch(0.523 0.135 30);
-
-  /* 識別のための族。意味を持たない「見分けが付けばよい」色で、目立ち方 (L と C)
-     を先に決め、色相だけを動かして増やす。 */
+  /* この画面の主語の色。色として持つのは、カラーピッカーで選べるのが色だから
+     — 段の L は段表が上書きするので、実際に効くのは色相と色味。 */
+  --brand: oklch(0.545 0.13 253);
+  /* 中立に混ぜる色味。0 にすると完全な無彩色になる。 */
+  --neutral-h: 250;
+  --neutral-c: 0.008;
+  /* 意味色 4 つの色相。brand から回して作らない — brand が赤や緑になった瞬間に
+     意味が衝突する。 */
+  --h-info: 236;
+  --h-success: 152;
+  --h-warning: 76;
+  --h-danger: 30;
+  --semantic-c: 0.12;
+  /* 識別の族: 目立ち方 (L と C) を先に決め、色相だけを動かして増やす。 */
   --tag-h0: 86;
   --tag-step: 58;
-  --tag-l: 0.917;
-  --tag-c: 0.075;
+  --tag-l: 0.9;
+  --tag-c: 0.08;
+
+  /* --- 層 1: 段表 --- */
+  /* 段の番号が役割 (1 地 … 12 文字)。L はコントラストの基準から決めてあり
+     (`docs/design/color-system.md` §4.2 / §7)、**light と dark はこの行だけが
+     違う**。C 係数は入力の C に掛かる。 */
+  --l-1: 1;
+  --l-2: 0.985;
+  --l-3: 0.962;
+  --l-4: 0.935;
+  --l-5: 0.905;
+  --l-6: 0.855;
+  --l-7: 0.635;
+  --l-8: 0.56;
+  --l-9: 0.545;
+  --l-10: 0.485;
+  --l-11: 0.525;
+  --l-12: 0.27;
+
+  --c-1: 0;
+  --c-2: 0.2;
+  --c-3: 0.3;
+  --c-4: 0.4;
+  --c-5: 0.5;
+  --c-6: 0.6;
+  --c-7: 0.7;
+  --c-8: 0.8;
+  --c-9: 1;
+  --c-10: 1;
+  --c-11: 0.9;
+  --c-12: 0.35;
+
+  /* --- 層 2: 意味名 --- */
+  /* 部品が書いてよい色の名前は**ここにあるものだけ**。同じ役割は色が違っても
+     同じ形の名前を取る (`--danger-fill` は「危険の塗り」)。 */
+
+  --bg: oklch(var(--l-1) calc(var(--neutral-c) * var(--c-1)) var(--neutral-h));
+  --bg-subtle: oklch(var(--l-2) calc(var(--neutral-c) * var(--c-2)) var(--neutral-h));
+  --surface: oklch(var(--l-3) calc(var(--neutral-c) * var(--c-3)) var(--neutral-h));
+  --surface-hover: oklch(var(--l-4) calc(var(--neutral-c) * var(--c-4)) var(--neutral-h));
+  --surface-active: oklch(var(--l-5) calc(var(--neutral-c) * var(--c-5)) var(--neutral-h));
+  --border-subtle: oklch(var(--l-6) calc(var(--neutral-c) * var(--c-6)) var(--neutral-h));
+  --border: oklch(var(--l-7) calc(var(--neutral-c) * var(--c-7)) var(--neutral-h));
+  --border-strong: oklch(var(--l-8) calc(var(--neutral-c) * var(--c-8)) var(--neutral-h));
+  --fill: oklch(var(--l-9) calc(var(--neutral-c) * var(--c-9)) var(--neutral-h));
+  --fill-hover: oklch(var(--l-10) calc(var(--neutral-c) * var(--c-10)) var(--neutral-h));
+  --fg-muted: oklch(var(--l-11) calc(var(--neutral-c) * var(--c-11)) var(--neutral-h));
+  --fg: oklch(var(--l-12) calc(var(--neutral-c) * var(--c-12)) var(--neutral-h));
+
+  /* 塗りの上に乗る文字は地の側 (段 1)。 */
+  --on-fill: oklch(var(--l-1) 0 var(--neutral-h));
+
+  /* brand だけは色から取る: 段が L を、入力が色相と色味を決める。 */
+  --brand-surface: oklch(from var(--brand) var(--l-5) calc(c * var(--c-5)) h);
+  --brand-border: oklch(from var(--brand) var(--l-8) calc(c * var(--c-8)) h);
+  --brand-fill: oklch(from var(--brand) var(--l-9) calc(c * var(--c-9)) h);
+  --brand-fg: oklch(from var(--brand) var(--l-11) calc(c * var(--c-11)) h);
+
+  --info-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-info));
+  --info-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-info));
+  --info-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-info));
+  --info-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-info));
+
+  --success-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-success));
+  --success-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-success));
+  --success-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-success));
+  --success-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-success));
+
+  --warning-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-warning));
+  --warning-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-warning));
+  --warning-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-warning));
+  --warning-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-warning));
+
+  --danger-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-danger));
+  --danger-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-danger));
+  --danger-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-danger));
+  --danger-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-danger));
+
   --tag-0: oklch(var(--tag-l) var(--tag-c) var(--tag-h0));
   --tag-1: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 1 * var(--tag-step)));
   --tag-2: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 2 * var(--tag-step)));
@@ -61,65 +106,40 @@
   --tag-4: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 4 * var(--tag-step)));
   --tag-5: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 5 * var(--tag-step)));
   /* 族の明るさは揃っているので、その上に乗る文字は 1 つで足りる。 */
-  --on-tag: oklch(0.271 0.003 250);
+  --on-tag: oklch(0.27 0 var(--neutral-h));
 
-  --shadow: oklch(0.271 0.003 250 / 18%);
+  --shadow: oklch(0.27 0 var(--neutral-h) / 18%);
 
   --radius: 6px;
   --gap: 12px;
 }
 
+/* dark は**同じ段表の別の L 行**。色相も C 係数も動かさない — テーマが変わると
+   中立の温度まで変わる、という結び付きを作らない。 */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    /* 中立 12 段: 段の番号が役割で、L は段表 (§4.2) のまま。 */
-    --bg: oklch(0.178 0 250);
-    --bg-subtle: oklch(0.208 0.002 250);
-    --surface: oklch(0.238 0.002 250);
-    --surface-hover: oklch(0.272 0.003 250);
-    --surface-active: oklch(0.306 0.004 250);
-    --border-subtle: oklch(0.35 0.005 250);
-    --border: oklch(0.398 0.006 250);
-    --border-strong: oklch(0.474 0.006 250);
-    --fill: oklch(0.62 0.008 250);
-    --fill-hover: oklch(0.678 0.008 250);
-    --fg-muted: oklch(0.714 0.007 250);
-    --fg: oklch(0.925 0.003 250);
+    --brand: oklch(0.64 0.13 253);
 
-    /* 塗りの上に乗る文字。塗りは段 9 なので、乗せて読めるのは地の側。 */
-    --on-fill: oklch(0.178 0 250);
+    --l-1: 0.178;
+    --l-2: 0.208;
+    --l-3: 0.238;
+    --l-4: 0.272;
+    --l-5: 0.306;
+    --l-6: 0.372;
+    --l-7: 0.545;
+    --l-8: 0.61;
+    --l-9: 0.64;
+    --l-10: 0.7;
+    --l-11: 0.655;
+    --l-12: 0.945;
 
-    --brand-surface: oklch(0.306 0.065 253);
-    --brand-border: oklch(0.474 0.104 253);
-    --brand-fill: oklch(0.62 0.13 253);
-    --brand-fg: oklch(0.714 0.117 253);
-
-    --info-surface: oklch(0.306 0.065 236);
-    --info-border: oklch(0.474 0.104 236);
-    --info-fill: oklch(0.62 0.13 236);
-    --info-fg: oklch(0.714 0.117 236);
-
-    --success-surface: oklch(0.306 0.055 152);
-    --success-border: oklch(0.474 0.088 152);
-    --success-fill: oklch(0.62 0.11 152);
-    --success-fg: oklch(0.714 0.099 152);
-
-    --warning-surface: oklch(0.306 0.065 76);
-    --warning-border: oklch(0.474 0.104 76);
-    --warning-fill: oklch(0.62 0.13 76);
-    --warning-fg: oklch(0.714 0.117 76);
-
-    --danger-surface: oklch(0.306 0.075 30);
-    --danger-border: oklch(0.474 0.12 30);
-    --danger-fill: oklch(0.62 0.15 30);
-    --danger-fg: oklch(0.714 0.135 30);
-
-    --tag-l: 0.755;
+    --tag-l: 0.74;
     --tag-c: 0.085;
-    --on-tag: oklch(0.178 0.002 250);
+    --on-tag: oklch(0.178 0 var(--neutral-h));
 
-    --shadow: oklch(0.05 0.002 250 / 45%);
+    --shadow: oklch(0.05 0 var(--neutral-h) / 45%);
   }
 }
 
