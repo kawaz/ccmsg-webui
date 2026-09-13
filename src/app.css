@@ -54,9 +54,10 @@ code,
     monospace;
 }
 
+/* 画面ぜんぶを使う。読む幅を画面の側で決めない — 広い机では広く読み、狭い端末
+   では狭く読む。上限を置くと、その上限がこの画面の「正しい幅」だという主張に
+   なってしまう。 */
 .app {
-  max-width: 940px;
-  margin: 0 auto;
   padding: var(--gap);
   display: flex;
   flex-direction: column;
@@ -145,10 +146,13 @@ select {
   overflow: hidden;
 }
 
+/* 行は畳んで折り返す。一覧は細いペインにも入るので、名前・印・操作・id を
+   1 行に押し込めなくなったら、押し込まずに次の行へ回す。 */
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 8px 10px;
   border-top: 1px solid var(--border);
   text-align: left;
@@ -167,9 +171,11 @@ select {
   background: var(--bg);
 }
 
+/* 名前は行の主語なので、細い所では**名前が先に幅を取る** (畳まれて 0 幅に
+   なるのは、押せるものが消えるのと同じ)。 */
 .row .name {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 10em;
+  min-width: 6em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -177,7 +183,10 @@ select {
 
 .row .meta {
   color: var(--muted);
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 行を開く操作は名前そのもの。行の中に別のリンク (端末) が並ぶので、行全体を
@@ -2136,4 +2145,113 @@ select {
 .dump-path {
   display: block;
   overflow-wrap: anywhere;
+}
+
+/* --- 一覧と本文の 2 ペイン --- */
+
+/* 広い画面: 左右に並ぶ。潰れた側のはみ出しはここで断ち切る (出すと頁ぜんぶに
+   横スクロールが生え、上のバーごと左右に運ばれる)。`clip` は反対軸を
+   `auto` に変えないので、縦は各ペインが自前で持つ。 */
+.panes {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.pane {
+  min-width: 0;
+}
+
+.pane-list {
+  flex: none;
+  width: var(--sessions-w, 300px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* 本文は残り全部。 */
+.pane-main {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.panes.list-off .pane-list,
+.panes.list-off .panes-split {
+  display: none;
+}
+
+/* 細いペインでは instance の id は添え物。1 行目からあふれて行を 2 段にする
+   よりは、畳んで 1 段に留める (全部要る時は本文の側に出ている)。 */
+.pane-list .row .mono {
+  max-width: 8em;
+}
+
+.pane-empty {
+  margin: 0;
+}
+
+/* 境目。見える線は 1px で、残りは掴むための透明な余白 — 指でも掴める太さが
+   要るが、見た目の線まで太くする理由は無い。 */
+.panes-split {
+  flex: none;
+  width: 11px;
+  align-self: stretch;
+  min-height: 40vh;
+  cursor: col-resize;
+  background: linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat;
+}
+
+.panes-split:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 狭い画面: 並べない。2 枚は横に並んだままで、見ている方へ滑らせる。
+   滑りは「どちらへ動いたか」が見える最短で、待たせるための時間ではない。 */
+@media (max-width: 720px) {
+  .panes {
+    display: grid;
+    grid-template-columns: 100% 100%;
+    transition: transform 90ms ease-out;
+  }
+
+  /* 2 枚はどちらも窓の幅ちょうど。広い画面で覚えた一覧の幅は、ここでは効かない
+     (並べていないので、幅は「窓」以外にありえない)。 */
+  .pane-list,
+  .pane-main {
+    width: 100%;
+  }
+
+  .panes.showing-main {
+    transform: translateX(-100%);
+  }
+
+  /* 見ていない方は**頁の高さを決めない**。並べていない画面では、頁の長さは
+     今読んでいる 1 枚のものであるべきで、隣に居るだけの枚が下に空白を作る
+     理由が無い (滑って出入りするので、箱そのものは残す)。 */
+  .panes.showing-main .pane-list,
+  .panes.showing-list .pane-main {
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .panes-split {
+    display: none;
+  }
+
+  /* 一覧を畳んでいても、狭い画面では 1 枚として使う (畳みは並べる時の話)。 */
+  .panes.list-off .pane-list {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panes {
+    transition: none;
+  }
 }

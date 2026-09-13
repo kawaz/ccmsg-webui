@@ -69,6 +69,7 @@ import {
 import { type HeldMessage, heldFromSend } from "./conversation/held-messages.ts";
 import { oversizeReason } from "./frame-limit.ts";
 import type { Route } from "./route.ts";
+import { formatSessionsOpen, parseSessionsOpen, sessionsOpenKey } from "./layout/panes.ts";
 import { localStore } from "./settings.ts";
 import {
   errorsBySid,
@@ -830,6 +831,18 @@ effect(() => {
     void renewConnection();
   }, wait);
 });
+
+/** 一覧のペインを出しているか。
+ *
+ * このブラウザの好みなので instance で分けない (同じ人が同じ画面で同じ広さを
+ * 使う)。狭い画面ではこの値ではなく **URL** が「今どちらを見ているか」を決める
+ * — 一覧とセッションは並んで居るのではなく、行き来する 2 枚になる。 */
+export const sessionsOpen = signal(parseSessionsOpen(localStore.get(sessionsOpenKey())));
+
+export function toggleSessionsOpen(): void {
+  sessionsOpen.value = !sessionsOpen.value;
+  localStore.set(sessionsOpenKey(), formatSessionsOpen(sessionsOpen.value));
+}
 
 /** 留めてあるセッション。並びの先頭に来て、印が付く。 */
 export const pinned = signal<ReadonlySet<Sid>>(loadPinned());

@@ -27,15 +27,8 @@ import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 import { markedSpans, markedText } from "./search-marks.tsx";
 import { href } from "../base.ts";
 import type { LineRange, Route } from "../route.ts";
-import {
-  clampSplitWidth,
-  formatSplitWidth,
-  parseSplitWidth,
-  SPLIT_MAX_PX,
-  SPLIT_MIN_PX,
-  splitStorageKey,
-} from "../layout/split-width.ts";
-import { localStore } from "../settings.ts";
+import { splitStorageKey } from "../layout/split-width.ts";
+import { Splitter, useSplitWidth } from "./Splitter.tsx";
 import { files, filesMemory, hello, navigate, sessionPaths } from "../state.ts";
 
 /** A session's files: the tree on one side, the file being read on the other.
@@ -59,7 +52,8 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
   };
   const panes = useRef<HTMLDivElement | null>(null);
   const tree = useRef<HTMLElement | null>(null);
-  const split = useSplitWidth();
+  const instance = hello.value?.instance;
+  const split = useSplitWidth(instance === undefined ? undefined : splitStorageKey(instance));
   return (
     <section class="section files">
       <div
@@ -73,6 +67,8 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
           <OutsideFiles view={view} selected={path} />
         </nav>
         <Splitter
+          class="files-split"
+          label="ファイルの木と本文の境目"
           width={split.width}
           measure={() => tree.current?.getBoundingClientRect().width}
           onDrag={(clientX) => {
@@ -88,106 +84,6 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
       </div>
     </section>
   );
-}
-
-/** 2 ペインの境目。掴んで動かせて、覚えている幅がその instance に残る。
- *
- * `separator` は矢印キーでも動く前提の役 (WAI-ARIA) なので、掴めるだけでなく
- * focus して ←→ でも動かせる。狭い画面では 2 つが上下に積まれて左右の境目が
- * 無くなるため、そこでは CSS が消す。 */
-function Splitter({
-  width,
-  measure,
-  onDrag,
-  onSet,
-  onSettle,
-}: {
-  width: number | undefined;
-  measure: () => number | undefined;
-  onDrag: (clientX: number) => void;
-  onSet: (px: number) => void;
-  onSettle: () => void;
-}) {
-  const now = width ?? measure();
-  return (
-    <div
-      class="files-split"
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="ファイルの木と本文の境目"
-      aria-valuemin={SPLIT_MIN_PX}
-      aria-valuemax={SPLIT_MAX_PX}
-      {...(now === undefined ? {} : { "aria-valuenow": Math.round(now) })}
-      tabIndex={0}
-      onPointerDown={(event: PointerEvent) => {
-        // 掴んでいる間は指が境目から離れても追う。本文の上で離しても、
-        // 選択がそこで始まってしまわないように既定も止める。
-        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-        event.preventDefault();
-      }}
-      onPointerMove={(event: PointerEvent) => {
-        if (!(event.currentTarget as HTMLElement).hasPointerCapture(event.pointerId)) return;
-        onDrag(event.clientX);
-      }}
-      onPointerUp={(event: PointerEvent) => {
-        (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
-        onSettle();
-      }}
-      onKeyDown={(event: KeyboardEvent) => {
-        const step =
-          event.key === "ArrowLeft"
-            ? -SPLIT_STEP_PX
-            : event.key === "ArrowRight"
-              ? SPLIT_STEP_PX
-              : 0;
-        if (step === 0) return;
-        const from = width ?? measure();
-        if (from === undefined) return;
-        event.preventDefault();
-        onSet(from + step);
-        onSettle();
-      }}
-    />
-  );
-}
-
-/** 矢印キー 1 回で動く幅。 */
-const SPLIT_STEP_PX = 16;
-
-/** 覚えている幅と、その書き戻し方。
- *
- * 名前は instance が答えてから決まるので、答える前は覚えていない扱いにする —
- * instance を知らないまま書くと、次に来た instance の幅として読まれてしまう。 */
-function useSplitWidth(): {
-  width: number | undefined;
-  hold: (px: number) => void;
-  keep: () => void;
-} {
-  const instance = hello.value?.instance;
-  const key = instance === undefined ? undefined : splitStorageKey(instance);
-  const [width, setWidth] = useState<number | undefined>(undefined);
-  // 書き戻す時に読むのは今の幅で、その handler が作られた時の幅ではない
-  // (矢印キーは 1 回の中で動かして書くので、state の再描画を待てない)。
-  const latest = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    const held = key === undefined ? undefined : parseSplitWidth(localStore.get(key));
-    latest.current = held;
-    setWidth(held);
-  }, [key]);
-  return {
-    width,
-    hold(px: number) {
-      const next = clampSplitWidth(px);
-      latest.current = next;
-      setWidth(next);
-    },
-    keep() {
-      // 書くのは指を離した時だけ。動かしている間の 1 フレームごとに書くと、
-      // 覚える価値のない途中の幅で store を叩き続けることになる。
-      if (key === undefined || latest.current === undefined) return;
-      localStore.set(key, formatSplitWidth(latest.current));
-    },
-  };
 }
 
 /** The files reached outside the browsable root.

@@ -10,10 +10,39 @@ import {
   hello,
   llmStatusReports,
   navigate,
+  route,
+  sessionsOpen,
+  toggleSessionsOpen,
   status,
   statusDetail,
   wanted,
 } from "../state.ts";
+
+/** 一覧の出し入れ。
+ *
+ * 広い画面では左のペインを畳む / 出す。狭い画面では 2 枚が並んでいないので、
+ * これは**一覧へ戻る道**になる (押すと URL が一覧を指し、画面がそちらへ滑る)。 */
+function SessionsToggle() {
+  const at = route.value;
+  const open = sessionsOpen.value;
+  // 並べているかどうかは **CSS が正本** (幅の境目は 1 か所に持つ)。押した瞬間の
+  // 形を読むので、hook で覚えた古い値で振る舞いが決まることはない。
+  const press = (): void => {
+    const panes = document.querySelector(".panes");
+    const side = panes === null || getComputedStyle(panes).display !== "grid";
+    if (side) {
+      toggleSessionsOpen();
+      return;
+    }
+    // 並べていない画面では、これは一覧へ戻る道。
+    if (at.at !== "sessions") navigate({ at: "sessions" });
+  };
+  return (
+    <button type="button" class={open ? "on" : undefined} aria-pressed={open} onClick={press}>
+      一覧
+    </button>
+  );
+}
 
 /** 上流に問題がある時だけ出る印と、使用量の画面への入口。
  *
@@ -74,7 +103,7 @@ export function ConnectionBar() {
   const on = wanted.value;
 
   return (
-    <div class="bar">
+    <div class="bar app-bar">
       <span class={`dot ${state === "open" ? "open" : state === "closed" ? "closed" : ""}`} />
       <span>{WORDS[state] ?? state}</span>
       <code class="endpoint">{endpoint}</code>
@@ -88,6 +117,7 @@ export function ConnectionBar() {
       >
         {on ? "切断" : "接続"}
       </button>
+      <SessionsToggle />
       <UsageLink />
       {subject.value !== undefined && (
         <span class="meta">
