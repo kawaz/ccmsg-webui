@@ -6,11 +6,14 @@ import { describe, expect, test } from "bun:test";
 import {
   buildTimeline,
   foldShouldOpen,
+  itemIdsByMid,
   nodeKey,
   nodeRows,
   ownFields,
   recordRange,
+  withWaiting,
 } from "../src/timeline/items.ts";
+import type { WaitingMessage } from "../src/conversation/inbox.ts";
 import {
   foldLabel,
   isGeneric,
@@ -215,5 +218,55 @@ describe("元の record の住所", () => {
   test("item が指す 1 行だけを頼む形になる", () => {
     const one = item("thinking", { text: "" }, { offset: 400, bytes: 120 });
     expect(recordRange(one)).toEqual({ before: 520, max_bytes: 120 });
+  });
+});
+
+describe("まだ渡っていない 1 通を並びに混ぜる", () => {
+  const waiting = (mid: string, sentAt: number, state: WaitingMessage["state"] = "waiting") =>
+    ({
+      message: {
+        mid,
+        from: "user",
+        from_label: "人",
+        text: "やあ",
+        sent_at: sentAt,
+        to: "s1",
+      },
+      state,
+    }) as WaitingMessage;
+
+  const nodes = buildTimeline(
+    [item("message.user.in", { text: "a" }), item("message.user.out", { text: "b" })],
+    MAIN,
+  );
+  const [first, second] = nodes.map((node) => nodeRows(node)[0]?.item.at ?? 0);
+
+  test("言われた時刻の所に入る", () => {
+    const mixed = withWaiting(nodes, [waiting("i/1", (first as number) + 1)]);
+    expect(mixed.map((node) => node.kind)).toEqual(["row", "waiting", "row"]);
+  });
+
+  test("並びの後ろに言われた分は末尾に付く", () => {
+    const mixed = withWaiting(nodes, [waiting("i/1", (second as number) + 1)]);
+    expect(mixed.map((node) => node.kind)).toEqual(["row", "row", "waiting"]);
+    expect(nodeKey(mixed[2] as (typeof mixed)[number])).toBe("waiting i/1");
+    expect(nodeRows(mixed[2] as (typeof mixed)[number])).toEqual([]);
+  });
+
+  test("item として現れている 1 通は混ぜない", () => {
+    const arrived = buildTimeline(
+      [item("message.session.in", { text: "やあ", msg_id: "i/1" })],
+      MAIN,
+    );
+    expect(withWaiting(arrived, [waiting("i/1", 1)])).toEqual(arrived);
+  });
+});
+
+describe("itemIdsByMid", () => {
+  test("mid を名乗る item はその mid から引ける", () => {
+    const one = item("message.session.in", { text: "やあ", msg_id: "i/1" });
+    const found = itemIdsByMid([one, item("thinking", { text: "考える" })]);
+    expect(found.get("i/1")).toBe(one.id);
+    expect(found.size).toBe(1);
   });
 });

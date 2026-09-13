@@ -581,6 +581,17 @@ select {
   color: var(--brand-fg);
 }
 
+/* 通知が答えた 1 通へ戻る道。行から出る道という点で worker への入口と同じ
+   重さ、押す物なので囲みは持たない。 */
+.tl-reply-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
 .tl-display-note {
   margin: 6px 0;
   color: var(--fg-muted);
@@ -868,6 +879,19 @@ select {
   border-left-color: var(--warning-border);
   border-style: dashed;
   border-width: 0 0 0 3px;
+}
+
+/* まだ渡っていない 1 通。transcript の item と同じ形で並ぶが、破線で「まだ
+   記録ではない」と言う。届かなかった分は危険の色に変えて、待ちと区別する。 */
+.tl-bubble.waiting {
+  border-left-color: var(--warning-border);
+  border-style: dashed;
+  border-width: 0 0 0 3px;
+}
+
+.tl-bubble.waiting-expired,
+.tl-bubble.waiting-dropped {
+  border-left-color: var(--danger-border);
 }
 
 /* 話しかける所は画面の下に留まる。頁ぜんぶが動く以上、留めないと transcript を
@@ -1408,45 +1432,7 @@ select {
 /* この画面から送って、まだ渡っていない 1 通たち。届いていない事実そのものは
  * 異常ではない (契約では inbox で待っている成功) ので、警告の赤ではなく
  * 待ちの色で出す。 */
-.held {
-  margin: 0 0 var(--gap);
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--warning-fg);
-  border-radius: 4px;
-  background: var(--surface);
-  font-size: 13px;
-}
-
-.held-head {
-  margin: 0 0 4px;
-  color: var(--fg-muted);
-  font-size: 12px;
-}
-
-.held-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-.held-who {
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-
-.held-text {
-  flex: 1 1 auto;
-  overflow-wrap: anywhere;
-}
-
-.held-why {
-  color: var(--fg-muted);
-  font-size: 12px;
-}
-
-.held-badge {
+.waiting-badge {
   padding: 0 6px;
   border-radius: 999px;
   background: var(--warning-fg);

@@ -10,6 +10,8 @@ import type {
   AuthSession,
   AgentsFrame,
   HelloResult,
+  InboxElement,
+  InboxMessage,
   InstanceInfo,
   InstancesFrame,
   LlmRequestsFrame,
@@ -66,7 +68,12 @@ import {
   formatFilesRecord,
   parseFilesRecord,
 } from "./files/files-store.ts";
-import { type HeldMessage, heldFromSend } from "./conversation/held-messages.ts";
+import {
+  inboxKey,
+  rememberDepartures,
+  type WaitingMessage,
+  waitingCounts,
+} from "./conversation/inbox.ts";
 import { oversizeReason } from "./frame-limit.ts";
 import type { Route } from "./route.ts";
 import { formatSessionsOpen, parseSessionsOpen, sessionsOpenKey } from "./layout/panes.ts";
@@ -123,7 +130,14 @@ const PINNED_STORAGE = "ccmsg.sessions.pinned";
 /** The topics this build stands on: what the session list is made of, plus the
  * one topic that is about the person rather than about a session — a
  * notification is a line a session wrote for whoever is watching. */
-const TOPICS: readonly TopicName[] = ["peers", "instances", "agents", "session.errors", "notify"];
+const TOPICS: readonly TopicName[] = [
+  "peers",
+  "instances",
+  "agents",
+  "session.errors",
+  "notify",
+  "inbox",
+];
 
 /** 能力を持っている instance にだけ頼む topic。gateway を前に置いていない
  * instance では、この 2 つはそもそも存在しない。 */
@@ -169,7 +183,26 @@ const llmStatusSlots = signal<readonly Slot<LlmStatusData>[]>([]);
 const llmRequestSlots = signal<readonly Slot<LlmRequestsData>[]>([]);
 const agentSlots = signal<readonly Slot<readonly AgentInfo[]>[]>([]);
 const errorSlots = signal<readonly Slot<ErrorsData>[]>([]);
+const inboxSlots = signal<readonly Slot<readonly InboxMessage[]>[]>([]);
 const instanceSlots = signal<readonly Slot<InstancesData>[]>([]);
+
+/** 届かないまま消えた 1 通たち。
+ *
+ * frame は「消えた」しか言わないので、本文はここで覚える — 覚えないと、期限
+ * 切れになったことは分かるのに何が期限切れになったかを言えない。接続の産物
+ * なので接続と一緒に消える。 */
+export const departedMessages = signal<readonly WaitingMessage[]>([]);
+
+/** 覚えておく数の上限。届かなかった 1 通は読めば済むもので、溜める箱ではない。 */
+const DEPARTED_LIMIT = 50;
+
+/** まだ相手に渡っていない 1 通たち、instance が言うとおりに。 */
+export const waitingMessages = computed<readonly InboxMessage[]>(() => rows(inboxSlots.value));
+
+/** 相手ごとの待ち通数。 */
+export const waitingBySid = computed<ReadonlyMap<Sid, number>>(() =>
+  waitingCounts(waitingMessages.value),
+);
 
 export const sortKey = signal<SortKey>(loadSortKey());
 export const route = signal<Route>(locationRoute());
@@ -317,6 +350,9 @@ function sessionRowKey(row: { instance: string; sid: string }): string {
 }
 
 const peerRows = new ElementFold<PeerElement, PeerInfo>("peers", sessionRowKey);
+/** 待っている 1 通たち。鍵は `mid` — 1 通は自分の id で照合され、どの instance
+ * が持っているかは鍵にしない (mid の中に既に instance が入っている)。 */
+const inboxRows = new ElementFold<InboxElement, InboxMessage>("inbox", inboxKey);
 const agentRows = new ElementFold<AgentElement, AgentInfo>("agents", sessionRowKey);
 
 const folds = new Map<string, TopicFold<unknown>>();
@@ -356,9 +392,9 @@ export const connection = new Connection({
       // 時点で古い。畳まずに捨てる。
       notifications.value = [];
       toast.value = undefined;
-      // 待っている 1 通は「この接続で送った」という控えなので、話し相手が
-      // 居なくなったら根拠ごと消える。
-      heldMessages.value = [];
+      // 届かないまま消えた 1 通の控えは、聞いていた接続のもの。行そのもの
+      // (`inboxSlots`) は他の写しと同じで、次の snapshot が来るまで残す。
+      departedMessages.value = [];
       // 木もファイル本文も「聞いた時点の写し」なので、話し相手が居なくなったら
       // 次に繋がった時に取り直す (捨てはしない — 読んでいた画面が空になるより、
       // 古いと分かる形で残る方がよい)。
@@ -422,6 +458,19 @@ export const connection = new Connection({
           message.data as LlmRequestsData,
         );
         break;
+      case "inbox": {
+        const elements = message.data as readonly InboxElement[];
+        // 落ちる前に本文を取る — 畳みは `removed` の行を落とすので、後からでは
+        // 何が消えたのかを言えない。
+        departedMessages.value = rememberDepartures(
+          departedMessages.peek(),
+          rows(inboxSlots.peek()),
+          elements,
+          DEPARTED_LIMIT,
+        );
+        inboxSlots.value = inboxRows.push(message.instance, elements, message.snapshot);
+        break;
+      }
       case "session.errors":
         errorSlots.value = fold<ErrorsData>("session.errors").push(
           message.instance,
@@ -730,7 +779,9 @@ export function disconnect(): void {
   timelineFolds.value = new FoldOpen();
   notifications.value = [];
   toast.value = undefined;
-  heldMessages.value = [];
+  inboxSlots.value = [];
+  inboxRows.clear();
+  departedMessages.value = [];
   forgetSession();
 }
 
@@ -1052,23 +1103,7 @@ export function messageSendRefusal(sid: Sid, text: string): string | undefined {
 
 export async function sendMessage(sid: Sid, text: string): Promise<MessageSendResult> {
   const reply = await connection.request("message.send", { to: sid, text });
-  const result = reply as unknown as MessageSendResult;
-  const waiting = heldFromSend(sid, text, result);
-  if (waiting !== undefined) heldMessages.value = [...heldMessages.value, waiting];
-  return result;
-}
-
-/** この画面から送って、相手にまだ渡っていない 1 通たち。
- *
- * ページのメモリにだけ置く。instance に問い合わせて確かめる術が無い以上
- * (`held-messages.ts` を読む)、書き留めて残せば「もう届いているのに残って
- * いる古い控え」を作ることになる。読み込み直したら消える方が正直。 */
-export const heldMessages = signal<readonly HeldMessage[]>([]);
-
-/** 1 通を一覧から下ろす。渡ったかどうかは分からないので、下ろすのは人の
- * 判断 (「もう気にしなくてよい」) であって、届いた証拠ではない。 */
-export function dropHeld(key: number): void {
-  heldMessages.value = heldMessages.value.filter((one) => one.key !== key);
+  return reply as unknown as MessageSendResult;
 }
 
 /** Ask the instance to forget one session it has lost, before its retention

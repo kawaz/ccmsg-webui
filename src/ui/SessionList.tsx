@@ -4,7 +4,6 @@ import { DEFAULT_TAB } from "../route.ts";
 import { CacheRing } from "./CacheRing.tsx";
 import { Launcher } from "./Launcher.tsx";
 import { SessionSearch } from "./SessionSearch.tsx";
-import { heldCounts } from "../conversation/held-messages.ts";
 import { instanceLabel } from "../instance-label.ts";
 import {
   groupPeers,
@@ -20,7 +19,6 @@ import { terminalUrl } from "../terminal-url.ts";
 import {
   agents,
   forgetLostSession,
-  heldMessages,
   instances,
   can,
   killSession,
@@ -28,6 +26,7 @@ import {
   navigate,
   peers,
   pinned,
+  waitingBySid,
   renameSession,
   togglePinned,
   sessionErrors,
@@ -215,7 +214,7 @@ function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
         {sessionLabel(peer)}
       </button>
       {waiting > 0 && (
-        <span class="held-badge" title="この画面から送って、まだ渡っていない通数">
+        <span class="waiting-badge" title="このセッションの inbox で待っている通数">
           {waiting}
         </span>
       )}
@@ -266,9 +265,9 @@ function InstanceRow({ one }: { one: InstanceInfo }) {
  * how they stand, what the harness itself reports, and the mesh they sit in. */
 export function SessionList() {
   const connected = status.value === "open";
-  // この画面から送って、まだ渡っていない数。instance の inbox の件数ではない
-  // (人には `inbox` の frame が来ない — `held-messages.ts`)。
-  const waiting = heldCounts(heldMessages.value);
+  // そのセッションの inbox で待っている通数。誰が言った分も入る — 人が
+  // 眺めているのは instance の inbox そのもので、この画面の控えではない。
+  const waiting = waitingBySid.value;
   const groups = groupPeers(peers.value);
 
   return (

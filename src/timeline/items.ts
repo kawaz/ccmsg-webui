@@ -1,4 +1,5 @@
 import type { TranscriptItem } from "@ccmsg/protocol";
+import type { WaitingMessage } from "../conversation/inbox.ts";
 import { type DisplayFaces, faceOf, resolveDisplay } from "./display.ts";
 
 /** 型付き item を画面の並びに読むところ。
@@ -19,10 +20,70 @@ export interface ItemRow {
 }
 
 /** 画面の 1 かたまり。会話と思考はそれ自身で 1 つ、それ以外は続いた分が
- * 1 つの畳みになる。 */
+ * 1 つの畳みになる。
+ *
+ * `waiting` だけは transcript の item ではない — そのセッション宛てに言われて
+ * まだ渡っていない 1 通で、渡れば同じ 1 通が item として現れる。並びに混ぜる
+ * のは、それが**言われた時刻の所に居る**から: 待っているものを末尾に寄せると、
+ * 渡った瞬間に別の場所へ飛ぶ。 */
 export type TimelineNode =
   | { readonly kind: "row"; readonly row: ItemRow }
-  | { readonly kind: "fold"; readonly rows: readonly ItemRow[] };
+  | { readonly kind: "fold"; readonly rows: readonly ItemRow[] }
+  | { readonly kind: "waiting"; readonly waiting: WaitingMessage };
+
+/** まだ渡っていない 1 通を、言われた時刻の所に混ぜる。
+ *
+ * 既に item として現れているものは混ぜない。渡ったことは `inbox` の
+ * `delivered` も言うが、transcript の方が先に着くことがあり、その 1 瞬だけ
+ * 同じ 1 通が 2 つに見えるのを避ける — 照合は item の `msg_id`。 */
+export function withWaiting(
+  nodes: readonly TimelineNode[],
+  waiting: readonly WaitingMessage[],
+): readonly TimelineNode[] {
+  if (waiting.length === 0) return nodes;
+  const arrived = new Set<string>();
+  for (const node of nodes) {
+    for (const row of nodeRows(node)) {
+      for (const one of [row.item, row.result]) {
+        const mid = one === undefined ? undefined : textField(one, "msg_id");
+        if (mid !== undefined) arrived.add(mid);
+      }
+    }
+  }
+  const held = waiting.filter((one) => !arrived.has(one.message.mid));
+  if (held.length === 0) return nodes;
+  const mixed: TimelineNode[] = [];
+  let next = 0;
+  for (const node of nodes) {
+    const at = nodeAt(node);
+    while (next < held.length && (held[next] as WaitingMessage).message.sent_at <= at) {
+      mixed.push({ kind: "waiting", waiting: held[next] as WaitingMessage });
+      next += 1;
+    }
+    mixed.push(node);
+  }
+  for (const one of held.slice(next)) mixed.push({ kind: "waiting", waiting: one });
+  return mixed;
+}
+
+/** 送った 1 通の `mid` から、それが transcript のどの item になったか。
+ *
+ * 通知は「何に答えたか」を `mid` で言うので、読み手はその 1 通の所へ戻れる。
+ * item 側でそれを名乗るのは `msg_id`。 */
+export function itemIdsByMid(items: readonly TranscriptItem[]): ReadonlyMap<string, string> {
+  const found = new Map<string, string>();
+  for (const item of items) {
+    const mid = textField(item, "msg_id");
+    if (mid !== undefined && !found.has(mid)) found.set(mid, item.id);
+  }
+  return found;
+}
+
+/** そのかたまりの時刻。畳みは先頭の行の時刻で、そこから並びが始まる。 */
+function nodeAt(node: TimelineNode): number {
+  const first = nodeRows(node)[0];
+  return first === undefined ? Number.POSITIVE_INFINITY : first.item.at;
+}
 
 /** 型付き item の並びを、画面が描く並びにする。
  *
@@ -96,10 +157,12 @@ function callOf(
 /** かたまりの名前。畳みの中の行の並びで決まるので、開閉しても遡っても同じ
  * 行を指し続ける。 */
 export function nodeKey(node: TimelineNode): string {
+  if (node.kind === "waiting") return `waiting ${node.waiting.message.mid}`;
   return node.kind === "row" ? node.row.item.id : (node.rows[0] as ItemRow).item.id;
 }
 
 export function nodeRows(node: TimelineNode): readonly ItemRow[] {
+  if (node.kind === "waiting") return [];
   return node.kind === "row" ? [node.row] : node.rows;
 }
 

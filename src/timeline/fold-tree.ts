@@ -79,6 +79,8 @@ export function foldPathsById(nodes: readonly TimelineNode[]): Map<string, strin
       place(node.row, []);
       continue;
     }
+    // 待っている 1 通は item ではないので、畳みの中にも探す対象にもならない。
+    if (node.kind === "waiting") continue;
     const outer = [foldGroupKey(node.rows)];
     for (const row of node.rows) place(row, outer);
   }

@@ -193,8 +193,8 @@ and read on the move, and losing the page at every gap in the signal loses too
 much: until the next snapshot overwrites them, the rows last heard are worth
 reading. **Nothing on a row says when it was heard**, so the band says it. What
 is dropped is only what stops meaning anything — the connection's deadline, a
-notification that said something just happened, the receipt for a message sent
-on that connection.
+notification that said something just happened, the note of a message that left
+an inbox undelivered.
 
 Only a press lets go of what is held. If a drop did that too, walking through a
 tunnel would mean signing in again.
@@ -543,15 +543,26 @@ A send that goes through has two successes to tell apart: handed over now, or he
 
 Neither is a message too large to send. The contract's `MAX_FRAME_BYTES` is a ceiling **the sender keeps to**: a line over it is answered `bad_request` and the connection stays up, and all that refusal can say is that it was too big. So the line about to be sent is measured in bytes and stopped here instead (`src/frame-limit.ts`). What to do about it — split it, write it to a file — is the sender's decision, so the page suggests and does not choose.
 
-## A person cannot see an inbox
+## A person may look at an inbox
 
-The contract's `TOPIC_ATTRIBUTES` opens `inbox` to `["session", "user"]`, so a connection made as a person may subscribe. **The subscribe succeeds and no frame ever arrives** (measured against v0.0.29: `topic.subscribe` answers ok, and neither a snapshot nor a delta follows). The daemon's reason is plain — the topic carries what was said to a session, and a person is not one: the snapshot is looked up by the connection's sid, and a delivery is pushed only to connections holding the addressee's.
+The contract's `inbox` is a topic **a person may read, and a person reading it hands nothing over** — a session's subscription is the delivery itself (what it reads leaves its inbox), where a person is only looking. A person holds every session's inbox in that one subscription, so a row names who it is addressed to (`to`).
 
-Nor does a `peers` row carry a count of what is waiting. In this generation of the contract there is **no way for a person to learn how much an instance's inbox is holding**.
+What the page shows is therefore not a note of what it sent, but **what the instance is holding**: messages from anyone, and the moment one is handed over as the instance states it. The fold is the shared `element` one (`ElementFold`, keyed by `mid`).
 
-What can be shown is what this page sent and has not seen handed over. The reply to `message.send` (`delivered: false` and its reason) is the only primary source there is, so it is written down at that moment and shown as a badge in the session list and a list above the timeline (`conversation/held-messages.ts`). It lives in the page's memory and goes with the connection: with no way to confirm delivery, persisting it would only manufacture stale notes about messages that have long since arrived. "Dismiss" on the list is a person deciding to stop caring, not evidence that it landed.
+A message that leaves arrives as an element marked `removed`, **with the reason apart in three**. The reason is the only thing drawn differently, so it is the only thing the page separates on:
 
-No `element` fold was added to `topic-fold.ts`. There is nothing to fold, and the contract's `InboxMessage` carries no removal mark — `element` granularity states that a removal arrives as a marked element, and the `inbox` payload has nowhere to write that mark. A fold with no way to say what was removed is a fold written ahead of its topic.
+| Reason | On screen |
+|---|---|
+| `delivered` | Dropped. The same message appears as an item in the recipient's transcript (`msg_id` is the `mid`) |
+| `expired` / `dropped` | Kept, with its mark changed. A message still waiting and one given up on must not look alike |
+
+The removal frame carries no text, so the text is taken from what was heard while it waited (`departedMessages`, which goes with the connection).
+
+It is drawn **in the transcript's own order, where it was said** (`withWaiting`). Pushed to the end it would jump elsewhere the moment it is handed over and appears as an item. A dashed edge says it is not a record yet, and one that never arrived is drawn in another colour. The session list's badge counts what is waiting, and not what never arrived — that number would never come down.
+
+## A notification leads back to what it answered
+
+`notify` carries `reply_to`, the `mid` the line answers. The same answer reaches a person twice — as the notification and again in the transcript — so a reader needs the key that says the two are one thing. The page reads that key and moves to where the message is, as an item or as one still waiting; when it is neither, no way back is offered.
 
 ## Authenticating a person (passkey)
 

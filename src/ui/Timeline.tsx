@@ -23,9 +23,11 @@ import {
 import {
   foldShouldOpen,
   type ItemRow,
+  itemIdsByMid,
   nodeKey,
   textField,
   type TimelineNode,
+  withWaiting,
 } from "../timeline/items.ts";
 import {
   DISPLAY_AXES,
@@ -61,13 +63,11 @@ import {
   scrollPageTo,
 } from "../timeline/page-scroll.ts";
 import type { TranscriptItemsView } from "../timeline/items-view.ts";
-import { heldFor } from "../conversation/held-messages.ts";
-import { describeUndelivered } from "../conversation/send-outcome.ts";
+import { type WaitingMessage, waitingFor } from "../conversation/inbox.ts";
 import {
   clearTimelineDisplay,
+  departedMessages,
   displayFace,
-  dropHeld,
-  heldMessages,
   navigate,
   notifications,
   peers,
@@ -80,6 +80,7 @@ import {
   toggleReading,
   transcript,
   translateRoutes,
+  waitingMessages,
 } from "../state.ts";
 import { needsNoTranslation } from "../timeline/translate.ts";
 import { ROUTE_LABELS } from "../timeline/translators.ts";
@@ -233,13 +234,26 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   const anchor = useRef<Anchor | undefined>(undefined);
   /** 置き直した時の窓の長さ。錨の行ごと形が変わった時の逃げ道に使う。 */
   const spanned = useRef(0);
-  const nodes = view.groups.value;
   const held = view.items.value;
+  // まだ渡っていない 1 通は、そのセッションに宛てて言われたもの。worker には
+  // 宛先が無いので (話しかける相手は起動した側のセッション)、ここにも出ない。
+  const rowsWaiting = waitingMessages.value;
+  const gone = departedMessages.value;
+  const groups = view.groups.value;
+  const nodes = useMemo(
+    () =>
+      view.agentId === undefined
+        ? withWaiting(groups, waitingFor(rowsWaiting, gone, view.sid))
+        : groups,
+    [groups, rowsWaiting, gone, view.sid, view.agentId],
+  );
   const search = useInViewSearch();
   const words = search.words.value;
   const units = useMemo(() => timelineSearchUnits(nodes), [nodes]);
   const matched = useMemo(() => matchingKeys(units, words), [units, words]);
   const nodesByUnit = useMemo(() => groupIndexByUnitKey(nodes), [nodes]);
+  // 通知が「何に答えたか」と言う mid から、その 1 通が居る所へ。
+  const itemsByMid = useMemo(() => itemIdsByMid(held), [held]);
   // 設定画面に並べる型は、この画面が実際に見たもの。窓が手放した分は消えるが、
   // 付けた値は型名で覚えているので、同じ型が戻ってくれば同じ行に戻る。
   const seenTypes = useMemo(() => {
@@ -344,7 +358,10 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     for (const foldKey of foldPathsById(nodes).get(key) ?? []) {
       timelineFolds.value.set(foldKey, true);
     }
-    const index = nodesByUnit.get(key);
+    // 探して当たった行の名前でも、かたまりそのものの名前でも辿り着ける —
+    // 通知が指すのは行で、まだ渡っていない 1 通はかたまりの側にしか居ない。
+    const own = keys.indexOf(key);
+    const index = nodesByUnit.get(key) ?? (own < 0 ? undefined : own);
     const node = index === undefined ? undefined : keys[index];
     if (node !== undefined) {
       // 錨をその行に打ってから動かす。間に居る行の高さが見積もりから実測に
@@ -490,7 +507,6 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
             <ReadingTabs />
             <DisplayPanel types={seenTypes} />
             <SearchBar search={search} matched={matched} onReveal={reveal} />
-            <HeldList sid={view.sid} />
             {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
             <div class="tl-pane" ref={pane} onClick={onClickIn}>
               <p class="empty tl-edge">
@@ -524,7 +540,16 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                           pathLinker={pathLinker}
                           highlight={words}
                         />
-                        <p class="tl-note">transcript に同じ返事が現れたらそちらが正</p>
+                        <p class="tl-note">
+                          transcript に同じ返事が現れたらそちらが正
+                          {one.notification.reply_to !== undefined && (
+                            <ReplyToLink
+                              mid={one.notification.reply_to}
+                              at={itemsByMid}
+                              onGo={reveal}
+                            />
+                          )}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -553,35 +578,69 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   );
 }
 
-/** この画面から送って、まだ相手に渡っていない 1 通たち。
+/** 通知が答えた 1 通へ戻る所。
  *
- * 出せるのはここから送った分だけ。人としてつないだ接続には `inbox` の frame が
- * 来ないので (`held-messages.ts`)、他の誰かが送った分や、渡った瞬間はここには
- * 出ない。「消す」は届いた印ではなく、人が気にしないと決めたということ。 */
-function HeldList({ sid }: { sid: Sid }) {
-  const waiting = heldFor(heldMessages.value, sid);
-  if (waiting.length === 0) return null;
+ * 出すのはその 1 通が画面に居る時だけ — item として読み込まれているか、まだ
+ * 渡らずに待っているか。どちらにも居ないなら、飛び先が無いので出さない。 */
+function ReplyToLink({
+  mid,
+  at,
+  onGo,
+}: {
+  mid: string;
+  at: ReadonlyMap<string, string>;
+  onGo: (key: string) => void;
+}) {
+  const waiting = waitingMessages.value.some((one) => one.mid === mid);
+  const key = at.get(mid) ?? (waiting ? `waiting ${mid}` : undefined);
+  if (key === undefined) return null;
   return (
-    <div class="held">
-      <p class="held-head">この画面から送って、まだ渡っていない {waiting.length} 通</p>
-      {waiting.map((one) => (
-        <div key={one.key} class="held-row">
-          <span class="held-who">人</span>
-          <span class="held-text">{one.text}</span>
-          <span class="held-why">{describeUndelivered(one.reason)}</span>
-          <button
-            type="button"
-            onClick={() => {
-              dropHeld(one.key);
-            }}
-          >
-            消す
-          </button>
-        </div>
-      ))}
+    <>
+      {" "}
+      <button
+        type="button"
+        class="tl-reply-link"
+        onClick={() => {
+          onGo(key);
+        }}
+      >
+        答えた 1 通へ
+      </button>
+    </>
+  );
+}
+
+/** そのセッションに宛てて言われて、まだ渡っていない 1 通。
+ *
+ * 出しているのは instance の inbox そのもの — 人はこの topic を眺められて、
+ * 眺めても配送の印は付かない。だから誰が言った分もここに出るし、渡った瞬間に
+ * 消えるのも instance が言う (`delivered`)。消えた後は、同じ 1 通がこの
+ * transcript の item として現れる。
+ *
+ * 届かなかった 1 通は消さずに印を変える: 待っているのと諦められたのが同じ
+ * 見た目なら、言った人はどちらだったか分からない。 */
+function WaitingView({ waiting }: { waiting: WaitingMessage }) {
+  const { message, state } = waiting;
+  const words = useContext(SearchWordsContext);
+  const pathLinker = useContext(PathLinkerContext);
+  return (
+    <div class={`tl-bubble waiting waiting-${state}`}>
+      <span class="tl-who">{message.from_label}</span>
+      <div class="tl-body">
+        <MarkdownView source={message.text} pathLinker={pathLinker} highlight={words} />
+        <p class="tl-note">{WAITING_NOTES[state]}</p>
+      </div>
     </div>
   );
 }
+
+/** 3 つの状態がそれぞれ人に言うこと。待っているのは「まだ」で、他の 2 つは
+ * 「もう届かない」— 読み手が次に打つ手が違う。 */
+const WAITING_NOTES: Readonly<Record<WaitingMessage["state"], string>> = {
+  waiting: "まだ渡っていません。相手が受け取ったらここが transcript の item に変わります。",
+  expired: "渡らないまま期限が切れました。届いていません。",
+  dropped: "inbox が一杯で落とされました。届いていません。",
+};
 
 const AXIS_LABELS: Readonly<Record<DisplayAxis, string>> = {
   top: "トップ",
@@ -729,6 +788,7 @@ function DisplayPanel({ types }: { types: Readonly<Record<Subject, ReadonlySet<s
 }
 
 function NodeView({ node }: { node: TimelineNode }) {
+  if (node.kind === "waiting") return <WaitingView waiting={node.waiting} />;
   if (node.kind === "row") return <RowView row={node.row} />;
   return (
     <Fold
