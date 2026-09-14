@@ -1,5 +1,5 @@
 import { OTHER_SID } from "./fixture.ts";
-import { expect, shot, test } from "./harness.ts";
+import { bodyScrollTop, expect, scrollBodyToTop, shot, test } from "./harness.ts";
 
 /** 本文を日本語で読む。
  *
@@ -20,9 +20,7 @@ async function toBeginning(
   shows: import("@playwright/test").Locator,
 ): Promise<void> {
   await expect(async () => {
-    await page.evaluate(() => {
-      window.scrollTo(0, 0);
-    });
+    await scrollBodyToTop(page);
     await expect(page.locator(".tl-edge").first()).toHaveText("— 先頭 —", { timeout: 2000 });
     await expect(shows).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 30_000 });
@@ -69,7 +67,7 @@ test("読んでいる所で切り替えても、読んでいる行は動かな�
   await page.waitForTimeout(300);
   const at = async (): Promise<number> => Math.round((await english.boundingBox())?.y ?? -1);
   const before = await at();
-  const scrolledBefore = await page.evaluate(() => window.scrollY);
+  const scrolledBefore = await bodyScrollTop(page);
 
   // item の側の入口を押す。**上端まで戻らずに押せる**ことがこの test の主題なので、
   // 押すのは Playwright の click — 画面内に無ければ動かしてしまうので、動かな
@@ -80,7 +78,7 @@ test("読んでいる所で切り替えても、読んでいる行は動かな�
     .click();
   await expect(page.getByText("【host の訳】The fold is read").first()).toBeVisible();
 
-  expect(await page.evaluate(() => window.scrollY)).toBe(scrolledBefore);
+  expect(await bodyScrollTop(page)).toBe(scrolledBefore);
   // 訳で高さが変わっても、読んでいた行は同じ高さに居る (錨は Timeline が打つ)。
   expect(Math.abs((await at()) - before)).toBeLessThan(2);
 

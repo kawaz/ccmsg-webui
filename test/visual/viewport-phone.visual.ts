@@ -1,5 +1,5 @@
 import { OTHER_SID } from "./fixture.ts";
-import { expect, nothingOverflows, shot, test } from "./harness.ts";
+import { expect, nothingOverflows, scrollBodyToTop, shot, test } from "./harness.ts";
 
 /** 手のひらの幅で読んだ transcript。
  *
@@ -18,9 +18,7 @@ test("狭い画面で遡っても、本文は窓の幅に収まる", async ({ ph
 
   // 先頭まで。窓は描く範囲を持っているので、頁が足されたら改めて上へ行く。
   await expect(async () => {
-    await page.evaluate(() => {
-      window.scrollTo(0, 0);
-    });
+    await scrollBodyToTop(page);
     await expect(page.locator(".tl-edge").first()).toHaveText("— 先頭 —", { timeout: 2000 });
     await expect(page.getByText("畳んだ値の読み方")).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 30_000 });

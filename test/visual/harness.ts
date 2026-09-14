@@ -173,6 +173,29 @@ export { expect };
  * to fit. */
 export const PHONE = { width: 375, height: 667 } as const;
 
+/** 本文を動かす箱。
+ *
+ * 縦に動くのは頁ではなく 2 ペインのそれぞれなので (`src/layout/scroller.ts`)、
+ * test が本文を動かす時も、どこに居るかを読む時もこの箱に言う。頁に言っても
+ * 何も動かない — 動かないことは「まだ届いていない」と見分けが付かないので、
+ * 名前を 1 か所に置いて言い間違えないようにする。 */
+const BODY = ".pane-main";
+
+/** 本文を先頭まで戻す。 */
+export async function scrollBodyToTop(page: Page): Promise<void> {
+  await page.evaluate((where: string) => {
+    document.querySelector(where)?.scrollTo(0, 0);
+  }, BODY);
+}
+
+/** 本文が今どこに居るか。 */
+export async function bodyScrollTop(page: Page): Promise<number> {
+  return await page.evaluate(
+    (where: string) => document.querySelector(where)?.scrollTop ?? -1,
+    BODY,
+  );
+}
+
 /** Nothing on the page is wider than the window.
  *
  * The assertion the width bugs are really about: a picture shows a layout that

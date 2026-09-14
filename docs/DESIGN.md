@@ -62,7 +62,7 @@ A transcript is fetched, read, and drawn, and those are three layers.
 
 The scroll position is what separates following from reading. At the bottom a person is watching it happen, so an append moves the view; anywhere else they are reading, so it does not.
 
-**What scrolls is the page itself** (`src/timeline/page-scroll.ts`). The arithmetic needs three things — where the view is, how much of it is seen, and how far it reaches — and which scroller those are read from is outside the arithmetic. They are read from the page, because a box that scrolls inside the page leaves the margins around it dead to a wheel, and those margins are most of the screen. Two things have to be held in place for that to work: **the composer stays at the bottom of the screen** and **the search bar at the top** (`position: sticky`). Both are operated from wherever a person has scrolled to, and letting them flow away means going back to the end to type.
+**What scrolls is the body's pane** (`src/layout/scroller.ts`). The arithmetic needs three things — where the view is, how much of it is seen, and how far it reaches — and which scroller those are read from is outside the arithmetic. They are read from the pane rather than the page, because a single page-wide scroll is set by the list standing next to it as well, and on a day the list is the longer of the two, "the end" becomes the end of the list rather than the end of the body. What scrolls is the pane itself and not a box inside it: a box closed in around the text leaves the margins around it dead to a wheel, and those margins are most of the screen, while the pane is everything the body has to work with and takes those margins with it. Two things have to be held in place for that to work: **the composer stays at the bottom of the pane** and **the search bar at the top** (`position: sticky`). Both are operated from wherever a person has scrolled to, and letting them flow away means going back to the end to type.
 
 **The anchor is ours, and the browser's is turned off** (`overflow-anchor: none`). A browser's own scroll anchoring holds a position by holding onto an element it can see, which assumes that element stays in the DOM. Under virtualisation a line that leaves the window is removed there and then, so what was held onto disappears and the position jumps — and two mechanisms doing the same job push against each other. It is turned off, and the anchor below is placed here instead.
 
@@ -149,13 +149,13 @@ and file body use; only the label and the key it remembers differ).
 reads narrow: capping it would be a claim about the right width to read at, and
 that is the reader's to make.
 
+Both panes are as tall as the window and **scroll separately**. Sharing one scroll lets the longer of the two set the height of the shorter — on a day the list is the longer one, the body's "end" becomes the end of the list.
+
 On a narrow screen they are **not** side by side. The two stay in a row and the
 row slides to whichever is being read (90ms — the shortest slide that still
 shows which way it went). Which one that is comes from the **URL**: the list
 while the list is what is named, the body otherwise, so no second piece of state
-has to agree with it. While they are not side by side, the one not being read
-**does not set the page's height** — a pane merely standing next door has no
-business adding blank space below.
+has to agree with it.
 
 The bar's 一覧 means different things at different widths: fold or unfold the
 left pane where they are side by side, and go back to the list where they are

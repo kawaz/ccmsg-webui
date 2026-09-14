@@ -1,5 +1,5 @@
 import { JOIN_SAID, JOIN_SID } from "./fixture.ts";
-import { expect, test } from "./harness.ts";
+import { expect, scrollBodyToTop, test } from "./harness.ts";
 
 /** 頁をまたいで並んだ呼び出しと答えが、遡った後に 1 行として読めるか。
  *
@@ -25,9 +25,7 @@ test("頁をまたいで並んだ呼び出しと答えは、遡ると 1 行に�
    * 増えた」ことで待つ。 */
   const top = async () => {
     const before = (await heading.textContent()) ?? "";
-    await page.evaluate(() => {
-      window.scrollTo(0, 0);
-    });
+    await scrollBodyToTop(page);
     await expect(heading).not.toHaveText(before);
   };
   // 2 頁目の先頭が答え、3 頁目の末尾が呼び出し。

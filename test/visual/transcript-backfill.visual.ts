@@ -1,5 +1,5 @@
 import { BULK_ITEMS, BULK_SID } from "./fixture.ts";
-import { expect, test } from "./harness.ts";
+import { expect, scrollBodyToTop, test } from "./harness.ts";
 
 /** 末尾から始めて、手前へ 1 頁ずつ歩けるか。
  *
@@ -27,9 +27,7 @@ test("末尾から始まり、遡ると手前が頁ずつ足される", async ({
   const held = async (): Promise<number> =>
     Number(/(\d+) item/.exec((await heading.textContent()) ?? "")?.[1]);
   const top = async () => {
-    await page.evaluate(() => {
-      window.scrollTo(0, 0);
-    });
+    await scrollBodyToTop(page);
   };
 
   // 開いた時点で持っているのは末尾の 1 頁ぶん。

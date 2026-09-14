@@ -1,5 +1,6 @@
 import { useRef } from "preact/hooks";
 import { sessionsSplitKey } from "../layout/panes.ts";
+import { ScrollerContext } from "../layout/scroller.ts";
 import {
   dismissToast,
   generationWarning,
@@ -66,6 +67,11 @@ function Toast() {
  * 広い画面では左右に並び、境目は掴んで動かせる (`Splitter`)。**本文は残り幅を
  * 全部使う** — 読む幅を画面の側で決めない。
  *
+ * **縦は 2 ペインが別々に持つ**。頁ぜんぶを 1 本の scroll にすると、長い方が
+ * 短い方の高さを決めてしまう — 一覧が長い日には、本文の「末尾」が本文の終わり
+ * ではなく一覧の終わりになる。本文を動かす箱がどれかは `ScrollerContext` が
+ * 下へ渡す (`layout/scroller.ts`)。
+ *
  * 狭い画面では並べず、URL が名指すものだけを出す: 一覧に居れば一覧、セッション
  * に居れば本文。**2 枚は横に並んだまま**で、切り替えは横へ滑らせるだけなので、
  * 行き先が左右のどちらに居るかが動きに出る。滑りは 90ms — 待たせるための時間で
@@ -77,6 +83,7 @@ function Panes() {
   const instance = hello.value?.instance;
   const split = useSplitWidth(instance === undefined ? undefined : sessionsSplitKey(instance));
   const box = useRef<HTMLDivElement>(null);
+  const main = useRef<HTMLDivElement>(null);
   const open = sessionsOpen.value;
   // 狭い画面でどちらを見ているかは URL が決める。一覧そのものを指している時
   // だけ一覧で、それ以外は本文 (戻る道はバーの「一覧」)。
@@ -102,8 +109,10 @@ function Panes() {
         onSet={split.hold}
         onSettle={split.keep}
       />
-      <div class="pane pane-main">
-        <Main />
+      <div class="pane pane-main" ref={main}>
+        <ScrollerContext.Provider value={main}>
+          <Main />
+        </ScrollerContext.Provider>
       </div>
     </div>
   );

@@ -170,12 +170,18 @@ code,
 
 /* 画面ぜんぶを使う。読む幅を画面の側で決めない — 広い机では広く読み、狭い端末
    では狭く読む。上限を置くと、その上限がこの画面の「正しい幅」だという主張に
-   なってしまう。 */
+   なってしまう。
+
+   縦も窓ちょうど。長さを持つのは中の箱で、ここではない — 上のバーは流れず、
+   縦に伸びるものは自分の中で動く。ここが受ける溢れは、2 ペインを持たない姿
+   (登録・認証) が窓より高い時のためのもの。 */
 .app {
+  height: 100dvh;
   padding: var(--gap);
   display: flex;
   flex-direction: column;
   gap: var(--gap);
+  overflow: clip auto;
 }
 
 .bar {
@@ -2245,15 +2251,30 @@ select {
    横スクロールが生え、上のバーごと左右に運ばれる)。`clip` は反対軸を
    `auto` に変えないので、縦は各ペインが自前で持つ。 */
 .panes {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0;
   min-width: 0;
   overflow-x: clip;
 }
 
+/* 縦に動くのはここ。**2 ペインは別々に動く** — 1 本の scroll を分け合うと、
+   長い方が短い方の高さまで決めてしまい、一覧が長い日には本文の「末尾」が本文の
+   終わりではなく一覧の終わりになる。
+   箱にするのはペインそのもので、その中の囲いではない: ホイールが効くのは箱の
+   内側なので、狭い囲いを箱にすると、その外の余白でホイールが死ぬ。 */
 .pane {
   min-width: 0;
+  min-height: 0;
+  overflow: clip auto;
+}
+
+/* 中身は自分の高さのまま積む。縮められると、溢れる代わりに潰れて scroll が
+   出ない。 */
+.pane > * {
+  flex: none;
 }
 
 .pane-list {
@@ -2293,7 +2314,6 @@ select {
   flex: none;
   width: 11px;
   align-self: stretch;
-  min-height: 40vh;
   cursor: col-resize;
   background: linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat;
 }
@@ -2321,15 +2341,6 @@ select {
 
   .panes.showing-main {
     transform: translateX(-100%);
-  }
-
-  /* 見ていない方は**頁の高さを決めない**。並べていない画面では、頁の長さは
-     今読んでいる 1 枚のものであるべきで、隣に居るだけの枚が下に空白を作る
-     理由が無い (滑って出入りするので、箱そのものは残す)。 */
-  .panes.showing-main .pane-list,
-  .panes.showing-list .pane-main {
-    max-height: 100dvh;
-    overflow: hidden;
   }
 
   .panes-split {

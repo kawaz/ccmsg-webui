@@ -99,3 +99,55 @@ test("狭い画面では並べず、選ぶと本文へ滑る", async ({ phone: p
     .poll(async () => Math.round((await page.locator(".pane-list").boundingBox())?.x ?? -1))
     .toBe(Math.round(panes?.x ?? 0));
 });
+
+test("一覧が窓より高くても、選んだ本文は末尾で止まる", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
+  const list = page.locator(".pane-list");
+  const main = page.locator(".pane-main");
+  // 確かめたいことが起きる前提: 一覧は窓に収まらない。収まっている一覧では
+  // 「一覧が高さを決める」こと自体が起きないので、assert は何も見ていない。
+  const over = async (): Promise<number> =>
+    await list.evaluate((one) => one.scrollHeight - one.clientHeight);
+  expect(await over()).toBeGreaterThan(0);
+
+  // 長い transcript へ。遷移した先で見えているべきは末尾の item で、一覧の
+  // 終わりに引きずられた空白ではない。
+  await page.getByRole("button", { name: "長い transcript" }).click();
+  await expect(page.getByRole("heading", { name: /transcript — / })).toBeVisible();
+  const last = page.locator(".tl-items > *").last();
+  await expect(last).toBeVisible();
+  // 末尾の item が本文の窓の中に居る。置き直しは測り直しのたびに起きるので、
+  // 落ち着くまで待つ (どこで落ち着くかを見るもので、いつ落ち着くかではない)。
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const box = document.querySelector(".pane-main")?.getBoundingClientRect();
+        const items = document.querySelectorAll(".tl-items > *");
+        const tail = items[items.length - 1]?.getBoundingClientRect();
+        if (box === undefined || tail === undefined) return false;
+        return tail.bottom <= box.bottom + 1 && tail.top >= box.top - 1;
+      }),
+    )
+    .toBe(true);
+  // 頁そのものは動かない (動くのは 2 ペインのそれぞれ)。
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  await shot(page, "layout-tail.png");
+
+  // 一覧は自分だけで動く。動かした後も本文は末尾に居たまま。
+  const where = async (): Promise<number> => await main.evaluate((one) => one.scrollTop);
+  const before = await where();
+  await list.evaluate((one) => {
+    one.scrollTop = one.scrollHeight;
+  });
+  expect(await list.evaluate((one) => one.scrollTop)).toBeGreaterThan(0);
+  expect(await where()).toBe(before);
+  // 一覧を戻す: この後の絵は既定の位置の一覧で撮られる。
+  await list.evaluate((one) => {
+    one.scrollTop = 0;
+  });
+});

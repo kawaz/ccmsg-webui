@@ -55,13 +55,14 @@ import {
   visibleRange,
 } from "../timeline/virtual-window.ts";
 import {
-  pageMetrics,
-  pageScrollHeight,
-  pageScrollTop,
-  pageTopOf,
-  pageViewport,
-  scrollPageTo,
-} from "../timeline/page-scroll.ts";
+  metricsOf,
+  scrollBoxTo,
+  ScrollerContext,
+  scrollHeightOf,
+  scrollTopOf,
+  topOf,
+  viewportOf,
+} from "../layout/scroller.ts";
 import type { TranscriptItemsView } from "../timeline/items-view.ts";
 import { type WaitingMessage, waitingFor } from "../conversation/inbox.ts";
 import {
@@ -213,9 +214,13 @@ function sendability(sid: Sid): { live: boolean; why: string } {
 }
 
 function TimelineBody({ view }: { view: TranscriptItemsView }) {
-  /** 窓が置かれている所。動かすのは頁なので、ここは測る起点と、この画面の中だけを
-   * 探すための囲いとして持つ。 */
+  /** 窓が置かれている所。動かすのは本文のペインなので、ここは測る起点と、この
+   * 画面の中だけを探すための囲いとして持つ。 */
   const pane = useRef<HTMLDivElement>(null);
+  /** 動かす箱 (`Shell` が持つ本文のペイン)。まだ組み上がっていない間は何も
+   * できないので、測る所も動かす所もここが答えるまで待つ。 */
+  const scroller = useContext(ScrollerContext);
+  const room = (): HTMLElement | null => scroller?.current ?? null;
   /** 空白ごとの入れ物と、描いている行の並び。前者が窓の起点で、後者が測る対象。 */
   const box = useRef<HTMLDivElement>(null);
   const items = useRef<HTMLDivElement>(null);
@@ -277,12 +282,13 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
    * 限り何もしない (`bump` は測り直しを描画へ渡すためのもの)。 */
   const sync = (bump = false) => {
     const outer = box.current;
-    if (outer === null) return;
+    const at = room();
+    if (outer === null || at === null) return;
     const now = layout.peek();
     const next: Layout = {
-      scrollTop: pageScrollTop(),
-      viewport: pageViewport(),
-      listTop: pageTopOf(outer),
+      scrollTop: scrollTopOf(at),
+      viewport: viewportOf(at),
+      listTop: topOf(at, outer),
       tick: now.tick + (bump ? 1 : 0),
     };
     if (bump || next.viewport !== now.viewport || next.listTop !== now.listTop) {
@@ -310,9 +316,10 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
    * 広めに描いている分は読み手には見えていない。 */
   const remember = () => {
     const outer = box.current;
-    if (outer === null) return;
-    const local = pageScrollTop() - pageTopOf(outer);
-    const seen = visibleRange(shownHeights.current, local, pageViewport(), 0);
+    const at = room();
+    if (outer === null || at === null) return;
+    const local = scrollTopOf(at) - topOf(at, outer);
+    const seen = visibleRange(shownHeights.current, local, viewportOf(at), 0);
     anchor.current = anchorAt(keys, shownHeights.current, local, seen.first);
     spanned.current = totalHeight(shownHeights.current);
   };
@@ -324,10 +331,11 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
    * 引き戻すと、その指が毎描画奪われる。 */
   const place = () => {
     const outer = box.current;
-    if (outer === null) return;
+    const at = room();
+    if (outer === null || at === null) return;
     let to: number | undefined;
     if (following.current) {
-      const bottom = pageScrollHeight() - pageViewport();
+      const bottom = scrollHeightOf(at) - viewportOf(at);
       if (bottom === stuck.current) return;
       stuck.current = bottom;
       to = bottom;
@@ -335,19 +343,19 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
       stuck.current = -1;
       const kept = anchor.current;
       if (kept === undefined) return;
-      const at = scrollTopAt(keys, shownHeights.current, kept);
+      const found = scrollTopAt(keys, shownHeights.current, kept);
       const now = totalHeight(shownHeights.current);
       // 窓の手前 (端の 1 行の所) を読んでいる錨は負で来る。丸めるのはここ —
-      // 窓が頁のどこから始まるかを知っているのはこちら側。
+      // 窓が箱のどこから始まるかを知っているのはこちら側。
       to =
-        at === undefined
-          ? scrollTopByGrowth(pageScrollTop(), spanned.current, now)
-          : Math.max(0, pageTopOf(outer) + at);
+        found === undefined
+          ? scrollTopByGrowth(scrollTopOf(at), spanned.current, now)
+          : Math.max(0, topOf(at, outer) + found);
       spanned.current = now;
     }
     // 端数だけの違いで書き戻さない: 代入のたびに丸められて、描くたびに少しずつ
     // 位置がずれていく。
-    if (Math.abs(pageScrollTop() - to) >= 0.5) scrollPageTo(to);
+    if (Math.abs(scrollTopOf(at) - to) >= 0.5) scrollBoxTo(at, to);
   };
 
   // 一致した行を出す。畳まれている中の一致にも辿り着けるように、囲む fold を
@@ -363,10 +371,11 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     const own = keys.indexOf(key);
     const index = nodesByUnit.get(key) ?? (own < 0 ? undefined : own);
     const node = index === undefined ? undefined : keys[index];
-    if (node !== undefined) {
+    const at = room();
+    if (node !== undefined && at !== null) {
       // 錨をその行に打ってから動かす。間に居る行の高さが見積もりから実測に
       // 変わっても、置き直しの先はその行のままになる。
-      const kept = anchorCentering(keys, shownHeights.current, node, pageViewport());
+      const kept = anchorCentering(keys, shownHeights.current, node, viewportOf(at));
       if (kept !== undefined) {
         following.current = false;
         anchor.current = kept;
@@ -450,24 +459,27 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   }, []);
 
   useEffect(() => {
-    // A transcript shorter than the page's own viewport never scrolls, so the
+    // A transcript shorter than the pane's own viewport never scrolls, so the
     // first page cannot be reached by scrolling to ask for the next. Nothing
     // drawn is not that case: the first page is already on its way, and
     // reading past it here would fetch a second page nobody has scrolled
     // towards.
     if (nodes.length === 0) return;
-    if (pageScrollHeight() <= pageViewport()) void view.readOlder();
+    const at = room();
+    if (at !== null && scrollHeightOf(at) <= viewportOf(at)) void view.readOlder();
   }, [nodes, view]);
 
-  /** 頁が動いた時。動かしているのは window なので、受けるのも window。 */
+  /** 箱が動いた時。動かしているのは本文のペインなので、受けるのもそのペイン。 */
   const onScroll = () => {
-    // 窓の上端は頁の途中なので、「遡りを頼む所」も頁の先頭からの距離ではなく
+    // 窓の上端は箱の途中なので、「遡りを頼む所」も箱の先頭からの距離ではなく
     // **窓の上端からの距離**で測る。
     const outer = box.current;
-    following.current = isAtBottom(pageMetrics(), EDGE_PX);
+    const at = room();
+    if (at === null) return;
+    following.current = isAtBottom(metricsOf(at), EDGE_PX);
     sync();
     remember();
-    if (outer !== null && pageScrollTop() - pageTopOf(outer) <= REACH_PX) void view.readOlder();
+    if (outer !== null && scrollTopOf(at) - topOf(at, outer) <= REACH_PX) void view.readOlder();
   };
 
   /** 描画の外から呼ばれる道は、いつでも最新のものを通る (`remeasure` と同じ)。 */
@@ -475,18 +487,20 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   onScrollNow.current = onScroll;
 
   useEffect(() => {
+    const at = scroller?.current;
+    if (at === undefined || at === null) return;
     const listen = () => {
       onScrollNow.current();
     };
-    window.addEventListener("scroll", listen, { passive: true });
-    // 画面の高さが変わると、見える範囲も末尾の位置も変わる。窓の中の要素は
-    // ResizeObserver が見ているが、viewport 自体はこちらでしか分からない。
+    at.addEventListener("scroll", listen, { passive: true });
+    // 窓が広くなると、見える範囲も末尾の位置も変わる。箱の中の要素は
+    // ResizeObserver が見ているが、箱そのものの高さはこちらでしか分からない。
     window.addEventListener("resize", listen);
     return () => {
-      window.removeEventListener("scroll", listen);
+      at.removeEventListener("scroll", listen);
       window.removeEventListener("resize", listen);
     };
-  }, []);
+  }, [scroller]);
 
   const pathLinker = useTimelinePathLinker(view.sid);
   const agent = view.agentId;
