@@ -5,7 +5,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
 | 2026-09-14 | request | open | [markdown-preview-fuzzy-file-links](./2026-09-14-markdown-preview-fuzzy-file-links.md) | Markdown プレビューで、省略されたファイル名の言及をプロジェクト内ファイルへのリンクにする |
-| 2026-09-14 | bug | open | [session-list-height-drives-page-scroll](./2026-09-14-session-list-height-drives-page-scroll.md) | セッションリストがページ全体の高さを決めてしまい、遷移直後の TL が空の最下部にスクロールされて読めない |
 | 2026-09-14 | bug | open | [visual-mask-box-dimension-drift](./2026-09-14-visual-mask-box-dimension-drift.md) | session-search の基準画像が全件走行時だけずれる (マスク箱の寸法ゆらぎ) |
 | 2026-09-12 | task | open | [composer-autogrow-and-touch-targets](./2026-09-12-composer-autogrow-and-touch-targets.md) | Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性) |
 | 2026-09-12 | task | open | [launcher-cwd-tree](./2026-09-12-launcher-cwd-tree.md) | Session Launcher の「始める場所」にディレクトリツリー選択 (展開/フィルタ) を追加 |

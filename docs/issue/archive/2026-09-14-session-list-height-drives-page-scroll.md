@@ -1,6 +1,6 @@
 ---
 title: セッションリストがページ全体の高さを決めてしまい、遷移直後の TL が空の最下部にスクロールされて読めない
-status: open
+status: resolved
 category: bug
 created: 2026-09-14T13:36:50+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-14T14:09:23+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: v0.19.0 で頁を scroll させず2ペインがそれぞれ自分の高さの中で scroll するよう変更、TL の末尾追従は本文ペインの scroll 容器基準に (src/layout/scroller.ts)","done: visual に layout-tail を追加、linux 基準も描画済み、本番 build 済み"]
 blocked_by:
 origin: kawaz
 ---
