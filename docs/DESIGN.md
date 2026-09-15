@@ -19,7 +19,7 @@ This page is a static site served **from under an instance's endpoint** (DR-0001
 | connection | `src/connection.ts` | the socket's life, `hello.user`, correlating replies to requests, reconnection, restoring subscriptions |
 | fold | `src/topic-fold.ts` | folding topic frames into what is held, by the contract's `granularity` |
 | state | `src/state.ts` | the signals, and the functions that are their only writers |
-| derived | `src/sessions.ts` `src/route.ts` | ordering, sections, display names, the URL grammar (pure) |
+| derived | `src/sessions.ts` `src/runs.ts` `src/route.ts` | ordering, sections, display names, what an address naming a run asks for, the URL grammar (pure) |
 | base | `src/base.ts` | where this build was published, and the routes read and written against it |
 | transcript | `src/timeline/` | the pure model that reads typed items into what is drawn, and the `TranscriptItemsView` that gathers its fetching |
 | screens | `src/ui/` | reading only |
@@ -286,6 +286,20 @@ dropped.
   flush its transcript, so the screen never chooses it — the contract defines
   `force` that way and a person decides
 
+## A session and its runs are two things
+
+A session is the transcript and the folded state; a run is one process of it (contract DR-0001). The URL says which of the two is being looked at: `/s/<sid>` is the session and `/s/<sid>.<pid>` is one run of it.
+
+**Where a row stands is read off the row**, by the contract's own `liveness`, `reachable` and `waiting`. Nothing on the wire says which heading a session goes under: the words are this screen's and the arithmetic is the contract's, so this build and an instance never show one row two ways. A session two processes are writing heads the list, because that is the answer to a different question — how many processes — and nothing else about such a row is worth reading until a person picks one of them.
+
+**A session two processes are writing is not shown as a session at all.** Its fold is frozen and every send, dump and file read is refused (`session_duplicated`), so what a person lands on is the runs and what can be told of each: the pid, when it started, whether it is connected, the terminal it is in, what it is waiting on. Nothing that would be refused is drawn — a composer that exists to be turned down is worse than none. Choosing a run leads to `/s/<sid>.<pid>`, which carries the same material and the one thing there is to do: end that run, naming its pid, since the sid alone no longer resolves to one process.
+
+**A run that is gone is said to be gone.** A pid the session has no run for is answered as ended rather than quietly shown as the session: the OS hands the number out again, and the link was made about a process. A run named on a session that has only that one is no longer restricted, so the screen says so and points at the session.
+
+**What the fold is worth is drawn wherever the fold is read** (`session_status`): `absent` says nothing has been read, `folding` says what is there is partial, `frozen` says it is the last value that could be trusted. A screen that drew a partial fold as the whole one would be saying the session has nothing to show.
+
+**A process a launcher started before the harness named a session for it is in the harness's list and nowhere else.** It has a terminal and a start and no id, so its row opens nothing and offers the terminal alone.
+
 ## Spend is a record of days, folded into the span being read
 
 What the gateway holds is **per day**, and the screen folds that into days,
@@ -523,11 +537,11 @@ next.
 
 A session's own terminal can be opened from here. **Drawing it is not this build's job**: the page borrows the screen of the gateway the instance names in `hello` (`terminal_gateway`) in an iframe, and holds neither the rendering nor the input. Holding them would be a second implementation of the same thing.
 
-**The URL is two values put together.** The gateway's base and the `terminal_id` the session names on the `agents` topic make `<gateway>/sessions/<terminal_id>` (contract `hello.ts`). Everything below `/sessions/` is the gateway's spelling rather than the contract's, so a base that carries a path keeps it and the segments hang below it, and a base that arrives with a trailing slash names the same gateway. Nothing is made from a base that is not http(s) or where either value is missing — a link to nowhere is worse than no link.
+**The URL is put together by the contract** (`terminalUrl`). A terminal handle names which system's terminal it is — `hyoui:<id>` is the one this gateway serves — and turning the pair into `<gateway>/sessions/<id>` is the contract's, so the rule lives once beside the field rather than once per client. A handle under another scheme yields no link at all; whoever knows that system opens it. What this build adds is the one thing it owes its own reader: the value goes into an `href`, so a gateway that is not an http(s) URL yields nothing. Nothing is made where either value is missing — a link to nowhere is worse than no link.
 
 **A tab that leads nowhere is not offered.** Where the instance fronts no gateway, or the session names no terminal, the tab itself is absent (`visibleTabs`). The URL grammar still reads it: a link made where the terminal was reachable is not a broken URL where it is not, and lands on a screen saying so rather than on a 404.
 
-**Only `agents` rows name a terminal**, and the shown `agents` list drops the rows the peer list already carries. So the map is built from the rows before that is done (`terminalIdsBySid`) — the session whose terminal a person wants is very often the one that is connected right now.
+**A run names the terminal it is in, on the session's own row** (`peers.runs`), so the map every screen reads is built from the list it already holds (`terminalIdsBySid`). The harness's own rows are read for the one thing that has no session row: a process a launcher started that has no id yet.
 
 **The embedded URL and the plain one differ.** The tab's iframe asks for `?embed=1&resize=1`: the gateway drops its own header, and follows the frame's size rather than a stored choice, an embedded page having nowhere to offer that choice and nowhere to keep it. The link on a list row is the gateway's own screen, so it carries neither and opens in a tab of its own — the terminal can be looked at without losing the list.
 
@@ -537,7 +551,7 @@ A `notify` frame is an event, and the contract keeps none of them. Neither does 
 
 ## A session that cannot be reached offers no composer
 
-The composer is enabled for sessions the instance currently reports as connected. A `message.send` to a stopped session is refused, so the page says that it cannot be sent and why (ended / gone / not connected) rather than letting the person find out from a refusal.
+The composer is enabled for a session some run of which can be reached (`liveness` and `reachable`). A `message.send` to a stopped session is refused, so the page says that it cannot be sent and why (ended / gone / unreachable / written by two processes at once) rather than letting the person find out from a refusal.
 
 A send that goes through has two successes to tell apart: handed over now, or held in the inbox. Being held is not a failure, so the wording says which of "wait", "send to another session" or "give up" this is (`src/conversation/send-outcome.ts`).
 
