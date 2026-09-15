@@ -1,5 +1,5 @@
 {
-  "webui_version": "1.1.0",
+  "webui_version": "1.2.0",
   "screens": {
     "conversation": {
       "darwin/dark": "35f14c1ed70acc8f7752af6631ec28b3511a8e06b34993a18532d42b3531bb84",
@@ -46,8 +46,8 @@
     "layout-tail": {
       "darwin/dark": "2f6798738227d0cc4109665ee212cf241b75f2494c8f4db9b1a403a138ca26c8",
       "darwin/light": "297db1ae58e7828fa948b8aefa3861d1f4f7e59eccb15abb6f303cdac12c1c7c",
-      "linux/dark": "0a7b8e3d992e3d9ade3e5a83a408ce26906247214e92708143663225ccf1aea8",
-      "linux/light": "9b303d5a6550879794955278ce11aa3c6e88465a71b0dfa75e67e28252a75e9a"
+      "linux/dark": "59863ce3f6f7a95bd9d30456bcbbee84815410b53450fc32623d67d4ddf70d7e",
+      "linux/light": "83ae474a40476e7af130755d633b012857a98dfeed32c0e6ba9aa3fc90753362"
     },
     "notification": {
       "darwin/dark": "2a594598236f82f0db280e98968c60083f2a967ac0f2cfd4d292a321429900b8",
@@ -64,8 +64,8 @@
     "phone-timeline": {
       "darwin/dark": "e4619b93da5a98f39904b00aec332a8107ec6d87a2f63ead636f1f82392cf01f",
       "darwin/light": "09160dbe44d7219397775693dcab5ab72ee7ce33e025a244f74c3503506b46ed",
-      "linux/dark": "3b64370f58868def96f4d513724417aa729037c7cc17351aa2818eb5d2ee90d6",
-      "linux/light": "d2af87ef42f17bfec36a0cac0e9415ad7049ceb242f28554b605ac75a8f55901"
+      "linux/dark": "61567e2af9420660f4316ddef5e3c1f51c1128e839ad414fa447255bde174019",
+      "linux/light": "c3f607e06d475e401bc4fc23ad66b88b40b29bce33ea82f0e9ab5944223689e9"
     },
     "phone-usage": {
       "darwin/dark": "779d3b12919c8926846aff3b8a11a890ed42d88822a99da0a91d6a76a3b59c94",
@@ -178,8 +178,8 @@
     "timeline-agent": {
       "darwin/dark": "70e469be705ee397572430d355e3d3069f3ce302763db79753879b957fd37577",
       "darwin/light": "2a3294b1ede64ce00004d25b3802d4a22840806c1c546f628a692d7e59d7382b",
-      "linux/dark": "8d7d41df656205c51fb644a91dcd77dfe9dbaf80df1de70017c406cbdd58e263",
-      "linux/light": "9a2d528ad28a37cd77e5af8cb906a7d3287812b72703ec682cb0883e721b95a7"
+      "linux/dark": "097ea50b9bdba371f18e98d01ec9214c7eee194425028e8bc1e2fc3f170a8179",
+      "linux/light": "a470028d28c48c4878278dacd4dc08ef9409faab46c3d89480ea130ba7abcf27"
     },
     "timeline-display": {
       "darwin/dark": "3afc0ef649a925885675dc98f8a980ea8e8a568d9ed4b757c5fb5f477b8c4a05",
@@ -190,8 +190,8 @@
     "timeline-fold-open": {
       "darwin/dark": "a7d84b6e4f009dc59440fa9aef4ecd5e8c9f8bcdad739109c97e684b764dcb0a",
       "darwin/light": "4c053b05a5a43fe86f142b59badd47165e0a5390857c680dddf868bb27a54751",
-      "linux/dark": "a0550bca486abab5304fe633bc50d93829d69fb2d33c719fc724079eb4a5ef56",
-      "linux/light": "7ec59369c3b257d4eebe4a3d933c2765cfdb0e04dc9d3e5a5c2b0560a6e710e2"
+      "linux/dark": "ecaaf56540e435c9ceca452ca9f7e8360505852e97b5d5fd93069f5923d5ef6c",
+      "linux/light": "a38e05c546b3ed8e8d4476e14797982767e6c44b2279bff0bf74f6b7348815b6"
     },
     "timeline-raw-record": {
       "darwin/dark": "773d4447edbb9919d00c539e5c907fd206994568e6e7c5356a445bc9fff044c9",
@@ -208,8 +208,8 @@
     "timeline-translated": {
       "darwin/dark": "af971589b42c0b5cf1f4a47cd0e5322e118a9e3ac44a831d353de4cdc5eff670",
       "darwin/light": "dce6910dd83307d5a61d99aa0544e8b8929b64eaf8844c2c94a61f87c19aba6e",
-      "linux/dark": "01e2ab161ccda37ec9343a6a7b816b11df8d736b5b251f45c3123d4dd48397be",
-      "linux/light": "4fa2580d01bdaea88273d2434f30474c75743e704dedf0b38e26ae61620da626"
+      "linux/dark": "5c98f15e6a2a4324101def5bb11b58504c51965412459580c09dee4189c59384",
+      "linux/light": "0a0bcd5b7ed41a6c68b1488d5fa371abd44e20e2618f93168310e0df1ecfe81b"
     },
     "usage": {
       "darwin/dark": "36d3a7b18f2ad4ca62395122d65f2994105d45136abcdd19457705616e52ed9f",
