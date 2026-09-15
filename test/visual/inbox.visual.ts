@@ -22,6 +22,9 @@ declare global {
     __instance?: string;
     /** 開いている socket。どれが instance のものかは url だけでは決まらない。 */
     __sockets?: WebSocket[];
+    /** inbox の購読に instance が答えたか。差し込むのはその後でなければ
+     * ならない (下記)。 */
+    __inbox?: true;
   }
 }
 
@@ -44,9 +47,12 @@ test("待っている 1 通は、言われた時刻の所に印付きで並ぶ",
           }
         };
         this.addEventListener("message", (event: MessageEvent<string>) => {
-          if (window.__instance !== undefined) return;
-          const said = /"instance":"([0-9a-f]{32})"/.exec(String(event.data));
-          if (said !== null) window.__instance = said[1];
+          const line = String(event.data);
+          if (window.__instance === undefined) {
+            const said = /"instance":"([0-9a-f]{32})"/.exec(line);
+            if (said !== null) window.__instance = said[1];
+          }
+          if (line.includes('"topic":"inbox"')) window.__inbox = true;
         });
       }
     }
@@ -59,6 +65,11 @@ test("待っている 1 通は、言われた時刻の所に印付きで並ぶ",
   // 足すのは購読の答え (instance 自身の空の snapshot) が着いてから。先に足すと
   // その snapshot に置き換えられる — element の topic の snapshot は、その
   // instance の行ぜんぶだから。
+  //
+  // **着いたことを見てから足す**。行が出ていることを着いた印の代わりにすると、
+  // 画面がその後どれだけ instance と話すかで結果が変わる — 話が増えれば inbox の
+  // 答えはその分だけ後ろにずれ、差し込んだ行は着いた snapshot に消される。
+  await page.waitForFunction(() => window.__inbox === true);
   await page.evaluate((sid: string) => {
     const named = window.__instance as string;
     const say = (data: unknown, snapshot = false) => {
