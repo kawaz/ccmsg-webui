@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -92,6 +92,32 @@ function started(child: ChildProcess): Promise<void> {
   });
 }
 
+/** 前の走行が残した daemon を引き取る。
+ *
+ * 残るのは、走行が最後まで行かなかった時 — 撮っている途中で kill されると、
+ * 起動した daemon は親を失ったまま走り続ける。使い捨ての config home は**この
+ * 用途だけの決まった場所**なので、そこを見ている daemon はどれも前の走行の
+ * 置き土産で、生きている人の instance ではない。
+ *
+ * 止め方が SIGKILL なのは、片付けるものが何も無いから: 状態は丸ごと消す temp の
+ * 下にあり、次の行で消える。 */
+function reapLeftovers(home: string): void {
+  let said = "";
+  try {
+    said = execFileSync("pgrep", ["-f", `daemon run ${home}`], { encoding: "utf8" });
+  } catch {
+    // 見つからなければ pgrep は 1 で終わる (= 残骸なし)。
+    return;
+  }
+  for (const word of said.split("\n")) {
+    const pid = Number(word.trim());
+    if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) continue;
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {}
+  }
+}
+
 /** Run one CLI command against this host and answer with the JSON it wrote. */
 function cli(env: NodeJS.ProcessEnv, args: readonly string[]): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -108,8 +134,9 @@ function cli(env: NodeJS.ProcessEnv, args: readonly string[]): Promise<unknown> 
 }
 
 export async function startInstance(): Promise<Instance> {
-  rmSync(ROOT, { recursive: true, force: true });
   const home = join(ROOT, "home");
+  reapLeftovers(home);
+  rmSync(ROOT, { recursive: true, force: true });
   const cwd = join(ROOT, "repo");
   mkdirSync(join(home, "projects"), { recursive: true });
   mkdirSync(cwd, { recursive: true });
@@ -207,14 +234,44 @@ export async function startInstance(): Promise<Instance> {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let vite: ViteDevServer | undefined;
+
+  // 走行が最後まで行かなかった時に daemon を道連れにする道。fixture の後始末は
+  // test が終わって初めて走るので、その前に process が消える経路 (Ctrl-C、
+  // SIGTERM、何かが呼んだ exit) には別に引き金が要る。
+  //
+  // 合図を受けたら daemon を落とすだけで、この process をどうするかには触らない
+  // — 走らせ手 (playwright) が自分の後始末をする途中なので、そこへ割り込むと
+  // browser の方が残る。誰も聞いていない合図だけは、聞かなかったことにして
+  // 既定の振る舞いに返す。
+  const bury = (): void => {
+    try {
+      daemon.kill("SIGKILL");
+    } catch {}
+  };
+  const onSignal = (["SIGINT", "SIGTERM", "SIGHUP"] as const).map((signal) => {
+    const act = (): void => {
+      bury();
+      if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+    };
+    process.once(signal, act);
+    return [signal, act] as const;
+  });
+  process.once("exit", bury);
+
   const stop = async (): Promise<void> => {
+    for (const [signal, act] of onSignal) process.off(signal, act);
+    process.off("exit", bury);
     await vite?.close();
     await gateway.stop();
     // By pid, and this run's own child: nothing else on the machine is asked to
     // leave on a visual run's behalf.
     const left = new Promise<void>((resolve) => daemon.once("exit", () => resolve()));
     daemon.kill("SIGTERM");
+    // 頼んでも出て行かないものは押し出す。待ち続けると、残るのは daemon では
+    // なく走行そのものになる。
+    const push = setTimeout(bury, 5_000);
     await left;
+    clearTimeout(push);
     rmSync(ROOT, { recursive: true, force: true });
   };
   try {
