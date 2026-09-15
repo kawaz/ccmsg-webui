@@ -93,6 +93,7 @@ import {
 } from "../markdown/markdown-view.tsx";
 import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
+import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 
 /** A session's transcript as the items an instance read it into, followed
@@ -993,6 +994,7 @@ function MessageView({ item }: { item: TranscriptItem }) {
           </span>
           <span class="tl-who">{itemLabel(item)}</span>
           {!open && <span class="tl-brief">{messageBrief(item)}</span>}
+          <RelativeTime at={item.at} />
         </>
       }
     >
@@ -1034,6 +1036,7 @@ function ItemLine({ item }: { item: TranscriptItem }) {
     <p class="tl-tool mono">
       <span class="tl-tool-name">{itemLabel(item)}</span>
       {detail !== "" && <span class="tl-tool-detail">{highlighted(detail, words)}</span>}
+      <RelativeTime at={item.at} />
     </p>
   );
 }

@@ -885,6 +885,18 @@ select {
   opacity: 0.7;
 }
 
+/* どのくらい前か。行の右端に寄せて、要約の文と場所を争わない — 読む順は
+ * 「誰が / 何を」が先で、時間はその行を見返す時にだけ要る。 */
+.tl-when {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .tl-brief {
   min-width: 0;
   overflow: hidden;
