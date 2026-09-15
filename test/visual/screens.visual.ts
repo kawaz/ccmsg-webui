@@ -160,3 +160,34 @@ test("notification", async ({ ui: page, instance }) => {
   }).toPass({ timeout: 20_000 });
   await shot(page, "notification.png");
 });
+
+/** 名前を略して書かれた語が、プロジェクトの中のファイルに繋がる所 (文書の
+ * プレビュー)。綴りのまま在る語は単独のリンクになり、日付 prefix と拡張子を
+ * 補って初めて名前が合う語は書類の印になる。何も当たらない語は素のまま —
+ * 出るのは在った時だけなので、外れは画面に出ない。 */
+test("file-word-candidates", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${SID}/files?path=NOTES.md`);
+  await expect(page.getByText("読み方のメモ")).toBeVisible();
+  const more = page.locator(".viewer-preview .md-file-word-more");
+  await expect(more).toHaveCount(1);
+  await more.click();
+  await expect(
+    page.getByRole("link", { name: "docs/issue/2026-09-14-fold-from-head.md" }),
+  ).toBeVisible();
+  await shot(page, "file-word-candidates.png");
+});
+
+/** 同じ繋がりを会話の吹き出しで。基準にする場所が違う (session の作業 folder)
+ * だけで、出るものは同じ。 */
+test("file-word-bubble", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
+  const word = page.locator(".tl-body .md-file-word");
+  await expect(word.locator(".md-path-link")).toHaveCount(1);
+  await expect(word.locator(".md-file-word-more")).toHaveCount(1);
+  await word.locator(".md-file-word-more").click();
+  await expect(
+    page.getByRole("link", { name: "docs/issue/2026-09-14-fold-from-head.md" }),
+  ).toBeVisible();
+  await shot(page, "file-word-bubble.png");
+});

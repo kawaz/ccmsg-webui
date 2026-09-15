@@ -90,6 +90,8 @@ export function union<T>(slots: ReadonlyMap<string, T>): readonly T[] {
 }
 \`\`\`
 
+畳み方そのものは \`src/topic-fold.ts\`、決めた経緯は \`fold-from-head\` にあります (\`no-such-note-here\` はまだ書いていません)。
+
 詳しくは [DESIGN-ja.md](./docs/DESIGN-ja.md) を読んでください。`;
 
 /** The transcript the Timeline screens read. */
@@ -193,10 +195,16 @@ const NOTES = `# 読み方のメモ
 - **購読が先、読み込みが後**
 - 窓は末尾 1 MiB まで
 - 落ちた行は \`transcript.read\` が答える範囲そのもの
+- 畳み方は \`src/topic-fold.ts\`、経緯は \`fold-from-head\` (\`no-such-note-here\` はまだ)
 
 \`\`\`sh
 just visual
 \`\`\`
+`;
+
+const FOLD_NOTE = `# 先頭から畳む
+
+窓を持つ topic は、先頭から畳んで末尾だけを残す。
 `;
 
 /** The worker's own transcript: the brief it was given, what it thought, what
@@ -430,6 +438,12 @@ export function writeFixture(home: string, cwd: string): Fixture {
   mkdirSync(join(cwd, "src"), { recursive: true });
   writeFileSync(join(cwd, "src", "topic-fold.ts"), CODE);
   writeFileSync(join(cwd, "NOTES.md"), NOTES);
+  // 名前を略して書かれた語が当たる先。日付 prefix と拡張子が落ちた綴りで
+  // 2 つに当たるので、どちらを開くかを人が選ぶ画面になる。
+  mkdirSync(join(cwd, "docs", "issue"), { recursive: true });
+  mkdirSync(join(cwd, "docs", "archive"), { recursive: true });
+  writeFileSync(join(cwd, "docs", "issue", "2026-09-14-fold-from-head.md"), FOLD_NOTE);
+  writeFileSync(join(cwd, "docs", "archive", "2026-01-02-fold-from-head.md"), FOLD_NOTE);
   return {
     transcriptPath,
     terminalTranscriptPath,
