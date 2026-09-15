@@ -298,7 +298,7 @@ A session is the transcript and the folded state; a run is one process of it (co
 
 **What the fold is worth is drawn wherever the fold is read** (`session_status`): `absent` says nothing has been read, `folding` says what is there is partial, `frozen` says it is the last value that could be trusted. A screen that drew a partial fold as the whole one would be saying the session has nothing to show.
 
-**A process a launcher started before the harness named a session for it is in the harness's list and nowhere else.** It has a terminal and a start and no id, so its row opens nothing and offers the terminal alone.
+**A harness that has started and not yet named a session is seen from the terminals rather than from the sessions** (the contract's `starting`, DR-0026). It has no id, so its row opens nothing and offers the terminal alone.
 
 ## Spend is a record of days, folded into the span being read
 
@@ -533,6 +533,16 @@ it: on a screen with nothing running, "idle because there is nothing to do" and
 "stopped here" are different situations, and they change what the reader does
 next.
 
+## The terminals are their own list, and sessions map onto it
+
+**A terminal is not a session's** (contract DR-0026). The window a person opened with `zsh -i` in it belongs to no session, and a terminal whose session ended is not gone — it goes back to the list. So the terminals are a list of their own here too (`/terminals`) and one terminal is a screen of its own (`/terminal/<id>`), both hanging from the root: put them below a session and there is nowhere left to write down a terminal that is no session's.
+
+**Which session is in which terminal is derived**, and the rows say none of it. The pids are what match, and matching them is the contract's (`terminalsOf`, `unattachedTerminals`, `starting`), so an instance and this build never read the same two lists two ways. The `agents` rows read here are the ones **before the list thins them** (`runRows`): hand over the column a list has already picked its own rows out of, and the terminals of the runs it dropped read as terminals nobody is in.
+
+**`starting` is the way in for "it was started and never arrived".** A harness is running in the terminal and no run has been seen for that pid, and with no sid yet the only name it has is the terminal's. What is happening is only visible inside that terminal, so the row heads both lists and offers the terminal and nothing else.
+
+**The list wins, and the run's own word is what is left when there is none.** An instance with no terminal manager has no list at all, only the `terminal_id` a run read out of its state file (contract DR-0026 §2). So a screen asks the pids first and falls back to `peers.runs` only where that answers nothing (`terminalIdOfSession`).
+
 ## The terminal is borrowed, not built
 
 A session's own terminal can be opened from here. **Drawing it is not this build's job**: the page borrows the screen of the gateway the instance names in `hello` (`terminal_gateway`) in an iframe, and holds neither the rendering nor the input. Holding them would be a second implementation of the same thing.
@@ -541,7 +551,7 @@ A session's own terminal can be opened from here. **Drawing it is not this build
 
 **A tab that leads nowhere is not offered.** Where the instance fronts no gateway, or the session names no terminal, the tab itself is absent (`visibleTabs`). The URL grammar still reads it: a link made where the terminal was reachable is not a broken URL where it is not, and lands on a screen saying so rather than on a 404.
 
-**A run names the terminal it is in, on the session's own row** (`peers.runs`), so the map every screen reads is built from the list it already holds (`terminalIdsBySid`). The harness's own rows are read for the one thing that has no session row: a process a launcher started that has no id yet.
+**What hangs below a session is the terminals it is running in now.** When the run goes, the derivation answers nothing and the terminal is back on the list — nothing here remembers it, so nothing here has to remove it. Which one is being looked at is offered only where there are two or more: a choice of one is not a choice.
 
 **The embedded URL and the plain one differ.** The tab's iframe asks for `?embed=1&resize=1`: the gateway drops its own header, and follows the frame's size rather than a stored choice, an embedded page having nowhere to offer that choice and nowhere to keep it. The link on a list row is the gateway's own screen, so it carries neither and opens in a tab of its own — the terminal can be looked at without losing the list.
 
