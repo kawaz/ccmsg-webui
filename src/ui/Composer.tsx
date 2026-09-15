@@ -4,6 +4,7 @@ import type { Sid } from "@ccmsg/protocol";
 import { composerAction } from "../conversation/composer-keydown.ts";
 import { draftKey } from "../conversation/draft.ts";
 import { describeSendOutcome } from "../conversation/send-outcome.ts";
+import { describeRefusal } from "../refusal.ts";
 import { localStore } from "../settings.ts";
 import { hello, messageSendRefusal, sendMessage } from "../state.ts";
 
@@ -50,7 +51,7 @@ export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: str
         box.current?.focus();
       })
       .catch((cause: unknown) => {
-        outcome.value = `送れませんでした: ${String(cause)}`;
+        outcome.value = `送れませんでした: ${describeRefusal(cause)}`;
       })
       .finally(() => {
         sending.value = false;

@@ -1,4 +1,5 @@
 import {
+  type ErrorCode,
   type ErrorResponse,
   type HelloResult,
   type InstanceId,
@@ -57,6 +58,22 @@ export interface ConnectionEvents {
    * does not know an op this build calls. There is no compatibility path: the
    * page says so and the person reloads a build that matches. */
   generationMismatch(reason: string): void;
+}
+
+/** A refusal, with the word the contract refused it by.
+ *
+ * The code travels rather than being formatted away, because what a screen says
+ * next depends on which refusal it is: `session_duplicated` is answered by
+ * ending one of two processes, `ambiguous_run` by naming which one. A caller
+ * with nothing to say about a particular code reads the message. */
+export class Refused extends Error {
+  constructor(
+    readonly code: ErrorCode,
+    readonly detail: string,
+  ) {
+    super(`${code}: ${detail}`);
+    this.name = "Refused";
+  }
 }
 
 interface Pending {
@@ -292,7 +309,7 @@ export class Connection {
     if (error.code === "unknown_op" || error.code === "topic_unknown") {
       this.#events.generationMismatch(`instance が知らない ${error.code}: ${error.msg}`);
     }
-    pending.reject(new Error(`${error.code}: ${error.msg}`));
+    pending.reject(new Refused(error.code, error.msg));
   }
 
   #topicFrame(frame: Record<string, unknown>): void {
