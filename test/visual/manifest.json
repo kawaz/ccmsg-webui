@@ -1,5 +1,5 @@
 {
-  "webui_version": "1.2.0",
+  "webui_version": "1.3.0",
   "screens": {
     "conversation": {
       "darwin/dark": "1ed43f45acc2cbfd4824c8b228c6342fd38d0a58ce55c19e24041276064c0726",
