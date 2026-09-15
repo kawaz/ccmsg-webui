@@ -1157,6 +1157,60 @@ select {
   text-decoration-style: dotted;
 }
 
+/* ファイルの名前らしき語と、その後ろに付く印。印だけが次の行の頭に落ちない
+ * よう、名前と印は 1 つの塊にする。候補の一覧はこの塊の外なので、狭い画面では
+ * 次の行へ回れる。 */
+.md-file-word-name {
+  white-space: nowrap;
+}
+
+/* 名前の合うファイルが複数ある時に出る印。押すと候補が開く。
+ * 語そのものは押せない — どれを開くかがまだ決まっていない。 */
+.md-file-word-more {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  font-size: 0.85em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* 候補の一覧。押した語のすぐ後ろ、文の流れの中に開く。
+ *
+ * 浮かせない: 本文は縦に転がる箱の中にあり、浮かせたものはその箱の縁で切れる。
+ * 一番下の行にある語ほど候補が読めなくなるので、押した所は動かさずに、行が
+ * 伸びる方を選ぶ。inline-level なので `<p>` の中に置いても流れを壊さない。
+ *
+ * path は畳まずに出す — どれを開くかは置き場所で決まるので、そこを削ると
+ * 選べない。 */
+.md-file-word-menu {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+  margin: 2px 0 2px 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  vertical-align: text-top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.md-file-word-menu > a {
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--brand-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  text-decoration: none;
+}
+
+.md-file-word-menu > a:hover {
+  background: var(--surface-hover);
+}
+
 /* ---- Files タブ ---- */
 
 .files-panes {

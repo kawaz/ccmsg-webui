@@ -3,6 +3,7 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/
 import { useSignal } from "@preact/signals";
 import { liveness, reachable, type Sid, type TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
+import { useFileWords } from "../files/file-word-link.ts";
 import { href } from "../base.ts";
 import {
   foldGroupKey,
@@ -87,10 +88,12 @@ import { needsNoTranslation } from "../timeline/translate.ts";
 import { ROUTE_LABELS } from "../timeline/translators.ts";
 import { useTranslated } from "../timeline/use-translated.ts";
 import {
+  type FileWordCtx,
   type MarkdownPathLinker,
   markdownPlainText,
   MarkdownView,
 } from "../markdown/markdown-view.tsx";
+import { displayPathFor, isAbsolutePath, ROOT } from "../files/paths.ts";
 import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
@@ -122,6 +125,9 @@ const EDGE_PX = 24;
  * anyway (MarkdownView re-renders its document when it changes). */
 const PathLinkerContext = createContext<MarkdownPathLinker | undefined>(undefined);
 
+/** ファイルの名前らしき語を繋ぐ先。渡り方は上と同じで、間の階層は素通し。 */
+const FileWordsContext = createContext<FileWordCtx | undefined>(undefined);
+
 /** 探している言葉。行の中のどこを光らせるかを決めるだけのもので、間の階層は
  * 素通しなので、パスのリンク先と同じく context で渡す。 */
 const SearchWordsContext = createContext<readonly SearchWord[]>([]);
@@ -151,6 +157,20 @@ function useTimelinePathLinker(sid: Sid): MarkdownPathLinker | undefined {
     };
   }, [sid, cwd, root]);
 }
+/** ファイルの名前らしき語を、この transcript の中から読む時の基準。
+ *
+ * 語が書かれた場所は session の作業 folder。木の中での綴りに直してから渡す —
+ * 探すのは instance の木の中で、そこでの path は root からの綴りになる。 */
+function useTimelineFileWords(sid: Sid): FileWordCtx {
+  const session = sessionPaths(sid);
+  const { cwd, root } = session;
+  const base =
+    cwd === undefined
+      ? ROOT
+      : (displayPathFor(cwd, { cwd, ...(root === undefined ? {} : { root }) }) ?? ROOT);
+  return useFileWords(sid, isAbsolutePath(base) ? ROOT : base, navigate);
+}
+
 /** How far from the top an older page is asked for — before the top, so the
  * page is usually there by the time it is reached. */
 const REACH_PX = 400;
@@ -505,90 +525,94 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
   }, [scroller]);
 
   const pathLinker = useTimelinePathLinker(view.sid);
+  const fileWords = useTimelineFileWords(view.sid);
   const agent = view.agentId;
   return (
     <ViewContext.Provider value={view}>
       <PathLinkerContext.Provider value={pathLinker}>
-        <SearchWordsContext.Provider value={words}>
-          <section class="section timeline">
-            <h2>
-              {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
-            </h2>
-            {agent !== undefined && (
-              <p class="tl-note">
-                worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
-                セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
-              </p>
-            )}
-            <ReadingTabs />
-            <DisplayPanel types={seenTypes} />
-            <SearchBar search={search} matched={matched} onReveal={reveal} />
-            {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
-            <div class="tl-pane" ref={pane} onClick={onClickIn}>
-              <p class="empty tl-edge">
-                {view.atBeginning.value
-                  ? "— 先頭 —"
-                  : view.loading.value
-                    ? "読み込み中…"
-                    : "上にスクロールすると遡ります"}
-              </p>
-              <div class="tl-window" ref={box}>
-                <div class="tl-space" style={{ height: `${range.before}px` }} />
-                <div class="tl-items" ref={items}>
-                  {nodes.slice(range.first, range.last).map((node, index) => (
-                    <NodeView key={keys[range.first + index]} node={node} />
-                  ))}
-                </div>
-                <div class="tl-space" style={{ height: `${range.after}px` }} />
-              </div>
-              {nodes.length === 0 && !view.loading.value && (
-                <p class="empty">まだ transcript がありません。</p>
+        <FileWordsContext.Provider value={fileWords}>
+          <SearchWordsContext.Provider value={words}>
+            <section class="section timeline">
+              <h2>
+                {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
+              </h2>
+              {agent !== undefined && (
+                <p class="tl-note">
+                  worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
+                  セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
+                </p>
               )}
-              {agent === undefined &&
-                notifications.value
-                  .filter((one) => one.notification.sid === view.sid)
-                  .map((one) => (
-                    <div key={one.key} class="tl-bubble notice">
-                      <span class="tl-who">通知</span>
-                      <div class="tl-body">
-                        <MarkdownView
-                          source={one.notification.text}
-                          pathLinker={pathLinker}
-                          highlight={words}
-                        />
-                        <p class="tl-note">
-                          transcript に同じ返事が現れたらそちらが正
-                          {one.notification.reply_to !== undefined && (
-                            <ReplyToLink
-                              mid={one.notification.reply_to}
-                              at={itemsByMid}
-                              onGo={reveal}
-                            />
-                          )}
-                        </p>
+              <ReadingTabs />
+              <DisplayPanel types={seenTypes} />
+              <SearchBar search={search} matched={matched} onReveal={reveal} />
+              {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
+              <div class="tl-pane" ref={pane} onClick={onClickIn}>
+                <p class="empty tl-edge">
+                  {view.atBeginning.value
+                    ? "— 先頭 —"
+                    : view.loading.value
+                      ? "読み込み中…"
+                      : "上にスクロールすると遡ります"}
+                </p>
+                <div class="tl-window" ref={box}>
+                  <div class="tl-space" style={{ height: `${range.before}px` }} />
+                  <div class="tl-items" ref={items}>
+                    {nodes.slice(range.first, range.last).map((node, index) => (
+                      <NodeView key={keys[range.first + index]} node={node} />
+                    ))}
+                  </div>
+                  <div class="tl-space" style={{ height: `${range.after}px` }} />
+                </div>
+                {nodes.length === 0 && !view.loading.value && (
+                  <p class="empty">まだ transcript がありません。</p>
+                )}
+                {agent === undefined &&
+                  notifications.value
+                    .filter((one) => one.notification.sid === view.sid)
+                    .map((one) => (
+                      <div key={one.key} class="tl-bubble notice">
+                        <span class="tl-who">通知</span>
+                        <div class="tl-body">
+                          <MarkdownView
+                            source={one.notification.text}
+                            pathLinker={pathLinker}
+                            fileWords={fileWords}
+                            highlight={words}
+                          />
+                          <p class="tl-note">
+                            transcript に同じ返事が現れたらそちらが正
+                            {one.notification.reply_to !== undefined && (
+                              <ReplyToLink
+                                mid={one.notification.reply_to}
+                                at={itemsByMid}
+                                onGo={reveal}
+                              />
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-            </div>
-            {/* worker には送り先が無い: 話しかける相手は worker を起動した
+                    ))}
+              </div>
+              {/* worker には送り先が無い: 話しかける相手は worker を起動した
                 セッションで、worker 自身は instance に繋いでいない。 */}
-            {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
-            <p class="footer">
-              <button
-                type="button"
-                onClick={() => {
-                  navigate(
-                    agent === undefined
-                      ? { at: "sessions" }
-                      : { at: "session", sid: view.sid, tab: "timeline" },
-                  );
-                }}
-              >
-                {agent === undefined ? "一覧に戻る" : "親のセッションに戻る"}
-              </button>
-            </p>
-          </section>
-        </SearchWordsContext.Provider>
+              {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
+              <p class="footer">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(
+                      agent === undefined
+                        ? { at: "sessions" }
+                        : { at: "session", sid: view.sid, tab: "timeline" },
+                    );
+                  }}
+                >
+                  {agent === undefined ? "一覧に戻る" : "親のセッションに戻る"}
+                </button>
+              </p>
+            </section>
+          </SearchWordsContext.Provider>
+        </FileWordsContext.Provider>
       </PathLinkerContext.Provider>
     </ViewContext.Provider>
   );
@@ -639,11 +663,17 @@ function WaitingView({ waiting }: { waiting: WaitingMessage }) {
   const { message, state } = waiting;
   const words = useContext(SearchWordsContext);
   const pathLinker = useContext(PathLinkerContext);
+  const fileWords = useContext(FileWordsContext);
   return (
     <div class={`tl-bubble waiting waiting-${state}`}>
       <span class="tl-who">{message.from_label}</span>
       <div class="tl-body">
-        <MarkdownView source={message.text} pathLinker={pathLinker} highlight={words} />
+        <MarkdownView
+          source={message.text}
+          pathLinker={pathLinker}
+          fileWords={fileWords}
+          highlight={words}
+        />
         <p class="tl-note">{WAITING_NOTES[state]}</p>
       </div>
     </div>
@@ -940,6 +970,7 @@ function Prose({
   linker: MarkdownPathLinker | undefined;
   words: readonly SearchWord[];
 }) {
+  const fileWords = useContext(FileWordsContext);
   const shown = useTranslated(text);
   const route = preferredRoute.value;
   // 入口は**訳す所を持っている文にだけ**出す。日本語だけの文に付けても、押して
@@ -962,6 +993,7 @@ function Prose({
         source={shown.text}
         {...(restricted === undefined ? {} : { restricted })}
         pathLinker={linker}
+        fileWords={fileWords}
         highlight={words}
       />
     </>

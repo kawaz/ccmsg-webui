@@ -3,6 +3,7 @@ import type { DirEntry, Sid } from "@ccmsg/protocol";
 import type { FilesView, OpenFile } from "../files/files-view.ts";
 import { type FileViewMode, persistViewMode, resolveViewMode } from "../files/files-store.ts";
 import { filesRouteFor } from "../files/path-link.ts";
+import { useFileWords } from "../files/file-word-link.ts";
 import {
   baseName,
   type FileIconKind,
@@ -365,6 +366,10 @@ function FileBody({
   );
 
   const pathLinker = usePathLinker(sid, file.path, session, openAt);
+  // 語が書かれた場所はこの文書が置かれている folder。外にある文書 (絶対 path)
+  // には木の中での場所が無いので、その時だけ root から探す。
+  const wordBase = isAbsolutePath(file.path) ? ROOT : (parentPath(file.path) ?? ROOT);
+  const fileWords = useFileWords(sid, wordBase, openAt);
   const search = useInViewSearch();
   const words = search.words.value;
   // 探せるかたまりは 1 行。行だけが名前 (行番号) を持っていて、そこへ動ける。
@@ -436,6 +441,7 @@ function FileBody({
               tableOfContents
               foldSections
               pathLinker={pathLinker}
+              fileWords={fileWords}
               highlight={words}
             />
           </div>

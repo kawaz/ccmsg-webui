@@ -26,12 +26,19 @@ export function filesRouteFor(
   const path = displayPathFor(ref.path, session);
   if (path === undefined || path === "") return undefined;
   return {
-    at: "session",
-    sid,
-    tab: "files",
-    path,
+    ...filesRouteAt(sid, path),
     ...(ref.line === undefined
       ? {}
       : { lines: { start: ref.line, ...(ref.end === undefined ? {} : { end: ref.end }) } }),
   };
+}
+
+/** Where a path the instance itself named opens.
+ *
+ * Nothing is resolved: a path that came back from an op is already in the shape
+ * its surface implies, which is the shape this tab holds. The other entry above
+ * exists for the opposite case — a path as an author wrote it, which has to be
+ * read against something before it names a file at all. */
+export function filesRouteAt(sid: Sid, path: string): FilesRoute {
+  return { at: "session", sid, tab: "files", path };
 }

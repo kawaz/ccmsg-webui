@@ -65,6 +65,7 @@ import {
 import { TabShare } from "./auth/tab-share.ts";
 import { type ConnectionStatus, Connection } from "./connection.ts";
 import { type FilesMemory, FilesView } from "./files/files-view.ts";
+import { FileWordIndex } from "./files/file-word-find.ts";
 import {
   type FilesRecord,
   filesStorageKey,
@@ -648,6 +649,12 @@ effect(() => {
 /** The files tab's state for the session the URL names, or nothing when the URL
  * names another tab. Made and dropped by the same rule the transcript is. */
 export const files = signal<FilesView | undefined>(undefined);
+
+/** ファイルの名前らしき語を探した結果の置き場。
+ *
+ * 画面ではなく接続に属する。同じ語が会話にも文書にも出るし、tab を行き来する
+ * たびに訊き直すほどのことでもない。 */
+export const fileWords = new FileWordIndex((op, args) => connection.request(op, args));
 
 /** How one session's files record is read and written.
  *

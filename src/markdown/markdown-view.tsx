@@ -36,6 +36,8 @@ import type {
 import { CodeBlock } from "../ui/CodeBlock.tsx";
 import { type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { classifyMarkdownLinkUrl, type FilePathRef, isSafeUrl } from "./markdown-link.ts";
+import { type FileWordHits, fileWordOf } from "./file-word.ts";
+import { FileWord } from "./FileWord.tsx";
 import { FoldOpen } from "../timeline/fold-open.ts";
 
 /** `location.origin`, or `null` where there is no `location` (unit tests
@@ -184,10 +186,29 @@ export interface MarkdownPathLink {
  * resolved against the session that wrote it. */
 export type MarkdownPathLinker = (ref: FilePathRef) => MarkdownPathLink | undefined;
 
+/** inline code に書かれたファイルの名前らしき語を、プロジェクトの中の
+ * ファイルへ繋ぐ所。
+ *
+ * markdown link と違い、語はそう書かれているだけで宣言ではない。だから
+ * 「在ると分かった語にだけ渡りを付ける」が成立条件で、在るかどうかを知って
+ * いるのは instance — 答えは後から届く。`subscribe` はそれを待つためのもの
+ * で、届いた語だけが自分を描き直す。 */
+export interface FileWordCtx {
+  /** その語について今わかっていること。初めて訊かれた語はここで探し始める。 */
+  lookup(word: string): FileWordHits | undefined;
+  /** 探し終わった語があった時に呼ばれる。 */
+  subscribe(listener: () => void): () => void;
+  /** 見つかった path が開く先。 */
+  linkTo(path: string): MarkdownPathLink | undefined;
+}
+
 interface MarkdownRenderCtx {
   headings?: readonly MarkdownHeading[];
   headingIndex: number;
   pathLinker?: MarkdownPathLinker;
+  /** ファイルの名前らしき inline code を繋ぐ先。持たない呼び手 (ファイルを
+   * 出さない画面) では、inline code はただの inline code のまま。 */
+  fileWords?: FileWordCtx;
   /** Interactive GFM task lists. When set, every task item renders as a real
    * `<input type="checkbox">` whose click reports the item's document-order
    * ordinal back to the caller, which owns the file write. Absent (every
@@ -522,12 +543,19 @@ function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode |
     case "delete":
       return <del key={key}>{renderChildren((node as Delete).children, key, ctx)}</del>;
 
-    case "inlineCode":
-      return (
-        <code class="md-inline-code" key={key}>
-          {(node as InlineCode).value}
-        </code>
-      );
+    case "inlineCode": {
+      const value = (node as InlineCode).value;
+      const words = ctx.fileWords;
+      const word = words === undefined ? undefined : fileWordOf(value);
+      if (words === undefined || word === undefined) {
+        return (
+          <code class="md-inline-code" key={key}>
+            {value}
+          </code>
+        );
+      }
+      return <FileWord key={key} word={word} ctx={words} />;
+    }
 
     case "code": {
       const code = node as Code;
@@ -1289,6 +1317,7 @@ export function renderRestrictedMarkdown(
   source: string,
   pathLinker?: MarkdownPathLinker,
   highlight?: readonly SearchWord[],
+  fileWords?: FileWordCtx,
 ): VNode {
   const lines = source.split("\n");
   const blocks: (VNode | string)[] = [];
@@ -1301,7 +1330,7 @@ export function renderRestrictedMarkdown(
     pending = [];
     blocks.push(
       <span class="md-restricted-text" key={`b${key++}`}>
-        {renderRestrictedInline(text, `b${key}`, pathLinker, highlight)}
+        {renderRestrictedInline(text, `b${key}`, pathLinker, highlight, fileWords)}
       </span>,
     );
   };
@@ -1336,7 +1365,7 @@ export function renderRestrictedMarkdown(
       blocks.push(
         <blockquote key={`b${key++}`}>
           <span class="md-restricted-text">
-            {renderRestrictedInline(text, `b${key}`, pathLinker, highlight)}
+            {renderRestrictedInline(text, `b${key}`, pathLinker, highlight, fileWords)}
           </span>
         </blockquote>,
       );
@@ -1369,6 +1398,7 @@ function renderRestrictedInline(
   keyPrefix: string,
   pathLinker?: MarkdownPathLinker,
   highlight?: readonly SearchWord[],
+  fileWords?: FileWordCtx,
 ): (VNode | string)[] {
   // Match either `code` OR [text](url). Alternation is left-to-right so a
   // literal `[foo](bar)` inside `code` stays inside the code span (the
@@ -1384,10 +1414,16 @@ function renderRestrictedInline(
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) out.push(marked(text.slice(last, m.index), `${keyPrefix}t${n}`, highlight));
     if (m[1] !== undefined) {
+      const value = m[1];
+      const word = fileWords === undefined ? undefined : fileWordOf(value);
       out.push(
-        <code class="md-inline-code" key={`${keyPrefix}c${n++}`}>
-          {m[1]}
-        </code>,
+        fileWords !== undefined && word !== undefined ? (
+          <FileWord key={`${keyPrefix}c${n++}`} word={word} ctx={fileWords} />
+        ) : (
+          <code class="md-inline-code" key={`${keyPrefix}c${n++}`}>
+            {value}
+          </code>
+        ),
       );
     } else {
       const label = m[2] ?? "";
@@ -1453,6 +1489,7 @@ export function renderMarkdownAst(
   opts?: {
     taskList?: MarkdownTaskListCtx;
     pathLinker?: MarkdownPathLinker;
+    fileWords?: FileWordCtx;
     /** Marks the root for the section-fold layout (the caret gutter). The tree
      * itself is folded by `foldMarkdownSections` before it gets here — this
      * only tells CSS which layout the children were built for. */
@@ -1465,6 +1502,7 @@ export function renderMarkdownAst(
     headingIndex: 0,
     taskList: opts?.taskList,
     pathLinker: opts?.pathLinker,
+    fileWords: opts?.fileWords,
     taskIndex: 0,
     highlight: opts?.highlight,
   };
@@ -1485,6 +1523,7 @@ export function MarkdownView({
   restricted = false,
   taskList,
   pathLinker,
+  fileWords,
   foldSections = false,
   highlight,
 }: {
@@ -1504,6 +1543,9 @@ export function MarkdownView({
    * one that does not leaves such links inert (see the `path` case of
    * `renderNode`). */
   pathLinker?: MarkdownPathLinker;
+  /** ファイルの名前らしき inline code の繋ぎ先。ファイルを出す画面だけが
+   * 答える — 出す所が無ければ、押せる語にしても行く先が無い。 */
+  fileWords?: FileWordCtx;
   /** Collapsible `##`-and-deeper sections. A turn in a timeline is a message,
    * not a document — its headings are a few lines apart and a caret per heading
    * would be noise — so only a view of a document asks for them. */
@@ -1517,7 +1559,7 @@ export function MarkdownView({
   const sectionFold = foldSections && !restricted;
   const sectionStore = useMemo(() => new FoldOpen(), [source, sectionFold]);
   return useMemo(() => {
-    if (restricted) return renderRestrictedMarkdown(source, pathLinker, highlight);
+    if (restricted) return renderRestrictedMarkdown(source, pathLinker, highlight, fileWords);
     const parsed = parseMarkdownDocument(source);
     const headings = tableOfContents ? extractMarkdownHeadings(parsed) : [];
     const root = sectionFold
@@ -1526,6 +1568,7 @@ export function MarkdownView({
     const markdown = renderMarkdownAst(root, tableOfContents ? headings : undefined, {
       taskList,
       pathLinker,
+      ...(fileWords === undefined ? {} : { fileWords }),
       sections: sectionFold,
       highlight,
     });
@@ -1578,6 +1621,7 @@ export function MarkdownView({
     restricted,
     taskList,
     pathLinker,
+    fileWords,
     sectionFold,
     sectionStore,
     highlight,
