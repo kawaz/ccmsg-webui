@@ -4,6 +4,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
+| 2026-09-16 | bug | open | [connection-bar-before-connect](./2026-09-16-connection-bar-before-connect.md) | 接続前の接続バーに要らないものが出ている (「未接続」の表記、セッション一覧の「一覧」ボタン) |
 | 2026-09-15 | bug | open | [visual-backfill-page-count-race](./2026-09-15-visual-backfill-page-count-race.md) | visual test の backfill 件数 assert が全件走行の負荷下で早着き race を起こす |
 | 2026-09-12 | task | open | [composer-autogrow-and-touch-targets](./2026-09-12-composer-autogrow-and-touch-targets.md) | Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性) |
 | 2026-09-12 | task | open | [launcher-cwd-tree](./2026-09-12-launcher-cwd-tree.md) | Session Launcher の「始める場所」にディレクトリツリー選択 (展開/フィルタ) を追加 |
