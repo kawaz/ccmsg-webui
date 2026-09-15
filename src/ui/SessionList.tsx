@@ -5,7 +5,9 @@ import {
   type InstanceInfo,
   type PeerInfo,
   type Sid,
+  type TerminalInfo,
 } from "@ccmsg/protocol";
+import { href } from "../base.ts";
 import { DEFAULT_TAB } from "../route.ts";
 import { CacheRing } from "./CacheRing.tsx";
 import { Launcher } from "./Launcher.tsx";
@@ -42,10 +44,12 @@ import {
   sessionErrors,
   setSortKey,
   sortKey,
+  startingRuns,
   status,
   terminalGateway,
-  terminalIds,
+  terminalIdOfSession,
 } from "../state.ts";
+import { terminalLabel } from "../terminals.ts";
 
 /** セッションごとの、輪を描く窓。frame は系列ごとに 1 行来るので、行に 1 つを
  * ここで選ぶ。 */
@@ -244,7 +248,7 @@ function PeerRow({ peer, waiting, now }: { peer: PeerInfo; waiting: number; now:
           {standing}
         </span>
       )}
-      {!twofold && <TerminalLink terminalId={terminalIds.value.get(peer.sid)} />}
+      {!twofold && <TerminalLink terminalId={terminalIdOfSession(peer.sid)} />}
       {twofold ? (
         <button
           type="button"
@@ -302,6 +306,34 @@ function AgentRow({ agent }: { agent: AgentInfo }) {
   );
 }
 
+/** 起動したのに、まだ何も名乗っていないハーネスの 1 行 (契約 DR-0026 の
+ * `starting`)。
+ *
+ * sid がまだ無いので開く先も無く、名乗れるのは端末の id だけ。**様子は端末の中
+ * にしかない**ので、行が案内するのは端末だけにする — 押すとこの build の端末の
+ * 画面へ行き、`端末` は gateway の画面をそのまま開く。 */
+function StartingRow({ row }: { row: TerminalInfo }) {
+  return (
+    <div class="row">
+      <a
+        class="name"
+        href={href({ at: "terminal", id: row.id })}
+        onClick={(event: MouseEvent) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+          event.preventDefault();
+          navigate({ at: "terminal", id: row.id });
+        }}
+      >
+        {terminalLabel(row)}
+      </a>
+      <span class="state">起動中</span>
+      <TerminalLink terminalId={row.id} />
+      {row.pid !== undefined && <span class="meta mono run-pid">pid {row.pid}</span>}
+      <span class="meta mono">{row.id}</span>
+    </div>
+  );
+}
+
 /** この instance から見た mesh の 1 行。名前は endpoint、届くかどうかはその
  * instance 自身が今言っていること — hello の返事から推し量るのではなく、
  * `instances` topic で届く。 */
@@ -351,11 +383,36 @@ export function SessionList() {
             </option>
           ))}
         </select>
+        <a
+          class="bar-link"
+          href={href({ at: "terminals" })}
+          onClick={(event: MouseEvent) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+            event.preventDefault();
+            navigate({ at: "terminals" });
+          }}
+        >
+          端末
+        </a>
       </div>
 
       <Launcher />
       <SessionSearch />
 
+      {startingRuns.value.length > 0 && (
+        <section class="section">
+          <h2>起動中 ({startingRuns.value.length})</h2>
+          <p class="empty">
+            ハーネスは起動しているのに、状態ファイルも挨拶もまだ届いていません。端末を開いて
+            様子を確かめてください。
+          </p>
+          <div class="rows">
+            {startingRuns.value.map((row) => (
+              <StartingRow key={`${row.instance} ${row.id}`} row={row} />
+            ))}
+          </div>
+        </section>
+      )}
       {groups.length === 0 && (
         <section class="section">
           <h2>セッション (0)</h2>

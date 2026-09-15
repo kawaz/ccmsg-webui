@@ -2,10 +2,11 @@ import type { Sid } from "@ccmsg/protocol";
 import { href } from "../base.ts";
 import { type Route, type Tab, visibleTabs } from "../route.ts";
 import { runStanding } from "../runs.ts";
-import { navigate, peers, route, terminalGateway, terminalIds } from "../state.ts";
+import { navigate, peers, route, terminalGateway, terminalIdOfSession } from "../state.ts";
 import { Files } from "./Files.tsx";
 import { RunChoice, RunEnded, RunPanel, RunSettled } from "./Runs.tsx";
 import { Status } from "./Status.tsx";
+import { Terminal, Terminals } from "./Terminals.tsx";
 import { TerminalPanel } from "./TerminalPanel.tsx";
 import { Timeline } from "./Timeline.tsx";
 import { Usage } from "./Usage.tsx";
@@ -26,8 +27,11 @@ const TAB_LABELS: Readonly<Record<Tab, string>> = {
 };
 
 function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
+  // 端末があるかは、まず端末の一覧との突き合わせ (契約 DR-0026)。端末管理を
+  // 持たない instance では一覧が無いので、run が状態ファイルから知っている値に
+  // 落ちる。
   const tabs = visibleTabs(
-    terminalGateway.value !== undefined && terminalIds.value.get(sid) !== undefined,
+    terminalGateway.value !== undefined && terminalIdOfSession(sid) !== undefined,
   );
   return (
     <nav class="tabs" aria-label="セッションの見方">
@@ -87,6 +91,8 @@ export function Main() {
     <>
       {at.at === "sessions" && <Nothing />}
       {at.at === "usage" && <Usage />}
+      {at.at === "terminals" && <Terminals />}
+      {at.at === "terminal" && <Terminal id={at.id} />}
       {at.at === "session" && <Session at={at} />}
       {at.at === "agent" && (
         <>

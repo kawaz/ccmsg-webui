@@ -195,6 +195,21 @@ code,
   border-radius: var(--radius);
 }
 
+/* 一覧のバーから別の一覧へ (端末)。並びの選択とは別の話なので右端に離す。 */
+.bar-link {
+  margin-left: auto;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 10px;
+}
+
+.bar-link:hover {
+  color: var(--fg);
+  border-color: var(--brand-fg);
+}
+
 .bar .endpoint {
   flex: 1 1 220px;
   min-width: 0;
@@ -1519,6 +1534,27 @@ select {
 /* 読み込み中の iframe は UA 既定の白。透かして枠の色を見せる。 */
 .terminal-iframe.loading {
   opacity: 0;
+}
+
+/* 起動したのに何も名乗っていないハーネスの行では、端末が唯一の手掛かりなので
+   他の行より強く出す。 */
+.terminal-link.strong {
+  color: var(--brand-fg);
+  border-color: var(--brand-fg);
+}
+
+/* 端末 1 つの画面。分かっていることの下に中身が続く。 */
+.section.terminal .terminal-pane {
+  margin-top: 10px;
+}
+
+/* 見出しに立つのは**端末で走っているコマンド**なので、見出しの大文字化を外す
+   (`zsh -i` は `ZSH -I` ではない)。 */
+.section.terminal > h2 {
+  text-transform: none;
+  font-size: 13px;
+  letter-spacing: normal;
+  color: var(--fg);
 }
 
 /* --- 上流と使用量 --- */
