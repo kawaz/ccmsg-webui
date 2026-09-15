@@ -16,9 +16,10 @@ export type RunStanding =
   | { readonly at: "run"; readonly run: SessionRun }
   /** A run named on a session that has only this one. Nothing here is
    * restricted any more, so the screen says so and points at the session. */
-  | { readonly at: "single"; readonly run: SessionRun }
-  /** A pid this session has no run for: it ended, or it never was one. */
-  | { readonly at: "ended" };
+  | { readonly at: "single"; readonly run: SessionRun; readonly pid: number }
+  /** A pid this session has no run for: it ended, or it never was one. The pid
+   * travels so the screen can name what is gone. */
+  | { readonly at: "ended"; readonly pid: number };
 
 /** Which of those an address asks for.
  *
@@ -29,6 +30,6 @@ export type RunStanding =
 export function runStanding(runs: readonly SessionRun[], pid: number | undefined): RunStanding {
   if (pid === undefined) return runs.length >= 2 ? { at: "choose" } : { at: "session" };
   const named = runs.find((run) => run.pid === pid);
-  if (named === undefined) return { at: "ended" };
-  return runs.length === 1 ? { at: "single", run: named } : { at: "run", run: named };
+  if (named === undefined) return { at: "ended", pid };
+  return runs.length === 1 ? { at: "single", run: named, pid } : { at: "run", run: named };
 }

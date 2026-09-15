@@ -65,9 +65,9 @@ function Session({ at }: { at: Extract<Route, { at: "session" }> }) {
     case "run":
       return <RunPanel sid={sid} run={standing.run} />;
     case "single":
-      return <RunSettled sid={sid} pid={standing.run.pid ?? (pid as number)} />;
+      return <RunSettled sid={sid} pid={standing.pid} />;
     case "ended":
-      return <RunEnded sid={sid} pid={pid as number} />;
+      return <RunEnded sid={sid} pid={standing.pid} />;
     case "session":
       return (
         <>

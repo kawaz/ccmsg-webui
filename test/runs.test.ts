@@ -18,14 +18,14 @@ describe("what an address naming a run asks for", () => {
   });
 
   test("a run named on a session that has only this one is no longer restricted", () => {
-    expect(runStanding([run(1)], 1)).toEqual({ at: "single", run: run(1) });
+    expect(runStanding([run(1)], 1)).toEqual({ at: "single", run: run(1), pid: 1 });
   });
 
   test("a pid the session has no run for ended, whatever else is running", () => {
     // 1 つに戻った後で古いリンクを開いた時、「run は 1 つです」と言うと、その
     // 人が確かめに来たこと (自分の run がどうなったか) が消える。
-    expect(runStanding([run(1)], 9)).toEqual({ at: "ended" });
-    expect(runStanding([], 9)).toEqual({ at: "ended" });
-    expect(runStanding([run(1), run(2)], 9)).toEqual({ at: "ended" });
+    expect(runStanding([run(1)], 9)).toEqual({ at: "ended", pid: 9 });
+    expect(runStanding([], 9)).toEqual({ at: "ended", pid: 9 });
+    expect(runStanding([run(1), run(2)], 9)).toEqual({ at: "ended", pid: 9 });
   });
 });
