@@ -9,7 +9,8 @@ import type {
   SessionTodo,
   SessionWorkflowStatus,
 } from "@ccmsg/protocol";
-import { readDumpPresets, sessionStatus, writeSessionDump } from "../state.ts";
+import { peers, readDumpPresets, sessionStatus, writeSessionDump } from "../state.ts";
+import { describeRefusal } from "../refusal.ts";
 
 /** セッションが**今何をしているか**。
  *
@@ -142,7 +143,7 @@ function Dump({ sid }: { sid: Sid }) {
         if (live) presets.value = read.presets;
       })
       .catch((cause: unknown) => {
-        if (live) problem.value = String(cause);
+        if (live) problem.value = describeRefusal(cause);
       });
     return () => {
       live = false;
@@ -157,7 +158,7 @@ function Dump({ sid }: { sid: Sid }) {
         written.value = said;
       })
       .catch((cause: unknown) => {
-        problem.value = String(cause);
+        problem.value = describeRefusal(cause);
       })
       .finally(() => {
         running.value = false;
@@ -208,16 +209,36 @@ function Dump({ sid }: { sid: Sid }) {
   );
 }
 
+/** 畳みが今どうなっているか、そのものを言う (契約の `session_status`)。
+ *
+ * 畳んだ値が無い / 古いのに黙っていると、「このセッションには何も無い」と読めて
+ * しまう。無いのか、まだ読んでいる途中なのか、止めたのかは別のことなので、
+ * 値の前にそれを言う。 */
+function standingWords(sid: Sid): string | undefined {
+  const peer = peers.value.find((one) => one.sid === sid);
+  switch (peer?.session_status) {
+    case "absent":
+      return "このセッションの transcript をまだ 1 行も読んでいません。";
+    case "folding":
+      return "transcript を先頭から読んでいます。ここに出ているのは途中までのものです。";
+    case "frozen":
+      return "同じセッションを 2 つのプロセスが書いているので、畳むのを止めています。ここに出ているのは止める前に信じられた最後の値です。";
+    default:
+      return undefined;
+  }
+}
+
 export function Status({ sid }: { sid: Sid }) {
   const held: SessionStatusSnapshot | undefined = sessionStatus.value;
   const now = Date.now();
+  const standing = standingWords(sid);
   if (held === undefined) {
     // 切れている間に開いた時もここ。畳んだ答えは instance のものなので、聞ける
     // 相手が居なければ出せるものは無い (切れていることは帯が言う)。
     return (
       <section class="section">
         <h2>状態</h2>
-        <p class="empty">instance が読んでいます…</p>
+        <p class="empty">{standing ?? "instance が読んでいます…"}</p>
       </section>
     );
   }
@@ -241,6 +262,7 @@ export function Status({ sid }: { sid: Sid }) {
   return (
     <section class="section status">
       <h2>状態</h2>
+      {standing !== undefined && <p class="empty">{standing}</p>}
       {held.api_error !== undefined && (
         // 止まっている理由。他のどれよりも先に出す — 一覧に何も走っていない時、
         // 「暇だから」と「ここで止まっているから」は別のことで、読む人が次に

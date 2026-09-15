@@ -1,15 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentInfo, PeerInfo } from "@ccmsg/protocol";
 import {
+  answeringSids,
   groupPeers,
   isLost,
+  sectionOf,
   sessionLabel,
   sortAgents,
   sortPeers,
   terminalIdsBySid,
+  terminalOf,
+  waitingForByPid,
 } from "../src/sessions.ts";
 
 const INSTANCE = "ws://a.example/ws";
+const NOW = 1_000_000_000_000;
+
+/** 走っている 1 プロセス。既定は「繋がっている run が 1 つ」で、そこから
+ * 動かしたい所だけを test が書く。 */
+function run(fields: Partial<PeerInfo["runs"][number]> = {}): PeerInfo["runs"][number] {
+  return { pid: 100, started_at: NOW - 60_000, connected: true, ...fields };
+}
 
 function peer(sid: string, fields: Partial<PeerInfo> = {}): PeerInfo {
   return {
@@ -18,7 +29,9 @@ function peer(sid: string, fields: Partial<PeerInfo> = {}): PeerInfo {
     repo: "kawaz/ccmsg",
     ws: "main",
     cwd: `/w/${sid}`,
-    protocol_version: 2,
+    protocol_version: 4,
+    runs: [run()],
+    session_status: "ready",
     ...fields,
   };
 }
@@ -52,55 +65,62 @@ describe("the order a person picked", () => {
 });
 
 describe("what belongs in which section", () => {
-  test("the rows split on the state their instance stated, in the order of the list", () => {
-    const rows = [
-      peer("00000000-0000-0000-0000-00000000000a", { state: "disappeared" }),
-      peer("00000000-0000-0000-0000-00000000000b", { state: "live" }),
-      peer("00000000-0000-0000-0000-00000000000c", { state: "waiting" }),
-      peer("00000000-0000-0000-0000-00000000000d", { state: "live" }),
-    ];
-    const groups = groupPeers(rows);
-    expect(groups.map((group) => group.state)).toEqual(["waiting", "live", "disappeared"]);
-    expect(groups[1]?.rows.map((row) => row.sid.slice(-1))).toEqual(["b", "d"]);
+  const A = "00000000-0000-0000-0000-00000000000a";
+  const B = "00000000-0000-0000-0000-00000000000b";
+  const C = "00000000-0000-0000-0000-00000000000c";
+  const D = "00000000-0000-0000-0000-00000000000d";
+
+  test("how many processes, whether anything is out to answer, whether it is alive", () => {
+    // 走っているが端末も接続も無い: 届かない。
+    const adrift = peer(A, { runs: [{ connected: false }] });
+    expect(sectionOf(adrift, false, NOW)).toBe("unreachable");
+    expect(sectionOf(peer(B), false, NOW)).toBe("live");
+    expect(sectionOf(peer(B), true, NOW)).toBe("waiting");
+    expect(sectionOf(peer(C, { runs: [] }), false, NOW)).toBe("disappeared");
+    expect(sectionOf(peer(C, { runs: [], stopped_at: NOW - 10 }), false, NOW)).toBe("paused");
   });
 
-  test("a row whose instance states no classification is shown ungrouped, and first", () => {
+  test("two processes writing one session wins over everything else about it", () => {
+    const twofold = peer(A, { runs: [run(), run({ pid: 200 })] });
+    // 答え待ちであっても、先に決めるのはどちらを終わらせるか (契約 DR-0001 §3)。
+    expect(sectionOf(twofold, true, NOW)).toBe("duplicated");
+  });
+
+  test("inference still running says a session with no process left is alive", () => {
+    const busy = peer(A, { runs: [], gateway_active_at: NOW - 1_000 });
+    expect(sectionOf(busy, false, NOW)).toBe("unreachable");
+    const cold = peer(A, { runs: [], gateway_active_at: NOW - 60 * 60 * 1000 });
+    expect(sectionOf(cold, false, NOW)).toBe("disappeared");
+  });
+
+  test("the sections stand in the order of the list, and an empty one is left out", () => {
     const rows = [
-      peer("00000000-0000-0000-0000-00000000000a", { state: "live" }),
-      peer("00000000-0000-0000-0000-00000000000b"),
+      peer(A, { runs: [] }),
+      peer(B),
+      peer(C, { runs: [run(), run({ pid: 200 })] }),
+      peer(D),
     ];
-    const groups = groupPeers(rows);
-    expect(groups.map((group) => group.state)).toEqual([undefined, "live"]);
-    expect(groups[0]?.rows.map((row) => row.sid.slice(-1))).toEqual(["b"]);
+    const groups = groupPeers(rows, new Set([B]), NOW);
+    expect(groups.map((group) => group.section)).toEqual([
+      "duplicated",
+      "waiting",
+      "live",
+      "disappeared",
+    ]);
+    expect(groups[2]?.rows.map((row) => row.sid.slice(-1))).toEqual(["d"]);
   });
 
   test("only a row its instance has lost can be asked to be forgotten", () => {
-    expect(isLost("paused")).toBe(true);
-    expect(isLost("disappeared")).toBe(true);
-    expect(isLost("live")).toBe(false);
-    expect(isLost(undefined)).toBe(false);
-  });
-
-  test("an agent row the instance already lists as a peer is not shown twice", () => {
-    const sid = "00000000-0000-0000-0000-00000000000a";
-    const agent: AgentInfo = {
-      sid,
-      instance: INSTANCE,
-      pid: 1,
-      cwd: "/w",
-      kind: "interactive",
-      started_at: 1,
-      config_dir: "/c",
-    };
-    expect(sortAgents([agent], [peer(sid)])).toEqual([]);
-    expect(sortAgents([agent], [])).toEqual([agent]);
+    expect(isLost(peer(A, { runs: [], stopped_at: NOW - 10 }), NOW)).toBe(true);
+    expect(isLost(peer(A, { runs: [] }), NOW)).toBe(true);
+    expect(isLost(peer(A), NOW)).toBe(false);
+    expect(isLost(peer(A, { runs: [run(), run({ pid: 200 })] }), NOW)).toBe(false);
   });
 });
 
-describe("the terminal each session names", () => {
-  function agent(sid: string, fields: Partial<AgentInfo> = {}): AgentInfo {
+describe("the harness's own rows", () => {
+  function agent(fields: Partial<AgentInfo> = {}): AgentInfo {
     return {
-      sid,
       instance: INSTANCE,
       pid: 1,
       cwd: "/w",
@@ -111,23 +131,57 @@ describe("the terminal each session names", () => {
     };
   }
 
-  test("read from every row, including one the peer list already carries", () => {
+  test("a row whose session the peer list already carries is not shown twice", () => {
+    const sid = "00000000-0000-0000-0000-00000000000a";
+    const row = agent({ sid });
+    expect(sortAgents([row], [peer(sid)])).toEqual([]);
+    expect(sortAgents([row], [])).toEqual([row]);
+  });
+
+  test("a process that has no session yet is always shown: nothing else would", () => {
+    const starting = agent({ pid: 7, terminal_id: "hyoui:%3" });
+    const sid = "00000000-0000-0000-0000-00000000000a";
+    expect(sortAgents([starting, agent({ sid })], [peer(sid)])).toEqual([starting]);
+  });
+
+  test("newest first, and two processes of one session are two rows", () => {
+    const sid = "00000000-0000-0000-0000-00000000000a";
+    const older = agent({ sid, pid: 2, started_at: 10 });
+    const newer = agent({ sid, pid: 3, started_at: 20 });
+    expect(sortAgents([older, newer], []).map((row) => row.pid)).toEqual([3, 2]);
+  });
+
+  test("what is waiting on somebody, by session and by run", () => {
+    const sid = "00000000-0000-0000-0000-00000000000a";
+    const rows = [
+      agent({ sid, pid: 2, waiting_for: "ファイルを書いてよいか" }),
+      agent({ sid: "00000000-0000-0000-0000-00000000000b", pid: 3 }),
+      // sid をまだ持たない run の待ちは、どのセッションのものとも言えない。
+      agent({ pid: 4, waiting_for: "trust" }),
+    ];
+    expect([...answeringSids(rows)]).toEqual([sid]);
+    expect(waitingForByPid(rows).get(2)).toBe("ファイルを書いてよいか");
+    expect(waitingForByPid(rows).get(3)).toBeUndefined();
+  });
+});
+
+describe("the terminal each session is opened through", () => {
+  test("read from the runs on the session's own row", () => {
     const live = "00000000-0000-0000-0000-0000000000a1";
     const other = "00000000-0000-0000-0000-0000000000a2";
     const found = terminalIdsBySid([
-      agent(live, { terminal_id: "run-1-aaa" }),
-      agent(other, { terminal_id: "run-2-bbb" }),
+      peer(live, { runs: [run({ terminal_id: "hyoui:%17" })] }),
+      peer(other, { runs: [run({ terminal_id: "hyoui:%23" })] }),
     ]);
-    expect(found.get(live)).toBe("run-1-aaa");
-    expect(found.get(other)).toBe("run-2-bbb");
+    expect(found.get(live)).toBe("hyoui:%17");
+    expect(found.get(other)).toBe("hyoui:%23");
   });
 
-  test("a row that names no terminal is left out", () => {
+  test("a session no run of which names a terminal is left out", () => {
     const none = "00000000-0000-0000-0000-0000000000b1";
-    const empty = "00000000-0000-0000-0000-0000000000b2";
-    const found = terminalIdsBySid([agent(none), agent(empty, { terminal_id: "" })]);
-    expect(found.has(none)).toBe(false);
-    expect(found.has(empty)).toBe(false);
+    expect(terminalIdsBySid([peer(none, { runs: [run()] })]).has(none)).toBe(false);
+    expect(terminalOf([])).toBeUndefined();
+    expect(terminalOf([run(), run({ pid: 2, terminal_id: "hyoui:%9" })])).toBe("hyoui:%9");
   });
 });
 

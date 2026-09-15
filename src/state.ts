@@ -79,12 +79,14 @@ import type { Route } from "./route.ts";
 import { formatSessionsOpen, parseSessionsOpen, sessionsOpenKey } from "./layout/panes.ts";
 import { localStore } from "./settings.ts";
 import {
+  answeringSids,
   errorsBySid,
   isSortKey,
   type SortKey,
   sortAgents,
   sortPeers,
   terminalIdsBySid,
+  waitingForByPid,
 } from "./sessions.ts";
 import { FoldOpen } from "./timeline/fold-open.ts";
 import type { TranslateRoute } from "./timeline/translate.ts";
@@ -213,6 +215,16 @@ export const peers = computed<readonly PeerInfo[]>(() =>
 export const agents = computed<readonly AgentInfo[]>(() =>
   sortAgents(rows(agentSlots.value), rows(peerSlots.value)),
 );
+/** The sessions with a dialog of their own open, which is what puts a row under
+ * the heading that says somebody has to answer it. Read from every harness row
+ * rather than the ones the list shows on their own: the session that is waiting
+ * is very often the one the peer list already carries. */
+export const answering = computed<ReadonlySet<Sid>>(() => answeringSids(rows(agentSlots.value)));
+/** What each run says it is waiting on, by pid — the material a person picks a
+ * run by. */
+export const waitingForRuns = computed<ReadonlyMap<number, string>>(() =>
+  waitingForByPid(rows(agentSlots.value)),
+);
 /** The mesh as the instances themselves state it, this one included.
  *
  * Read from the topic rather than from what `hello` answered: a link going down
@@ -245,10 +257,11 @@ export const llmRequests = computed<readonly LlmRequestInfo[]>(() =>
 
 /** The gateway that fronts this instance's terminals, when it fronts any. */
 export const terminalGateway = computed<string | undefined>(() => hello.value?.terminal_gateway);
-/** The terminal each session runs in, over every row rather than the shown
- * ones — `agents` above hides a session the peer list already carries. */
+/** The terminal each session is opened through, out of the runs on its own row.
+ * A session with two runs is one a person picks a run of first, so what is here
+ * is the first run that names one (`terminalOf`). */
 export const terminalIds = computed<ReadonlyMap<Sid, string>>(() =>
-  terminalIdsBySid(rows(agentSlots.value)),
+  terminalIdsBySid(rows(peerSlots.value)),
 );
 export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
   errorsBySid(union(errorSlots.value, "errors")),
@@ -340,20 +353,26 @@ export function clearTimelineDisplay(subject: Subject, type: string): void {
   writeDisplay(subject, clearDisplay(timelineFaces.value[subject], type));
 }
 
-/** The two topics whose frames carry rows rather than a value stated whole.
- *
- * Both are matched by the same pair — one session lives on one instance, so
+/** How a `peers` row is matched: one session lives on one instance, so
  * `instance` and `sid` together is what makes two hosts' rows tellable apart
  * under one topic name. */
 function sessionRowKey(row: { instance: string; sid: string }): string {
   return `${row.instance} ${row.sid}`;
 }
 
+/** How an `agents` row is matched (contract, `AgentInfo`). A row there is one
+ * process and not one session: two processes may be running one session, and a
+ * launcher's process is a row before it has a session at all — so the pid is
+ * what the row is keyed by, and a removal names the same pair. */
+function runRowKey(row: { instance: string; pid: number }): string {
+  return `${row.instance} ${String(row.pid)}`;
+}
+
 const peerRows = new ElementFold<PeerElement, PeerInfo>("peers", sessionRowKey);
 /** 待っている 1 通たち。鍵は `mid` — 1 通は自分の id で照合され、どの instance
  * が持っているかは鍵にしない (mid の中に既に instance が入っている)。 */
 const inboxRows = new ElementFold<InboxElement, InboxMessage>("inbox", inboxKey);
-const agentRows = new ElementFold<AgentElement, AgentInfo>("agents", sessionRowKey);
+const agentRows = new ElementFold<AgentElement, AgentInfo>("agents", runRowKey);
 
 const folds = new Map<string, TopicFold<unknown>>();
 
@@ -942,9 +961,14 @@ export async function writeSessionDump(
 /** セッションを終わらせる。`force` は**人が 1 度普通に頼んでから**選ぶもので、
  * 画面が自分で選ぶことはない (契約): 強い方は transcript を書き切る機会ごと
  * 奪うので、待った上で人が決める。 */
-export async function killSession(sid: Sid, force = false): Promise<SessionKillResult> {
+export async function killSession(
+  sid: Sid,
+  force = false,
+  pid?: number,
+): Promise<SessionKillResult> {
   const reply = await connection.request("session.kill", {
     sid,
+    ...(pid === undefined ? {} : { pid }),
     ...(force ? { force: true } : {}),
   });
   return reply as unknown as SessionKillResult;

@@ -1,5 +1,11 @@
 import { computed, useSignal } from "@preact/signals";
-import type { InstanceInfo, PeerInfo, SessionState, Sid } from "@ccmsg/protocol";
+import {
+  liveness,
+  type AgentInfo,
+  type InstanceInfo,
+  type PeerInfo,
+  type Sid,
+} from "@ccmsg/protocol";
 import { DEFAULT_TAB } from "../route.ts";
 import { CacheRing } from "./CacheRing.tsx";
 import { Launcher } from "./Launcher.tsx";
@@ -9,15 +15,19 @@ import {
   groupPeers,
   isLost,
   sessionLabel,
-  SESSION_STATE_LABELS,
+  type SessionSection,
+  listStanding,
+  SESSION_SECTION_LABELS,
   SORT_KEYS,
   SORT_LABELS,
   isSortKey,
 } from "../sessions.ts";
 import { cacheRingStyle, sessionCacheWindows } from "../llm/cache-ring.ts";
+import { describeRefusal } from "../refusal.ts";
 import { terminalUrl } from "../terminal-url.ts";
 import {
   agents,
+  answering,
   forgetLostSession,
   instances,
   can,
@@ -49,12 +59,12 @@ function when(at: number | undefined): string {
   return at === undefined ? "" : new Date(at).toLocaleString();
 }
 
-/** 行から、そのセッションが動いている端末へ。gateway 側の画面をそのまま開く
- * ので、この画面ではなく新しいタブに出す — 一覧を見失わずに端末を覗ける。
- * 端末に届かない行には何も出さない。 */
-function TerminalLink({ sid }: { sid: Sid }) {
-  const url = terminalUrl(terminalGateway.value, terminalIds.value.get(sid));
-  if (url === null) return null;
+/** 行から、その run が動いている端末へ。gateway 側の画面をそのまま開くので、
+ * この画面ではなく新しいタブに出す — 一覧を見失わずに端末を覗ける。端末に
+ * 届かない行には何も出さない。 */
+function TerminalLink({ terminalId }: { terminalId: string | undefined }) {
+  const url = terminalUrl(terminalGateway.value, terminalId);
+  if (url === undefined) return null;
   return (
     <a class="terminal-link" href={url} target="_blank" rel="noreferrer" title="端末を開く">
       端末
@@ -62,10 +72,9 @@ function TerminalLink({ sid }: { sid: Sid }) {
   );
 }
 
-/** 見出しに立つ名前と、その下に何行あるか。分類を名乗らない instance の行は
- * まとめず、そういう行だということだけを言う。 */
-function groupTitle(state: SessionState | undefined, count: number): string {
-  return `${state === undefined ? "分類なし" : SESSION_STATE_LABELS[state]} (${String(count)})`;
+/** 見出しに立つ名前と、その下に何行あるか。 */
+function groupTitle(section: SessionSection, count: number): string {
+  return `${SESSION_SECTION_LABELS[section]} (${String(count)})`;
 }
 
 /** セッション 1 行。どう立っているかは instance が言う `state` で、行に付いて
@@ -91,7 +100,7 @@ function RowActions({ peer }: { peer: PeerInfo }) {
     renaming.value = false;
     if (title === "") return;
     renameSession(peer.sid, title).catch((cause: unknown) => {
-      problem.value = String(cause);
+      problem.value = describeRefusal(cause);
     });
   };
 
@@ -103,7 +112,7 @@ function RowActions({ peer }: { peer: PeerInfo }) {
       })
       .catch((cause: unknown) => {
         asked.value = "none";
-        problem.value = String(cause);
+        problem.value = describeRefusal(cause);
       });
   };
 
@@ -188,9 +197,14 @@ function RowActions({ peer }: { peer: PeerInfo }) {
   );
 }
 
-function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
+function PeerRow({ peer, waiting, now }: { peer: PeerInfo; waiting: number; now: number }) {
   const failure = sessionErrors.value.get(peer.sid);
   const at = peer.stopped_at ?? peer.last_seen_at;
+  // 2 つのプロセスが書いている行では、行の上の操作を出さない — 送るも改名も
+  // 終了も instance に断られる (契約 DR-0001)。代わりに、どちらを終わらせるかを
+  // 選ぶ画面へ渡す。
+  const twofold = liveness(peer, now) === "duplicated";
+  const standing = listStanding(peer.session_status);
   // prompt cache が生きている間だけ、名前の前の枠に輪が重なって時計回りに
   // 欠けていく。窓の持ち主は会話の系列なので、どの窓を採るかは
   // `sessionCacheWindows` が決める。入れ物は輪の有無に関わらず常に置く —
@@ -225,11 +239,28 @@ function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
           {failure.text.split("\n")[0]}
         </span>
       )}
-      <TerminalLink sid={peer.sid} />
-      <RowActions peer={peer} />
+      {standing !== undefined && (
+        <span class="state" title="このセッションの状態の畳みが今どうなっているか">
+          {standing}
+        </span>
+      )}
+      {!twofold && <TerminalLink terminalId={terminalIds.value.get(peer.sid)} />}
+      {twofold ? (
+        <button
+          type="button"
+          class="row-danger"
+          onClick={() => {
+            open(peer.sid);
+          }}
+        >
+          run を選ぶ
+        </button>
+      ) : (
+        <RowActions peer={peer} />
+      )}
       {at !== undefined && <span class="meta">{when(at)}</span>}
       <span class="meta mono">{peer.instance}</span>
-      {isLost(peer.state) && (
+      {isLost(peer, now) && (
         <button
           type="button"
           onClick={() => {
@@ -239,6 +270,34 @@ function PeerRow({ peer, waiting }: { peer: PeerInfo; waiting: number }) {
           削除
         </button>
       )}
+    </div>
+  );
+}
+
+/** ハーネス側の 1 プロセス。**セッションを名乗る前のものもここに出る** —
+ * launcher が起動しただけで、ハーネスがまだ状態ファイルを書いていない窓では、
+ * 端末と起動時刻しか無い (契約 DR-0001 §4)。開く先が無いので名前は押せず、
+ * 覗きに行く手として端末だけを出す。 */
+function AgentRow({ agent }: { agent: AgentInfo }) {
+  const sid = agent.sid;
+  return (
+    <div class="row">
+      {sid === undefined ? (
+        <span class="name">{sessionLabel({ ...agent, title: agent.name })}</span>
+      ) : (
+        <button
+          type="button"
+          class="name open"
+          onClick={() => {
+            open(sid);
+          }}
+        >
+          {sessionLabel({ ...agent, title: agent.name })}
+        </button>
+      )}
+      <span class="state">{sid === undefined ? "起動中" : agent.kind}</span>
+      <TerminalLink terminalId={agent.terminal_id} />
+      <span class="meta mono">pid {agent.pid}</span>
     </div>
   );
 }
@@ -268,7 +327,11 @@ export function SessionList() {
   // そのセッションの inbox で待っている通数。誰が言った分も入る — 人が
   // 眺めているのは instance の inbox そのもので、この画面の控えではない。
   const waiting = waitingBySid.value;
-  const groups = groupPeers(peers.value);
+  // 行がどこに立つかは、行の中身と**今**から決まる (契約の `liveness`)。1 度の
+  // 描画の中では同じ今を使う — 行ごとに読み直すと、見出しと行が別の瞬間の話に
+  // なりうる。
+  const now = Date.now();
+  const groups = groupPeers(peers.value, answering.value, now);
 
   return (
     <>
@@ -302,11 +365,11 @@ export function SessionList() {
         </section>
       )}
       {groups.map((group) => (
-        <section class="section" key={group.state ?? "ungrouped"}>
-          <h2>{groupTitle(group.state, group.rows.length)}</h2>
+        <section class="section" key={group.section}>
+          <h2>{groupTitle(group.section, group.rows.length)}</h2>
           <div class="rows">
             {group.rows.map((peer) => (
-              <PeerRow key={peer.sid} peer={peer} waiting={waiting.get(peer.sid) ?? 0} />
+              <PeerRow key={peer.sid} peer={peer} waiting={waiting.get(peer.sid) ?? 0} now={now} />
             ))}
           </div>
         </section>
@@ -319,20 +382,7 @@ export function SessionList() {
             <p class="empty">ハーネス側の追加セッションはありません。</p>
           )}
           {agents.value.map((agent) => (
-            <div class="row" key={agent.sid}>
-              <button
-                type="button"
-                class="name open"
-                onClick={() => {
-                  open(agent.sid);
-                }}
-              >
-                {sessionLabel({ ...agent, title: agent.name })}
-              </button>
-              <span class="state">{agent.kind}</span>
-              <TerminalLink sid={agent.sid} />
-              <span class="meta mono">pid {agent.pid}</span>
-            </div>
+            <AgentRow key={`${agent.instance} ${String(agent.pid)}`} agent={agent} />
           ))}
         </div>
       </section>

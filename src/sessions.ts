@@ -1,4 +1,14 @@
-import type { AgentInfo, PeerInfo, SessionErrorEntry, SessionState, Sid } from "@ccmsg/protocol";
+import {
+  liveness,
+  reachable,
+  waiting,
+  type AgentInfo,
+  type PeerInfo,
+  type SessionErrorEntry,
+  type SessionRun,
+  type SessionStatusStanding,
+  type Sid,
+} from "@ccmsg/protocol";
 
 /** What the session list is made of, out of the rows the contract delivers.
  *
@@ -58,88 +68,167 @@ export function sortPeers(
   return rows;
 }
 
-/** The order the groups stand in: what is stopped at something a person has to
- * answer first, then what is running, then what the instance has lost. Reading
- * down the list is then reading from what wants attention to what no longer
- * asks for any. */
-export const SESSION_STATES: readonly SessionState[] = [
+/** The order the headings stand in: a session two processes are writing first,
+ * then what is stopped at something a person has to answer, then what is
+ * running, then what the instance has lost. Reading down the list is reading
+ * from what needs a decision to what asks for nothing.
+ *
+ * The words are this screen's, out of what the contract answers about a row —
+ * how many runs it has (`liveness`), whether anything here can act on one
+ * (`reachable`), whether something is out to be answered (`waiting`). Nothing
+ * on the wire says which heading a row goes under. */
+export const SESSION_SECTIONS = [
+  "duplicated",
   "waiting",
   "live",
-  "live_unmanaged",
+  "unreachable",
   "paused",
   "disappeared",
-];
+] as const;
+export type SessionSection = (typeof SESSION_SECTIONS)[number];
 
-export const SESSION_STATE_LABELS: Readonly<Record<SessionState, string>> = {
+export const SESSION_SECTION_LABELS: Readonly<Record<SessionSection, string>> = {
+  duplicated: "二重に走っている",
   waiting: "答え待ち",
   live: "稼働中",
-  live_unmanaged: "稼働中 (届かない)",
+  unreachable: "稼働中 (届かない)",
   paused: "終了",
   disappeared: "消失",
 };
 
+/** Which heading one row stands under.
+ *
+ * `duplicated` comes before everything else because it is the answer to another
+ * question — how many processes — and a session two of them are writing is one
+ * nothing else about is worth reading until a person picks one. `answering` is
+ * what the `agents` row of this session says it is waiting on, which only the
+ * person's own role ever sees. */
+export function sectionOf(row: PeerInfo, answering: boolean, now: number): SessionSection {
+  const stands = liveness(row, now);
+  if (stands === "duplicated") return "duplicated";
+  if (stands !== "alive") return stands;
+  if (answering) return "waiting";
+  return reachable(row) ? "live" : "unreachable";
+}
+
 /** Sessions the instance has lost, which is what a row can be forgotten from.
  * Asking an instance to forget a session it is holding would be asking it to
  * drop something it can still see. */
-export function isLost(state: SessionState | undefined): boolean {
-  return state === "paused" || state === "disappeared";
+export function isLost(row: PeerInfo, now: number): boolean {
+  const stands = liveness(row, now);
+  return stands === "paused" || stands === "disappeared";
 }
 
-/** One heading of the list and the rows under it. A group with no state is the
- * rows an instance stated no classification for: the contract says such a
- * session is shown without being grouped rather than guessed at, and it stands
- * first so that the rows nothing can be said about are not buried. */
+/** One heading of the list and the rows under it. */
 export interface SessionGroup {
-  readonly state?: SessionState;
+  readonly section: SessionSection;
   readonly rows: readonly PeerInfo[];
 }
 
-/** The list split by how its sessions stand, in the order above.
- *
- * Grouping is on `state` alone — the instance holding a session states the
- * classification rather than the inputs it read, so every client shows the same
- * session the same way. An empty group is left out: a heading over nothing says
- * only that this build knows the word. */
-export function groupPeers(rows: readonly PeerInfo[]): readonly SessionGroup[] {
-  const ungrouped = rows.filter((row) => row.state === undefined);
-  const groups: SessionGroup[] = ungrouped.length === 0 ? [] : [{ rows: ungrouped }];
-  for (const state of SESSION_STATES) {
-    const under = rows.filter((row) => row.state === state);
-    if (under.length > 0) groups.push({ state, rows: under });
+/** The list split by how its sessions stand, in the order above. An empty group
+ * is left out: a heading over nothing says only that this build knows the
+ * word. */
+export function groupPeers(
+  rows: readonly PeerInfo[],
+  answering: ReadonlySet<Sid>,
+  now: number,
+): readonly SessionGroup[] {
+  const under = new Map<SessionSection, PeerInfo[]>();
+  for (const row of rows) {
+    const section = sectionOf(row, answering.has(row.sid), now);
+    const held = under.get(section);
+    if (held === undefined) under.set(section, [row]);
+    else held.push(row);
   }
-  return groups;
+  return SESSION_SECTIONS.flatMap((section) => {
+    const held = under.get(section);
+    return held === undefined ? [] : [{ section, rows: held }];
+  });
 }
 
-/** Newest first, with sessions the instance already lists as peers left out:
- * the same session in both lists would read as two. */
+/** The sessions with something out that a person has to answer.
+ *
+ * Read off the harness's own rows, which is where the dialog a session is
+ * holding open is stated. The other material `waiting` takes — a turn that
+ * ended on an upstream error — is in the status fold, and this build holds one
+ * of those at a time (the session the URL names), so a list cannot read it. */
+export function answeringSids(rows: readonly AgentInfo[]): ReadonlySet<Sid> {
+  const found = new Set<Sid>();
+  for (const row of rows) {
+    if (row.sid !== undefined && waiting(row, undefined)) found.add(row.sid);
+  }
+  return found;
+}
+
+/** What one run says it is waiting on, out of the harness's rows. The rows are
+ * matched by pid, which is what a run is. */
+export function waitingForByPid(rows: readonly AgentInfo[]): ReadonlyMap<number, string> {
+  const found = new Map<number, string>();
+  for (const row of rows) {
+    if (row.waiting_for !== undefined) found.set(row.pid, row.waiting_for);
+  }
+  return found;
+}
+
+/** The terminal a session is opened through, out of its own runs.
+ *
+ * The first run that names one: a session with one run has one answer, and a
+ * session with two is one this screen sends a person to pick a run of before
+ * anything is opened. */
+export function terminalOf(runs: readonly SessionRun[]): string | undefined {
+  return runs.find((run) => run.terminal_id !== undefined)?.terminal_id;
+}
+
+/** The terminal each session is opened through, over the rows as they arrive.
+ *
+ * Read from `peers` rather than from the harness's rows: a run states its own
+ * terminal on the row of the session it runs, which is the row every screen
+ * here already holds. */
+export function terminalIdsBySid(rows: readonly PeerInfo[]): ReadonlyMap<Sid, string> {
+  const found = new Map<Sid, string>();
+  for (const row of rows) {
+    const terminal = terminalOf(row.runs);
+    if (terminal !== undefined) found.set(row.sid, terminal);
+  }
+  return found;
+}
+
+/** What the fold of a session's state is worth just now (contract,
+ * `SessionStatusStanding`). `ready` says nothing a person needs told, so it has
+ * no words here — the state itself is what they read. */
+export const SESSION_STANDING_LABELS: Readonly<Record<SessionStatusStanding, string | undefined>> =
+  {
+    absent: "状態なし",
+    folding: "読込中",
+    ready: undefined,
+    frozen: "凍結",
+  };
+
+/** The same, as a row in the list says it.
+ *
+ * `absent` is left off there: an instance folds a session's state when somebody
+ * asks for it, so most rows in a list stand there, and a mark every row carries
+ * says nothing about any of them. Where the fold is what is being read — the
+ * state tab, a run's screen — it is said in full. */
+export function listStanding(status: SessionStatusStanding): string | undefined {
+  return status === "absent" ? undefined : SESSION_STANDING_LABELS[status];
+}
+
+/** Newest first: the harness's rows this list shows on their own.
+ *
+ * A row is one process. One whose session the peer list already carries is left
+ * out — the same session in both lists would read as two — and one that names
+ * no session yet is always here: it is a process a launcher started that the
+ * harness has not named a session for, and nothing else in the app would show
+ * it at all. */
 export function sortAgents(
   rows: readonly AgentInfo[],
   peers: readonly PeerInfo[],
 ): readonly AgentInfo[] {
   const known = new Set(peers.map((peer) => peer.sid));
   return rows
-    .filter((row) => !known.has(row.sid))
-    .sort((a, b) => b.started_at - a.started_at || a.sid.localeCompare(b.sid));
-}
-
-/** The terminal each session names, over the whole of the harness's rows.
- *
- * Read from the rows as they arrive rather than from the list the screen shows:
- * a session that is also a connected peer is dropped from that list so it is
- * not read as two, and it is exactly the session a person is most likely to
- * want the terminal of. A row that names no terminal is left out — absent and
- * empty both mean there is nothing to open.
- *
- * Later rows win over earlier ones, which matters only where two instances
- * report the same session: the value is the one this instance last heard. */
-export function terminalIdsBySid(rows: readonly AgentInfo[]): ReadonlyMap<Sid, string> {
-  const found = new Map<Sid, string>();
-  for (const row of rows) {
-    if (row.terminal_id !== undefined && row.terminal_id !== "") {
-      found.set(row.sid, row.terminal_id);
-    }
-  }
-  return found;
+    .filter((row) => row.sid === undefined || !known.has(row.sid))
+    .sort((a, b) => b.started_at - a.started_at || a.pid - b.pid);
 }
 
 export function errorsBySid(
@@ -156,12 +245,14 @@ export function sessionLabel(row: {
   repo?: string | undefined;
   ws?: string | undefined;
   cwd?: string | undefined;
-  sid: Sid;
+  /** Absent on a process a launcher started before the harness named a session
+   * for it, which is a row that has a working directory and no id at all. */
+  sid?: Sid | undefined;
 }): string {
   if (row.title !== undefined && row.title !== "") return row.title;
   if (row.repo !== undefined && row.repo !== "") {
     return row.ws === undefined || row.ws === "" ? row.repo : `${row.repo}/${row.ws}`;
   }
   if (row.cwd !== undefined && row.cwd !== "") return row.cwd;
-  return row.sid;
+  return row.sid ?? "名前のない run";
 }

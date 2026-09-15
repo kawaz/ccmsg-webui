@@ -1,7 +1,7 @@
 import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
-import type { Sid, TranscriptItem } from "@ccmsg/protocol";
+import { liveness, reachable, type Sid, type TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { href } from "../base.ts";
 import {
@@ -191,25 +191,26 @@ export function Timeline({ sid }: { sid: Sid }) {
 
 /** 送れる相手か、送れないならなぜか。
  *
- * 送れるのは instance が今つながっていると言っているセッションだけ。行はどちら
- * も同じ一覧に居て、立ち方は `state` が言うので、それをそのまま理由にする。 */
+ * 行から読む (契約の `liveness` / `reachable`)。断られてから知らせるのではなく、
+ * 打つ前に言う — 送れない理由はどれも、人が先に手を打てるものになっている。 */
 function sendability(sid: Sid): { live: boolean; why: string } {
   const peer = peers.value.find((one) => one.sid === sid);
-  switch (peer?.state) {
-    case "live_unmanaged":
-      return { live: false, why: "instance からも端末からも操作できない状態です" };
+  if (peer === undefined) {
+    return { live: false, why: "このセッションは instance に接続していません" };
+  }
+  switch (liveness(peer, Date.now())) {
+    case "duplicated":
+      // 2 つのプロセスが同じ transcript を書いているので、instance は送るのを
+      // 断る (契約 DR-0001 §3)。人がやることは run を選ぶこと。
+      return { live: false, why: "同じセッションを 2 つのプロセスが書いています" };
     case "paused":
       return { live: false, why: "セッションは終了しています" };
     case "disappeared":
       return { live: false, why: "セッションは居なくなりました" };
-    case undefined:
-      // 行そのものが無いか、instance が分類を名乗っていないか。前者なら届かず、
-      // 後者は「届かないと決めつけない」— どちらも送ってみるより先に言う。
-      return peer === undefined
-        ? { live: false, why: "このセッションは instance に接続していません" }
-        : { live: true, why: "" };
-    default:
-      return { live: true, why: "" };
+    case "alive":
+      return reachable(peer)
+        ? { live: true, why: "" }
+        : { live: false, why: "instance からも端末からも操作できない状態です" };
   }
 }
 
