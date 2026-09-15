@@ -52,6 +52,28 @@ describe("the URL grammar", () => {
     expect(visibleTabs(false)).toEqual(visibleTabs(true).filter((tab) => tab !== "terminal"));
   });
 
+  // 端末はセッションの持ち物ではないので (契約 DR-0026)、セッションの下ではなく
+  // 根の直下に居る。
+  test("the terminals are a list of their own, and one terminal an address", () => {
+    expect(parseRoute("/terminals")).toEqual({ at: "terminals" });
+    expect(routePath({ at: "terminals" })).toBe("/terminals");
+    expect(parseRoute("/terminal/hyoui%3A%2517")).toEqual({ at: "terminal", id: "hyoui:%17" });
+    expect(routePath({ at: "terminal", id: "hyoui:%17" })).toBe("/terminal/hyoui%3A%2517");
+  });
+
+  // handle の綴りは端末管理のもので、どの scheme があるかは instance が答える。
+  // 文法が見るのは `<scheme>:<handle>` の形だけ。
+  test("a segment that names no terminal is not an address", () => {
+    expect(parseRoute("/terminal/hyoui").at).toBe("unknown");
+    expect(parseRoute("/terminal/hyoui%3A").at).toBe("unknown");
+    expect(parseRoute("/terminal/%3A17").at).toBe("unknown");
+    expect(parseRoute("/terminal/%zz").at).toBe("unknown");
+    expect(parseRoute("/terminal").at).toBe("unknown");
+    expect(parseRoute("/terminals/hyoui%3A%2517").at).toBe("unknown");
+    // 知らない scheme は文法の外ではない — 開けるかどうかは画面が答える。
+    expect(parseRoute("/terminal/tmux%3A0")).toEqual({ at: "terminal", id: "tmux:0" });
+  });
+
   // 親の transcript に出るのは worker への指示と返ってきた答えだけなので、その
   // worker が何を叩いたかは worker を主語にして開く。
   test("an agent below a session is its own address", () => {
@@ -130,6 +152,8 @@ describe("the grammar under a base", () => {
         { at: "session", sid: SID, tab: "status" },
         { at: "session", sid: SID, tab: "files", path: "src/a.ts", lines: { start: 3, end: 9 } },
         { at: "agent", sid: SID, agentId: "a471372f2" },
+        { at: "terminals" },
+        { at: "terminal", id: "hyoui:%17" },
       ] as const) {
         const printed = routePath(route, base);
         const cut = printed.indexOf("?");
