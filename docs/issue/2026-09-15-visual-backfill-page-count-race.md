@@ -31,6 +31,10 @@ origin: ccmsg
 
 `test-integrity` rule によりこれを flaky 扱いにはしない。assert の前に「遡りが止まった (最後の頁が届いた、または先頭に達した) 」事象を待つ形に直す。timeout 延長で通すのは不可。
 
+## 同種の観測 (2026-09-15)
+
+`just visual-accept` の通しで `[light] notification` が 1 回だけ「`畳んだ値の読み方` が 5 秒以内に出ない」で落ちた (単独再実行と以後の通し 2 回は pass)。timing 依存の同型なので本 issue で一緒に扱う (待つ事象を明示する)。
+
 ## 受け入れ条件
 
 - [ ] 当該テストを負荷下 (全件走行) で 10 回 pass
