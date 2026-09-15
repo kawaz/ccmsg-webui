@@ -1,6 +1,7 @@
 import { expect, test as base, type Page } from "@playwright/test";
 import {
   BULK_SID,
+  DUP_SID,
   JOIN_SID,
   OTHER_SID,
   SID,
@@ -10,6 +11,7 @@ import {
 } from "./fixture.ts";
 import { type Instance, startInstance } from "./instance.ts";
 import { type FakeSession, greetAsSession } from "./session.ts";
+import { type DuplicateRuns, startDuplicateRuns } from "./runs.ts";
 
 /** What every visual test runs against: one disposable instance with a fixture
  * transcript and two sessions greeting it, and one browser that has registered
@@ -47,7 +49,12 @@ export const test = base.extend<object, Fixtures>({
       const instance = await startInstance();
       const fixture = writeFixture(instance.home, instance.cwd);
       const sessions: FakeSession[] = [];
+      // 走り続ける 2 プロセスと、その状態ファイル。一覧にも `runs` の画面にも
+      // 出るので、fixture が最初から持つ — test の中で作って消すと、その前後に
+      // 撮る絵がどの瞬間に撮られたかで変わる。
+      let twofold: DuplicateRuns | undefined;
       try {
+        twofold = startDuplicateRuns(instance.home, DUP_SID, instance.cwd);
         sessions.push(
           await greetAsSession(instance.stateDir, {
             sid: SID,
@@ -95,6 +102,15 @@ export const test = base.extend<object, Fixtures>({
             model: "claude-sonnet-5",
           }),
           await greetAsSession(instance.stateDir, {
+            sid: DUP_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.duplicateTranscriptPath,
+            title: "二重に走っているセッション",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-sonnet-5",
+          }),
+          await greetAsSession(instance.stateDir, {
             sid: TAIL_SID,
             cwd: instance.cwd,
             transcriptPath: fixture.tailTranscriptPath,
@@ -107,6 +123,7 @@ export const test = base.extend<object, Fixtures>({
         await use(instance);
       } finally {
         for (const one of sessions) one.close();
+        twofold?.stop();
         await instance.stop();
       }
     },
@@ -360,6 +377,10 @@ export async function shot(
       page.locator(".launcher[open] .launch-cwd"),
       // 書き出した file の場所。host の綴りと、書いた時刻が入っている。
       page.locator(".dump-path"),
+      // run の pid と起動時刻。pid は OS が配る番号そのもの、起動時刻はその
+      // プロセスが立った瞬間なので、どちらも走るたびに変わる。
+      page.locator(".run-pid"),
+      page.locator(".run-when"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });

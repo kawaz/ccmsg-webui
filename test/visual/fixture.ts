@@ -39,6 +39,11 @@ export const TAIL_SID = "88888888-9999-4aaa-8bbb-cccccccccccc";
 /** 状態の画面が読むセッション。道具の呼びしか持たない transcript で、絵に出る
  * のは instance がそれを畳んだ結果。 */
 export const STATUS_SID = "77777777-8888-4999-8aaa-bbbbbbbbbbbb";
+/** 同じセッションを 2 つのプロセスが書いている方 (`runs.ts` が状態ファイルを
+ * 置く)。走っている run の話なので transcript は小さくてよい — 読むのは畳みの
+ * 凍結であって中身ではない。 */
+export const DUP_SID = "22222222-3333-4444-8555-666666666666";
+
 /** The worker the session starts, which the agent screen reads as its subject.
  * Spelled the way the harness spells one, because the instance checks the shape
  * before it opens a file by that name. */
@@ -347,6 +352,8 @@ export interface Fixture {
   readonly joinTranscriptPath: string;
   /** 狭い画面の基準が読む方 (OTHER_SID)。 */
   readonly phoneTranscriptPath: string;
+  /** 二重に走っている方 (DUP_SID)。 */
+  readonly duplicateTranscriptPath: string;
 }
 
 /** Lay the fixture down under this run's config home and working directory. */
@@ -394,6 +401,14 @@ export function writeFixture(home: string, cwd: string): Fixture {
   writeFileSync(statusTranscriptPath, statusTranscript());
   const phoneTranscriptPath = join(project, `${OTHER_SID}.jsonl`);
   writeFileSync(phoneTranscriptPath, phoneTranscript());
+  const duplicateTranscriptPath = join(project, `${DUP_SID}.jsonl`);
+  writeFileSync(
+    duplicateTranscriptPath,
+    [
+      user("同じセッションを 2 つ動かしてしまった。"),
+      assistant([{ type: "text", text: "どちらを終わらせるかは人が決めます。" }]),
+    ].join(""),
+  );
   const agents = join(project, SID, "subagents");
   mkdirSync(agents, { recursive: true });
   writeFileSync(join(agents, `agent-${AGENT_ID}.jsonl`), agentTranscript());
@@ -403,6 +418,7 @@ export function writeFixture(home: string, cwd: string): Fixture {
   writeFileSync(join(cwd, "NOTES.md"), NOTES);
   return {
     transcriptPath,
+    duplicateTranscriptPath,
     phoneTranscriptPath,
     statusTranscriptPath,
     tailTranscriptPath,
