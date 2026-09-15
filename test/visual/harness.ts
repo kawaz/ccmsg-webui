@@ -396,6 +396,9 @@ export async function shot(
       page.locator(".dump-path"),
       // run の pid と起動時刻。pid は OS が配る番号そのもの、起動時刻はその
       // プロセスが立った瞬間なので、どちらも走るたびに変わる。
+      // transcript の行が持つ**どのくらい前か**。fixture の時刻は固定でも、
+      // 引き算の相手は撮った瞬間なので走るたびに変わる。
+      page.locator(".tl-when"),
       page.locator(".run-pid"),
       page.locator(".run-when"),
     ],

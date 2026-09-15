@@ -15,7 +15,8 @@
 .connection-who,
 .app-bar .footer,
 .hit-when,
-.status-elapsed {
+.status-elapsed,
+.tl-when {
   display: inline-block;
   max-width: 100%;
   overflow: hidden;
@@ -40,4 +41,10 @@
 /* 走っているものが始まってから経った時間。撮っている間も伸びる。 */
 .status-elapsed {
   width: 80px;
+}
+
+/* transcript の行が言う「どのくらい前か」。fixture の時刻は固定だが、引き算の
+   相手は撮った瞬間なので、日が変われば文字数も変わる。 */
+.tl-when {
+  width: 56px;
 }
