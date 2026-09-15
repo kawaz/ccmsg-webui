@@ -1,6 +1,6 @@
 ---
 title: visual test が起動した daemon (`ccmsg-webui-visual/home`) がホストに残る
-status: open
+status: resolved
 category: bug
 created: 2026-09-15T11:56:06+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-15T13:05:45+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: v1.0.1: test/visual/instance.ts で SIGINT / SIGTERM / SIGHUP / exit で daemon を SIGKILL (自プロセスの進退は触らず、聞き手が居なければ投げ直す)、正常経路は SIGTERM + 5 秒で SIGKILL、起動前に同じ home の残骸を回収。SIGINT / SIGKILL / 居残り / 完走の 4 経路で pgrep 0 を実機確認"]
 blocked_by:
 origin: kawaz/ccmsg (main セッション)
 ---
