@@ -1,6 +1,6 @@
 ---
 title: session-search の基準画像が全件走行時だけずれる (マスク箱の寸法ゆらぎ)
-status: open
+status: resolved
 category: bug
 created: 2026-09-14T14:01:00+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-15T13:05:36+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: v1.0.1 で根本原因(等幅でない数字フォント)を特定、時刻を持つ箱(connection-who/footer/hit-when/status-elapsed)の幅を test/visual/screenshot.css で固定。3 回連続 pass"]
 blocked_by:
 origin: 自リポ TODO
 ---
