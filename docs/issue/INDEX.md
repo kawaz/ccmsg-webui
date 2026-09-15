@@ -5,7 +5,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
 | 2026-09-15 | bug | open | [visual-backfill-page-count-race](./2026-09-15-visual-backfill-page-count-race.md) | visual test の backfill 件数 assert が全件走行の負荷下で早着き race を起こす |
-| 2026-09-14 | request | open | [markdown-preview-fuzzy-file-links](./2026-09-14-markdown-preview-fuzzy-file-links.md) | Markdown プレビューで、省略されたファイル名の言及をプロジェクト内ファイルへのリンクにする |
 | 2026-09-12 | task | open | [composer-autogrow-and-touch-targets](./2026-09-12-composer-autogrow-and-touch-targets.md) | Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性) |
 | 2026-09-12 | task | open | [launcher-cwd-tree](./2026-09-12-launcher-cwd-tree.md) | Session Launcher の「始める場所」にディレクトリツリー選択 (展開/フィルタ) を追加 |
 | 2026-09-12 | task | open | [v1-parity-for-migration](./2026-09-12-v1-parity-for-migration.md) | kawaz が v1 webui から v2 に移るために要るものの棚卸し。画面が無いだけの機能が上位 |
@@ -14,6 +13,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | 2026-09-12 | bug | open | [visual-accept-stale-module](./2026-09-12-visual-accept-stale-module.md) | visual-accept が dev server の古い module を撮って基準が実は古いまま通ることがある |
 | 2026-09-11 | request | open | [team-overview-view](./2026-09-11-team-overview-view.md) | teammate 同士の会話を俯瞰する view (team overview) |
 | 2026-09-11 | bug | open | [anchor-snapshot-one-frame-stale](./2026-09-11-anchor-snapshot-one-frame-stale.md) | Timeline 遡り読みの錨が scroll 事象 1 フレーム分だけ古くなる |
+| 2026-09-14 | request | wip | [markdown-preview-fuzzy-file-links](./2026-09-14-markdown-preview-fuzzy-file-links.md) | Markdown プレビューで、省略されたファイル名の言及をプロジェクト内ファイルへのリンクにする |
 
 <!--
 INDEX の列構成・canonical 順序・行形式の唯一の正本:

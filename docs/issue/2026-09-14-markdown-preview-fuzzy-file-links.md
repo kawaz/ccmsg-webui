@@ -1,11 +1,11 @@
 ---
 title: Markdown プレビューで、省略されたファイル名の言及をプロジェクト内ファイルへのリンクにする
-status: open
+status: wip
 category: request
 created: 2026-09-14T13:08:11+09:00
 last_read:
 open_entered: 2026-09-14T13:08:11+09:00
-wip_entered:
+wip_entered: 2026-09-15T14:51:18+09:00
 blocked_entered:
 pending_entered:
 discarded_entered:
@@ -66,6 +66,10 @@ v1 の webui で便利だった機能を v2 へ持ち込む一連の要望のひ
 4. どちらも無ければ何も出さない
 
 対象を inline code に限り、候補が存在する時だけ表示するので、誤検出という問題は生じない。コストは word ごとの find 1〜2 回。
+
+## 実装済み (v1.3.0)
+
+手順 1〜4 と適用先 (バブル / Files の md プレビュー) は v1.3.0 で実装 (`src/markdown/file-word.ts` / `FileWord.tsx`、`src/files/file-word-find.ts` / `file-word-link.ts`)。1 語につき `file.find` は 1 回、覚えるのは (sid, word)、候補は最大 8 件、画面内の語だけ探す、候補一覧は流れの中に開く。残りは `#\d+` の処理 (何にリンクするかの設定が要る)。
 
 ## 対象の線引き (kawaz 2026-09-14 追記)
 
