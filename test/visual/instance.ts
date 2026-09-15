@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import { createServer, type ViteDevServer } from "vite";
 import { startGateway } from "./gateway.ts";
+import { startTerminalGateway, writeTerminalManager } from "./terminals.ts";
 
 /** The daemon a screenshot run talks to, and the origin the page is served from.
  *
@@ -24,6 +25,8 @@ import { startGateway } from "./gateway.ts";
 const ROOT = join(tmpdir(), "ccmsg-webui-visual");
 const DAEMON_PORT = 45_871;
 const GATEWAY_PORT = 45_873;
+/** 端末 gateway。端末の画面を借りる先で、絵に出るリンクの行き先そのもの。 */
+const TERMINAL_GATEWAY_PORT = 45_874;
 /** gateway が posts に提示する合言葉。使い捨ての host のものなので、中身に
  * 意味は無い — 合っていることだけが要る。 */
 const WEBHOOK_SOURCE = "llm-gateway";
@@ -48,6 +51,8 @@ export interface Instance {
   readonly stateDir: string;
   /** The working directory a fixture session says it is in. */
   readonly cwd: string;
+  /** 使い捨ての端末管理が答える一覧の置き場。走り出した後に書かれる。 */
+  readonly terminalListing: string;
   /** One registration: the URL that opens the register screen, and the six
    * digits the terminal shows beside it. */
   passkey(): Promise<{ url: string; code: string }>;
@@ -191,6 +196,9 @@ export async function startInstance(): Promise<Instance> {
         // 本物の helper と同じ行を話す使い捨て (`translate-helper.ts`)。翻訳の
         // 経路そのものは daemon の実装をそのまま通る。
         translate_helper: fileURLToPath(new URL("translate-helper.ts", import.meta.url)),
+        // 端末を借りる先。これがある instance だけが `terminal` の能力を名乗り、
+        // 端末のリンクも埋め込みもそこから出る (契約 `terminal_gateway`)。
+        terminal_gateway: `http://127.0.0.1:${String(TERMINAL_GATEWAY_PORT)}`,
         gateway_url: `http://127.0.0.1:${String(GATEWAY_PORT)}`,
         gateway_webhook_source: WEBHOOK_SOURCE,
         gateway_webhook_token_file: join(configDir, "webhook.token"),
@@ -214,8 +222,13 @@ export async function startInstance(): Promise<Instance> {
   mkdirSync(stateDir, { recursive: true });
   writeFileSync(join(stateDir, "instance.id"), `${INSTANCE_ID}\n`);
 
+  // 使い捨ての端末管理。daemon は PATH の `hyoui` に訊くので、置くのは起動より
+  // 前 (中身は後から書かれる — 走っている run の pid が要る行が 1 つある)。
+  const manager = writeTerminalManager(ROOT);
+
   const env: NodeJS.ProcessEnv = {
     HOME: ROOT,
+    PATH: `${manager.bin}:${process.env["PATH"] ?? ""}`,
     XDG_CONFIG_HOME: join(ROOT, "xdg-config"),
     XDG_STATE_HOME: join(ROOT, "xdg-state"),
     CCMSG_CONFIG_DIR: configDir,
@@ -228,6 +241,7 @@ export async function startInstance(): Promise<Instance> {
   // 出す期限 (access token) と噛み合わせたままにするため。
   const gatewayBase = Math.floor(Date.now() / 60_000) * 60_000;
   const gateway = await startGateway(GATEWAY_PORT, gatewayBase);
+  const terminalGateway = await startTerminalGateway(TERMINAL_GATEWAY_PORT);
 
   const daemon = spawn("bun", [cliPath(), "daemon", "run", home], {
     env: { ...process.env, ...env },
@@ -263,6 +277,7 @@ export async function startInstance(): Promise<Instance> {
     process.off("exit", bury);
     await vite?.close();
     await gateway.stop();
+    await terminalGateway.stop();
     // By pid, and this run's own child: nothing else on the machine is asked to
     // leave on a visual run's behalf.
     const left = new Promise<void>((resolve) => daemon.once("exit", () => resolve()));
@@ -312,6 +327,7 @@ export async function startInstance(): Promise<Instance> {
     endpoint,
     home,
     cwd,
+    terminalListing: manager.listing,
     stateDir,
     gatewayBase,
     llmEvent,

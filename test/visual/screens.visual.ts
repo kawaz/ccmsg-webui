@@ -160,8 +160,3 @@ test("notification", async ({ ui: page, instance }) => {
   }).toPass({ timeout: 20_000 });
   await shot(page, "notification.png");
 });
-
-test("terminal", async ({ ui: page, instance }) => {
-  await page.goto(`${instance.endpoint}s/${OTHER_SID}/terminal`);
-  await shot(page, "terminal.png");
-});

@@ -12,6 +12,7 @@ import {
 import { type Instance, startInstance } from "./instance.ts";
 import { type FakeSession, greetAsSession } from "./session.ts";
 import { type DuplicateRuns, startDuplicateRuns } from "./runs.ts";
+import { startTerminals, type TerminalFixture, TERMINAL_SID } from "./terminals.ts";
 
 /** What every visual test runs against: one disposable instance with a fixture
  * transcript and two sessions greeting it, and one browser that has registered
@@ -53,8 +54,12 @@ export const test = base.extend<object, Fixtures>({
       // 出るので、fixture が最初から持つ — test の中で作って消すと、その前後に
       // 撮る絵がどの瞬間に撮られたかで変わる。
       let twofold: DuplicateRuns | undefined;
+      // 端末たち。1 つには本物の run が居るので、一覧とセッションの結び付きは
+      // pid の突き合わせ (契約 DR-0026) をそのまま通る。
+      let terminals: TerminalFixture | undefined;
       try {
         twofold = startDuplicateRuns(instance.home, DUP_SID, instance.cwd);
+        terminals = startTerminals(instance.home, instance.terminalListing, instance.cwd);
         sessions.push(
           await greetAsSession(instance.stateDir, {
             sid: SID,
@@ -111,6 +116,15 @@ export const test = base.extend<object, Fixtures>({
             model: "claude-sonnet-5",
           }),
           await greetAsSession(instance.stateDir, {
+            sid: TERMINAL_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.terminalTranscriptPath,
+            title: "端末で動いているセッション",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-opus-5",
+          }),
+          await greetAsSession(instance.stateDir, {
             sid: TAIL_SID,
             cwd: instance.cwd,
             transcriptPath: fixture.tailTranscriptPath,
@@ -124,6 +138,7 @@ export const test = base.extend<object, Fixtures>({
       } finally {
         for (const one of sessions) one.close();
         twofold?.stop();
+        terminals?.stop();
         await instance.stop();
       }
     },

@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { TERMINAL_SID } from "./terminals.ts";
 
 /** What the screens are shown reading.
  *
@@ -342,6 +343,9 @@ function statusTranscript(): string {
 
 export interface Fixture {
   readonly transcriptPath: string;
+  /** 端末で動いている方 (`terminals.ts` の `TERMINAL_SID`)。端末の話なので中身は
+   * 小さくてよい — 読むのは端末の一覧と、その配下に出る端末。 */
+  readonly terminalTranscriptPath: string;
   /** 状態の画面が読む方 (STATUS_SID)。 */
   readonly statusTranscriptPath: string;
   /** 追記を見る test が読む方 (TAIL_SID)。 */
@@ -401,6 +405,16 @@ export function writeFixture(home: string, cwd: string): Fixture {
   writeFileSync(statusTranscriptPath, statusTranscript());
   const phoneTranscriptPath = join(project, `${OTHER_SID}.jsonl`);
   writeFileSync(phoneTranscriptPath, phoneTranscript());
+  const terminalTranscriptPath = join(project, `${TERMINAL_SID}.jsonl`);
+  writeFileSync(
+    terminalTranscriptPath,
+    [
+      user("この端末で動いているセッションが要る。"),
+      assistant([
+        { type: "text", text: "端末の一覧からも、セッションの側からも同じ 1 つに着きます。" },
+      ]),
+    ].join(""),
+  );
   const duplicateTranscriptPath = join(project, `${DUP_SID}.jsonl`);
   writeFileSync(
     duplicateTranscriptPath,
@@ -418,6 +432,7 @@ export function writeFixture(home: string, cwd: string): Fixture {
   writeFileSync(join(cwd, "NOTES.md"), NOTES);
   return {
     transcriptPath,
+    terminalTranscriptPath,
     duplicateTranscriptPath,
     phoneTranscriptPath,
     statusTranscriptPath,
