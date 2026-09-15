@@ -1,6 +1,6 @@
 ---
 title: TL の相対時刻は 1 本の now signal で更新し、見えている item だけが購読する
-status: open
+status: resolved
 category: design
 created: 2026-09-15T12:53:24+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-15T14:23:28+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:実装完了 (src/now.ts 粒度別 signal + 単一タイマー、src/ui/RelativeTime.tsx IntersectionObserver で可視の間だけ購読、test/now.test.ts)","done:visual の mask/幅固定","done:DESIGN 両言語に1段落追記"]
 blocked_by:
 origin:
 ---
