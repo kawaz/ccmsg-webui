@@ -1,8 +1,10 @@
 import type { Sid } from "@ccmsg/protocol";
 import { href } from "../base.ts";
-import { type Tab, visibleTabs } from "../route.ts";
-import { navigate, route, terminalGateway, terminalIds } from "../state.ts";
+import { type Route, type Tab, visibleTabs } from "../route.ts";
+import { runStanding } from "../runs.ts";
+import { navigate, peers, route, terminalGateway, terminalIds } from "../state.ts";
 import { Files } from "./Files.tsx";
+import { RunChoice, RunEnded, RunPanel, RunSettled } from "./Runs.tsx";
 import { Status } from "./Status.tsx";
 import { TerminalPanel } from "./TerminalPanel.tsx";
 import { Timeline } from "./Timeline.tsx";
@@ -48,21 +50,44 @@ function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
   );
 }
 
+/** URL が名指しているのがセッションか、その 1 プロセスか (`src/runs.ts`)。
+ *
+ * 2 つのプロセスが同じセッションを書いている間は、タブも下書きも出さない —
+ * 出しても instance に断られる操作しか無く、人がやることは「どちらを終わらせ
+ * るか決める」だけ (契約 DR-0001)。 */
+function Session({ at }: { at: Extract<Route, { at: "session" }> }) {
+  const { sid, pid, tab } = at;
+  const peer = peers.value.find((one) => one.sid === sid);
+  const standing = runStanding(peer?.runs ?? [], pid);
+  switch (standing.at) {
+    case "choose":
+      return <RunChoice sid={sid} />;
+    case "run":
+      return <RunPanel sid={sid} run={standing.run} />;
+    case "single":
+      return <RunSettled sid={sid} pid={standing.run.pid ?? (pid as number)} />;
+    case "ended":
+      return <RunEnded sid={sid} pid={pid as number} />;
+    case "session":
+      return (
+        <>
+          <SessionTabs sid={sid} tab={tab} />
+          {tab === "timeline" && <Timeline sid={sid} />}
+          {tab === "files" && <Files sid={sid} path={at.path} lines={at.lines} />}
+          {tab === "terminal" && <TerminalPanel sid={sid} />}
+          {tab === "status" && <Status sid={sid} />}
+        </>
+      );
+  }
+}
+
 export function Main() {
   const at = route.value;
   return (
     <>
       {at.at === "sessions" && <Nothing />}
       {at.at === "usage" && <Usage />}
-      {at.at === "session" && (
-        <>
-          <SessionTabs sid={at.sid} tab={at.tab} />
-          {at.tab === "timeline" && <Timeline sid={at.sid} />}
-          {at.tab === "files" && <Files sid={at.sid} path={at.path} lines={at.lines} />}
-          {at.tab === "terminal" && <TerminalPanel sid={at.sid} />}
-          {at.tab === "status" && <Status sid={at.sid} />}
-        </>
-      )}
+      {at.at === "session" && <Session at={at} />}
       {at.at === "agent" && (
         <>
           <nav class="tabs" aria-label="セッションの見方">

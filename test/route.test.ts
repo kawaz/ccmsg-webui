@@ -14,6 +14,32 @@ describe("the URL grammar", () => {
     expect(parseRoute(`/s/${SID}`)).toEqual({ at: "session", sid: SID, tab: "timeline" });
   });
 
+  test("a run of a session hangs off its id, after a dot", () => {
+    expect(parseRoute(`/s/${SID}.4821/status`)).toEqual({
+      at: "session",
+      sid: SID,
+      pid: 4821,
+      tab: "status",
+    });
+    expect(parseRoute(`/s/${SID}.4821`)).toEqual({
+      at: "session",
+      sid: SID,
+      pid: 4821,
+      tab: "timeline",
+    });
+    expect(routePath({ at: "session", sid: SID, pid: 4821, tab: "timeline" })).toBe(
+      `/s/${SID}.4821/timeline`,
+    );
+  });
+
+  test("what is not a pid is not an address", () => {
+    expect(parseRoute(`/s/${SID}.`).at).toBe("unknown");
+    expect(parseRoute(`/s/${SID}.0`).at).toBe("unknown");
+    expect(parseRoute(`/s/${SID}.x9`).at).toBe("unknown");
+    // worker は run ではなくセッションの下にある。
+    expect(parseRoute(`/s/${SID}.4821/agent/a471372f2/timeline`).at).toBe("unknown");
+  });
+
   test("the terminal is a tab of its own", () => {
     expect(parseRoute(`/s/${SID}/terminal`)).toEqual({ at: "session", sid: SID, tab: "terminal" });
     expect(routePath({ at: "session", sid: SID, tab: "terminal" })).toBe(`/s/${SID}/terminal`);

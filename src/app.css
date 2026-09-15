@@ -2358,3 +2358,49 @@ select {
     transition: none;
   }
 }
+
+/* セッションではなく、その 1 プロセスを見ている画面 (`src/ui/Runs.tsx`)。
+   並ぶのは「どちらを終わらせるかを決める材料」だけなので、行の形ではなく
+   見出しと定義の並びにする — 一覧の行に見えると、押せるものを探してしまう。 */
+.runs .run {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.runs .run > .name {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.run-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.run-facts > dt {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.run-facts > dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.run-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.run-back {
+  margin: 0;
+  font-size: 12px;
+}

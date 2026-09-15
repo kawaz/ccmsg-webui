@@ -6,6 +6,12 @@ import type { Sid } from "@ccmsg/protocol";
  * of the path rather than of the page's own memory so that a link names the
  * whole of what the sender was looking at.
  *
+ * `/s/<sid>.<pid>` is **one run** of that session rather than the session
+ * (contract DR-0001): the process, what can be read of it, and ending it. The
+ * pid hangs off the sid in the same segment because it qualifies which process
+ * the session is being looked at through, and everything below the segment —
+ * the tabs, the agents — is the session's and reads the same either way.
+ *
  * `/s/<sid>/agent/<agentId>/timeline` is one agent below that session, read as
  * its own transcript. It hangs below the session because that is where the
  * agent hangs, and it ends in the tab it is because the timeline is the only
@@ -53,6 +59,9 @@ export type Route =
   | {
       readonly at: "session";
       readonly sid: Sid;
+      /** One run of it, where the address named one. What is then shown is the
+       * run rather than the session (`src/runs.ts`). */
+      readonly pid?: number;
       readonly tab: Tab;
       /** Which file the files tab shows: relative to the session's root, or
        * absolute for one reached outside it. */
@@ -65,7 +74,11 @@ export type Route =
   | { readonly at: "agent"; readonly sid: Sid; readonly agentId: string }
   | { readonly at: "unknown"; readonly path: string };
 
-const SID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** The session segment: the id, and after a dot the run being looked through.
+ * A pid is what the OS hands out, so what is read is digits with no leading
+ * zero rather than any particular width. */
+const SESSION_SEGMENT =
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\.([1-9]\d*))?$/;
 
 /** An agent id as a path segment. The harness coins it, so what is checked is
  * that it is one segment of URL-safe text rather than any particular shape. */
@@ -116,23 +129,30 @@ export function parseRoute(path: string, search = "", base = "/"): Route {
   const parts = below.split("/").filter((part) => part !== "");
   if (parts.length === 0) return { at: "sessions" };
   if (parts.length === 1 && parts[0] === "usage") return { at: "usage" };
-  const [head, sid, tab] = parts;
-  if (head !== "s" || sid === undefined || !SID.test(sid)) return { at: "unknown", path };
+  const [head, segment, tab] = parts;
+  const named = segment === undefined ? null : SESSION_SEGMENT.exec(segment);
+  if (head !== "s" || named === null) return { at: "unknown", path };
+  const sid = named[1] as Sid;
+  const run = named[2] === undefined ? {} : { pid: Number(named[2]) };
   if (tab === "agent") {
     const [, , , agentId, below] = parts;
+    // An agent hangs below the session and not below a run of it: what it is
+    // is a transcript, and a transcript belongs to the session.
+    if (named[2] !== undefined) return { at: "unknown", path };
     if (agentId === undefined || !AGENT_ID.test(agentId)) return { at: "unknown", path };
     if (below !== DEFAULT_TAB || parts.length !== 5) return { at: "unknown", path };
     return { at: "agent", sid, agentId };
   }
-  if (tab === undefined) return { at: "session", sid, tab: DEFAULT_TAB };
+  if (tab === undefined) return { at: "session", sid, ...run, tab: DEFAULT_TAB };
   if (!isTab(tab)) return { at: "unknown", path };
-  if (tab !== "files") return { at: "session", sid, tab };
+  if (tab !== "files") return { at: "session", sid, ...run, tab };
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const at = params.get("path");
   const lines = parseLineRange(params.get("lines"));
   return {
     at: "session",
     sid,
+    ...run,
     tab,
     ...(at === null || at === "" ? {} : { path: at }),
     ...(lines === undefined ? {} : { lines }),
@@ -147,7 +167,8 @@ export function routePath(route: Route, base = "/"): string {
     case "usage":
       return `${prefix}usage`;
     case "session": {
-      const at = `${prefix}s/${route.sid}/${route.tab}`;
+      const named = route.pid === undefined ? route.sid : `${route.sid}.${String(route.pid)}`;
+      const at = `${prefix}s/${named}/${route.tab}`;
       if (route.tab !== "files" || route.path === undefined) return at;
       const params = new URLSearchParams({ path: route.path });
       if (route.lines !== undefined) params.set("lines", formatLineRange(route.lines));
