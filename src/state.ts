@@ -36,6 +36,9 @@ import type {
   SessionSearchResult,
   SessionStatusSnapshot,
   Sid,
+  TerminalElement,
+  TerminalInfo,
+  TerminalsFrame,
   TopicName,
   TranscriptItem,
   TranslateRunResult,
@@ -88,6 +91,13 @@ import {
   terminalIdsBySid,
   waitingForByPid,
 } from "./sessions.ts";
+import {
+  groupTerminals,
+  sessionTerminals,
+  startingTerminals,
+  type TerminalGroup,
+  terminalRowKey,
+} from "./terminals.ts";
 import { FoldOpen } from "./timeline/fold-open.ts";
 import type { TranslateRoute } from "./timeline/translate.ts";
 import { hasBrowserTranslator } from "./timeline/translators.ts";
@@ -122,6 +132,7 @@ type ErrorsData = Static<typeof SessionErrorsFrame>["data"];
 type InstancesData = Static<typeof InstancesFrame>["data"];
 type LlmStatusData = Static<typeof LlmStatusFrame>["data"];
 type LlmRequestsData = Static<typeof LlmRequestsFrame>["data"];
+type TerminalsData = Static<typeof TerminalsFrame>["data"];
 
 const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
 /** 留めたセッション。**このブラウザの覚え**で、instance には送らない — 「今
@@ -139,6 +150,7 @@ const TOPICS: readonly TopicName[] = [
   "session.errors",
   "notify",
   "inbox",
+  "terminals",
 ];
 
 /** 能力を持っている instance にだけ頼む topic。gateway を前に置いていない
@@ -185,6 +197,7 @@ const llmStatusSlots = signal<readonly Slot<LlmStatusData>[]>([]);
 const llmRequestSlots = signal<readonly Slot<LlmRequestsData>[]>([]);
 const agentSlots = signal<readonly Slot<readonly AgentInfo[]>[]>([]);
 const errorSlots = signal<readonly Slot<ErrorsData>[]>([]);
+const terminalSlots = signal<readonly Slot<readonly TerminalInfo[]>[]>([]);
 const inboxSlots = signal<readonly Slot<readonly InboxMessage[]>[]>([]);
 const instanceSlots = signal<readonly Slot<InstancesData>[]>([]);
 
@@ -220,6 +233,13 @@ export const agents = computed<readonly AgentInfo[]>(() =>
  * rather than the ones the list shows on their own: the session that is waiting
  * is very often the one the peer list already carries. */
 export const answering = computed<ReadonlySet<Sid>>(() => answeringSids(rows(agentSlots.value)));
+/** ハーネスが言っている run ぜんぶ。
+ *
+ * `agents` と違って**間引かない** — あちらは一覧が自分で出す行を選んだ後のもの
+ * で、セッションの行が既に持っている run は落ちている。端末との対応は pid の
+ * 一致で出るので (契約 DR-0026)、落ちた run があると、そのセッションが居る端末
+ * が「誰の物でもない端末」として出てしまう。 */
+export const runRows = computed<readonly AgentInfo[]>(() => rows(agentSlots.value));
 /** What each run says it is waiting on, by pid — the material a person picks a
  * run by. */
 export const waitingForRuns = computed<ReadonlyMap<number, string>>(() =>
@@ -263,6 +283,42 @@ export const terminalGateway = computed<string | undefined>(() => hello.value?.t
 export const terminalIds = computed<ReadonlyMap<Sid, string>>(() =>
   terminalIdsBySid(rows(peerSlots.value)),
 );
+/** この mesh にある端末ぜんぶ、instance が言うとおりに。
+ *
+ * セッションとは独立した一覧で、どのセッションが居るかはここでは言わない —
+ * 結び付けるのは pid で、それをするのは契約の導出 (`terminalsOf` /
+ * `unattachedTerminals` / `starting`)。 */
+export const terminals = computed<readonly TerminalInfo[]>(() => rows(terminalSlots.value));
+
+/** 端末の一覧を、行がセッションに対して何であるかで分けたもの。 */
+export const terminalGroups = computed<readonly TerminalGroup[]>(() =>
+  groupTerminals(terminals.value, runRows.value),
+);
+
+/** 起動したのに、まだ状態ファイルも挨拶も無いハーネスの端末。セッションの一覧に
+ * 並ぶ — sid がまだ無いので、名乗れるのは端末の id だけ。 */
+export const startingRuns = computed<readonly TerminalInfo[]>(() =>
+  startingTerminals(terminals.value, runRows.value),
+);
+
+/** 1 つのセッションが動いている端末たち。
+ *
+ * run が消えれば答えは空になり、その端末は一覧の側に戻る — 画面の側で覚えて
+ * おくものは何も無い。 */
+export function terminalsOfSession(sid: Sid): readonly TerminalInfo[] {
+  return sessionTerminals(sid, terminals.value, runRows.value);
+}
+
+/** そのセッションを開ける端末 1 つ。一覧の行やタブのように「開けるか / どこを
+ * 開くか」だけが要る所のための答えで、2 つある時は新しい方。
+ *
+ * 一覧との突き合わせが先で、答えが無い時だけ run が状態ファイルから知っている
+ * 値に落ちる — 端末管理を持たない instance ではそれが唯一の手掛かりで、持って
+ * いる instance では pid の一致が優先する (契約 DR-0026 §2)。 */
+export function terminalIdOfSession(sid: Sid): string | undefined {
+  return terminalsOfSession(sid)[0]?.id ?? terminalIds.value.get(sid);
+}
+
 export const sessionErrors = computed<ReadonlyMap<Sid, SessionErrorEntry>>(() =>
   errorsBySid(union(errorSlots.value, "errors")),
 );
@@ -373,6 +429,9 @@ const peerRows = new ElementFold<PeerElement, PeerInfo>("peers", sessionRowKey);
  * が持っているかは鍵にしない (mid の中に既に instance が入っている)。 */
 const inboxRows = new ElementFold<InboxElement, InboxMessage>("inbox", inboxKey);
 const agentRows = new ElementFold<AgentElement, AgentInfo>("agents", runRowKey);
+/** 端末の行。鍵は `instance` と `id` — 端末は host の資源なので、どの host の
+ * ものかまで込みで 1 つの端末 (契約 `TerminalInfo`)。 */
+const terminalRows = new ElementFold<TerminalElement, TerminalInfo>("terminals", terminalRowKey);
 
 const folds = new Map<string, TopicFold<unknown>>();
 
@@ -462,6 +521,13 @@ export const connection = new Connection({
         agentSlots.value = agentRows.push(
           message.instance,
           (message.data as AgentsData).agents,
+          message.snapshot,
+        );
+        break;
+      case "terminals":
+        terminalSlots.value = terminalRows.push(
+          message.instance,
+          (message.data as TerminalsData).terminals,
           message.snapshot,
         );
         break;
@@ -782,12 +848,14 @@ export function disconnect(): void {
   peerSlots.value = [];
   agentSlots.value = [];
   errorSlots.value = [];
+  terminalSlots.value = [];
   instanceSlots.value = [];
   llmStatusSlots.value = [];
   llmRequestSlots.value = [];
   folds.clear();
   peerRows.clear();
   agentRows.clear();
+  terminalRows.clear();
   hello.value = undefined;
   listed.value = false;
   transcript.value = undefined;
