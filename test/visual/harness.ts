@@ -343,8 +343,10 @@ export async function register(page: Page, code: string): Promise<void> {
  * - `.launch-cwd` holds **absolute paths on this host**, spelled differently on
  *   each operating system
  *
- * A mask keeps the element's own box, so the bar moving or changing size still
- * fails; what is given up is the text inside those few hundred pixels.
+ * A mask keeps the element's own box, so the bar moving still fails; what is
+ * given up is the text inside those few hundred pixels. 覆う文字が走るたびに
+ * 変わる所は、箱の幅まで文字に付いて動いてしまうので、その幅は撮る間だけ
+ * 決め打ちにする (`screenshot.css`)。
  *
  * Everything else on screen is deterministic by construction rather than by
  * being hidden: the instance id is seeded, the transcript is a fixture with

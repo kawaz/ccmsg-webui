@@ -42,6 +42,10 @@ export default defineConfig({
       // browser. What this must not absorb is a layout change, and a shifted
       // element is orders of magnitude more pixels than this.
       maxDiffPixelRatio: 0.002,
+      // 覆う文字を持つ箱の幅を決め打ちにする (`test/visual/screenshot.css`)。
+      // mask は文字を塗るだけで箱は残すので、文字数で幅が動く所は覆っても
+      // 走行ごとにずれる。
+      stylePath: fileURLToPath(new URL("./test/visual/screenshot.css", import.meta.url)),
       animations: "disabled",
       caret: "hide",
       scale: "css",

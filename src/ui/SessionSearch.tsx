@@ -44,7 +44,7 @@ function Hit({ hit, words }: { hit: SessionSearchHit; words: readonly SearchWord
       </button>
       <span class="meta">{where === "" ? (hit.cwd ?? "") : where}</span>
       <span class="meta mono">{hit.sid.slice(0, 8)}</span>
-      <span class="meta">{when(hit.updated_at)}</span>
+      <span class="meta hit-when">{when(hit.updated_at)}</span>
       <span class="meta">{sizeWords(hit.size)}</span>
       {hit.matches.length > 0 && (
         <div class="hit-matches">

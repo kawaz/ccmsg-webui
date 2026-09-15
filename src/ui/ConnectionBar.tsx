@@ -120,7 +120,7 @@ export function ConnectionBar() {
       <SessionsToggle />
       <UsageLink />
       {subject.value !== undefined && (
-        <span class="meta">
+        <span class="meta connection-who">
           {subject.value}
           {connectionExpiresAt.value !== undefined &&
             ` / 期限 ${untilWords(connectionExpiresAt.value)}`}

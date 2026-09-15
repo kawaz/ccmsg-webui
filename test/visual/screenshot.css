@@ -1,0 +1,43 @@
+/* 絵を撮る間だけ効く CSS (`playwright.config.ts` の `stylePath`)。
+
+   mask は**中の文字を塗るだけで箱は残す**ので、箱の大きさが文字で決まる要素は
+   覆っても揺れる: 走るたびに変わる文字 (時刻・経った時間) が入っている所は、
+   文字数が変われば箱の幅も変わり、基準画像と合わなくなる。桁を 0 で埋めても
+   直らない — 画面のフォントは数字が等幅ではなく、`1` と `8` で幅が違う。
+
+   なので、覆う文字を持つ箱はここで幅を決め打ちする。決め打ちの幅は実測より
+   少し広く取り、溢れた文字は切る (どうせ覆う所なので、切れても絵は変わらない)。
+   狭い画面では入れ物より広くならないように留める。
+
+   ここに無い mask 対象 (`.run-pid` / `.run-when` / `.dump-path` /
+   `.launch-cwd`) は、箱の幅が入れ物で決まっていて中の文字に依らない。 */
+
+.connection-who,
+.app-bar .footer,
+.hit-when,
+.status-elapsed {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 誰が繋いでいるか と 期限の時刻。時刻は走らせた時が入る。 */
+.connection-who {
+  width: 236px;
+}
+
+/* daemon の版。別リポの release ごとに文字数が変わる。 */
+.app-bar .footer {
+  width: 300px;
+}
+
+/* 探して見つけた file の更新時刻。 */
+.hit-when {
+  width: 140px;
+}
+
+/* 走っているものが始まってから経った時間。撮っている間も伸びる。 */
+.status-elapsed {
+  width: 80px;
+}

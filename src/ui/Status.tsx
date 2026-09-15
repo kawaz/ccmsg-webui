@@ -67,7 +67,7 @@ function WorkflowRow({ flow, now }: { flow: SessionWorkflowStatus; now: number }
         </span>
       )}
       {flow.agents.length > 0 && <span class="meta">{flow.agents.length} agent</span>}
-      <span class="meta">{elapsed(flow.started_at, flow.ended_at, now)}</span>
+      <span class="meta status-elapsed">{elapsed(flow.started_at, flow.ended_at, now)}</span>
     </div>
   );
 }
@@ -86,7 +86,7 @@ function BackgroundRow({ task, now }: { task: SessionBackgroundStatus; now: numb
       <span class="status-subject">
         {task.description === "" ? task.task_id : task.description}
       </span>
-      <span class="meta">{elapsed(task.started_at, task.ended_at, now)}</span>
+      <span class="meta status-elapsed">{elapsed(task.started_at, task.ended_at, now)}</span>
     </div>
   );
 }
