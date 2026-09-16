@@ -205,9 +205,15 @@ export async function startInstance(): Promise<Instance> {
       },
     }),
   );
+  // Where this instance is **published**, which is not where it listens: the
+  // dev server below stands where a reverse proxy stands and carries `/ws` and
+  // `/auth/*` to the port above. A registration URL may only name the endpoint
+  // the instance is published at, and the web UI it sends a person to defaults
+  // to that same URL — which here is one address, because this arrangement
+  // serves both from one origin (contract DR-0029).
   writeFileSync(
     join(configDir, "endpoints.json"),
-    `${JSON.stringify([{ id: INSTANCE_ID, endpoint: `http://127.0.0.1:${String(DAEMON_PORT)}/` }], null, 2)}\n`,
+    `${JSON.stringify([{ id: INSTANCE_ID, endpoint: `http://localhost:${String(PAGE_PORT)}/` }], null, 2)}\n`,
   );
   writeFileSync(
     join(configDir, "supervisor.json"),
