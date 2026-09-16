@@ -1,5 +1,5 @@
 import { computed, type ReadonlySignal, type Signal, useSignal } from "@preact/signals";
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import { useMemo, useRef } from "preact/hooks";
 import {
   nextIndex,
   parseSearchQuery,
@@ -45,15 +45,6 @@ export function useInViewSearch(): InViewSearchState {
   return { query, caseSensitive, regex, editing, index, words, hasError };
 }
 
-/** 打鍵が文字を入れている最中か。検索の呼び出し (`/`) を、文章を打っている
- * 人から奪わないため。 */
-function typingSomewhere(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable === true
-  );
-}
-
 export function SearchBar({
   search,
   matched,
@@ -69,23 +60,10 @@ export function SearchBar({
   const total = matched.length;
   const current = search.index.value;
 
-  // `/` と ⌘F でここに来る。標準の検索は畳まれた中身に効かず、PWA では
-  // そもそも開けないので、⌘F は横取りする。
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const isFind = event.key === "f" && (event.metaKey || event.ctrlKey);
-      const isSlash = event.key === "/" && !typingSomewhere(event.target);
-      if (!isFind && !isSlash) return;
-      event.preventDefault();
-      search.editing.value = true;
-      requestAnimationFrame(() => box.current?.focus());
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [search]);
-
+  // ここを開くのは 🔍 だけ。打鍵では開かない — ブラウザの持ち物である打鍵を
+  // 画面が横取りすると、この窓が畳んだ中身まで探せる代わりに、ページの中を
+  // 探す標準の手が使えなくなる。
+  //
   // 今どこかは描いた時の値ではなく signal から取る: 連打すると次の描画を
   // 待たずに 2 度目が走り、同じ所から数え直してしまう。
   const move = (step: (from: number) => number) => {
