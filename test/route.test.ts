@@ -61,6 +61,14 @@ describe("the URL grammar", () => {
     expect(routePath({ at: "terminal", id: "hyoui:%17" })).toBe("/terminal/hyoui%3A%2517");
   });
 
+  // 色の見え方はこのブラウザのもので、instance にもセッションにも属さない
+  // (DR-0001 §2.5)。だから根の直下に居る。
+  test("how colour looks is an address of its own, below no session", () => {
+    expect(parseRoute("/settings")).toEqual({ at: "settings" });
+    expect(routePath({ at: "settings" })).toBe("/settings");
+    expect(parseRoute("/settings/colour").at).toBe("unknown");
+  });
+
   // handle の綴りは端末管理のもので、どの scheme があるかは instance が答える。
   // 文法が見るのは `<scheme>:<handle>` の形だけ。
   test("a segment that names no terminal is not an address", () => {
@@ -154,6 +162,7 @@ describe("the grammar under a base", () => {
         { at: "agent", sid: SID, agentId: "a471372f2" },
         { at: "terminals" },
         { at: "terminal", id: "hyoui:%17" },
+        { at: "settings" },
       ] as const) {
         const printed = routePath(route, base);
         const cut = printed.indexOf("?");

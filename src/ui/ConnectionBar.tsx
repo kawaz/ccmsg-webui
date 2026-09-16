@@ -82,6 +82,26 @@ function UsageLink() {
   );
 }
 
+/** 色の見え方へ行く道。
+ *
+ * バーは繋がっていない時も出ているので、この入口も常に居る — 向こうの画面が
+ * instance に何も聞かないので、居てよい (DR-0001 §2.5)。 */
+function SettingsLink() {
+  return (
+    <a
+      href={href({ at: "settings" })}
+      title="色の見え方"
+      onClick={(event: MouseEvent) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        navigate({ at: "settings" });
+      }}
+    >
+      色
+    </a>
+  );
+}
+
 /** socket が今していることを言う語。
  *
  * まだ何も始めていない時 (`idle`) だけ語が無い — ドットが灰のままであることが
@@ -181,6 +201,7 @@ export function ConnectionBar() {
       </button>
       <SessionsToggle />
       <UsageLink />
+      <SettingsLink />
       {subject.value !== undefined && (
         <span class="meta connection-who">
           {subject.value}
