@@ -64,6 +64,9 @@ test("sessions", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
   await expect(page.getByRole("button", { name: /topic の畳み方/ })).toBeVisible();
+  // 設定への入口は繋がっている時も居る。向こうの画面が instance に何も聞かない
+  // ので、居てよい (DR-0001 §2.6)。
+  await expect(page.getByRole("link", { name: "設定" })).toBeVisible();
   await shot(page, "sessions.png");
 });
 
@@ -199,20 +202,30 @@ test("file-word-bubble", async ({ ui: page, instance }) => {
   await shot(page, "file-word-bubble.png");
 });
 
-/** 色を選ぶ画面。組を選ぶ所と、触った結果を覚えるかどうかを決める所がある —
- * 画面自身が選んだ色で立っているので、見本は要らない。 */
-test("theme", async ({ ui: page, instance }) => {
-  await page.goto(`${instance.endpoint}settings`);
+/** 設定の画面。section の一覧で、今は色 1 つ — 組を選ぶ所と、触った結果を
+ * 覚えるかどうかを決める所がある。画面自身が選んだ色で立っているので、見本は
+ * 要らない。 */
+test("settings", async ({ page, instance }) => {
+  // **登録していないブラウザで入る**。この画面は instance に何も聞かないので
+  // 繋がっていなくても立ち (DR-0001 §2.6)、帯の入口も繋ぐ前から居る。設定は
+  // 色だけの画面ではなくなったので、入口の語も「設定」。
+  //
+  // 共有の `ui` を使わないのは、下の 3 つ目が読み込み直しを繰り返すから —
+  // 共有の頁を揺らすと、後に走る画面が何を写すかまで変わる。
+  await page.goto(instance.endpoint);
+  await page.getByRole("link", { name: "設定" }).click();
+  await expect(page).toHaveURL(new RegExp("/settings$"));
+  await expect(page.getByRole("heading", { name: "色" })).toBeVisible();
   await expect(page.getByRole("radio", { name: /暖色/ })).toBeVisible();
   // 何も触っていない所。覚えてある色と同じなので、差は 0 項で保存も押せない。
-  await expect(page.getByText("覚えてある色のまま")).toBeVisible();
+  await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
   await expect(page.getByRole("button", { name: "保存" })).toBeDisabled();
-  await shot(page, "theme.png");
+  await shot(page, "settings.png");
 });
 
 /** 組を選んで、そこから 1 つ動かした所。ベースと違う項に印が付き、その行の
  * 「戻す」だけが押せる。 */
-test("theme-changed", async ({ ui: page, instance }) => {
+test("settings-changed", async ({ page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
   await page.getByRole("radio", { name: /暖色/ }).check();
   // 組を選んだ時点では、比べる先がその組なので差は無い。
@@ -223,12 +236,12 @@ test("theme-changed", async ({ ui: page, instance }) => {
   await expect(
     page.getByRole("button", { name: "危険 (danger) の色相をベースに戻す" }),
   ).toBeEnabled();
-  await shot(page, "theme-changed.png");
+  await shot(page, "settings-changed.png");
 });
 
 /** 覚えるのは押した時だけ、ということ。絵は撮らない — ここで見たいのは**読み
  * 込み直した先に何が残っているか**で、それは画面の形には出ない。 */
-test("theme-keeps-and-forgets", async ({ ui: page, instance }) => {
+test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
   const danger = page.getByRole("slider", { name: "危険 (danger) の色相" });
   const before = await danger.inputValue();
@@ -242,14 +255,13 @@ test("theme-keeps-and-forgets", async ({ ui: page, instance }) => {
   // 保存してから離れる: 読み込み直しても残っている。
   await danger.fill("300");
   await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByText("覚えてある色のまま")).toBeVisible();
+  await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
   await page.reload();
   await expect(danger).toHaveValue("300");
 
   // 覚えた値は**それ自体がベースになる**ので、項ごとの「戻す」では消せない
   // (比べる先が自分自身になっている)。何も選んでいない所へ帰る道は「標準」の
-  // 組で、それを保存することが「覚えたものを捨てる」。後の画面に色を持ち越さ
-  // ないためにも、ここを通っておく。
+  // 組で、それを保存することが「覚えたものを捨てる」。
   await expect(
     page.getByRole("button", { name: "危険 (danger) の色相をベースに戻す" }),
   ).toBeDisabled();
