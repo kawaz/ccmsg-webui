@@ -1,6 +1,6 @@
 ---
 title: terminals visual test が pid/経過時刻の帯で閾値超え diff を出す
-status: open
+status: resolved
 category: bug
 created: 2026-09-16T09:58:55+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T11:36:48+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: commit 55edbf81 — .run-when/.run-pid の幅固定 (screenshot.css 140px/100px)、Asia/Bangkok 1桁時刻で再現 0.01→修正後 pass、--repeat-each=10 で 80 pass、基準 18 枚撮り直し (snapshots 75c386c)"]
 blocked_by:
 origin: 自リポ TODO
 ---
