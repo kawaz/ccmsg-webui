@@ -194,6 +194,9 @@ export function setEndpoint(next: string): boolean {
   disconnect();
   endpoint.value = next;
   localStore.set(ENDPOINT_KEY, next);
+  // The other tabs of the instance just left are not this tab's any more, and
+  // neither is the token they settled on.
+  tabs.moved();
   return true;
 }
 
@@ -812,7 +815,12 @@ async function accessToken(renew = false): Promise<string | undefined> {
     return shared.access.value;
   }
   try {
-    holdSession(await renewSession(at, connectRefreshReason()));
+    const session = await renewSession(at, connectRefreshReason());
+    // The person may have stated another instance while this was in flight. A
+    // token says who, never where, so one minted for the instance just left
+    // would be presented to the new one as if it were its own.
+    if (endpoint.peek() !== at) return undefined;
+    holdSession(session);
     return access.peek()?.value;
   } catch (cause) {
     // The endpoint being unreachable is not the session being over. Keeping
@@ -843,9 +851,11 @@ export const wanted = signal(false);
 /** Open the socket under this page's endpoint and subscribe to what the list
  * needs. Called with a session in hand: what to do when there is none is
  * decided before this, where the person's press is still live. */
-function openSocket(): void {
-  const at = endpoint.peek();
-  if (at === undefined) return;
+function openSocket(at: string | undefined = endpoint.peek()): void {
+  // Opened for the instance the session in hand was got for: what decided to
+  // connect did so an await or two ago, and the field is the person's to change
+  // in between.
+  if (at === undefined || at !== endpoint.peek()) return;
   generationWarning.value = undefined;
   connection.connect(socketUrl(at), accessToken);
   for (const topic of TOPICS) connection.subscribe(topic);
@@ -864,12 +874,13 @@ async function haveSession(): Promise<boolean> {
  * its passkey — in the same turn as the press, because asking for a passkey is
  * something a browser only allows while the person's gesture is still live. */
 export async function connect(): Promise<void> {
-  if (endpoint.peek() === undefined) return;
+  const at = endpoint.peek();
+  if (at === undefined) return;
   wanted.value = true;
   needsSignIn.value = false;
   needsRegistration.value = false;
   authProblem.value = undefined;
-  if ((await haveSession()) || (await signIn())) openSocket();
+  if ((await haveSession()) || (await signIn())) openSocket(at);
 }
 
 /** Connect if it takes nothing from the person.
@@ -939,7 +950,11 @@ export async function signIn(): Promise<boolean> {
   if (at === undefined) return false;
   authProblem.value = undefined;
   try {
-    holdSession(await assertPasskey(at));
+    const session = await assertPasskey(at);
+    // As in `accessToken`: a session got for the instance just left is not one
+    // to hold while another is being dialed.
+    if (endpoint.peek() !== at) return false;
+    holdSession(session);
     needsSignIn.value = false;
     needsRegistration.value = false;
     return true;
@@ -1003,7 +1018,9 @@ async function renewConnection(): Promise<void> {
   const at = endpoint.peek();
   if (at === undefined || status.peek() !== "open") return;
   try {
-    holdSession(await renewSession(at, "expiring"));
+    const session = await renewSession(at, "expiring");
+    if (endpoint.peek() !== at) return;
+    holdSession(session);
     const token = access.peek()?.value;
     if (token === undefined) return;
     const reply = await connection.request("auth.extend", { access_token: token });

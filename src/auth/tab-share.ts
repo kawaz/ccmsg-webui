@@ -67,6 +67,11 @@ export class TabShare {
   #channel: BroadcastChannel | undefined;
   #name: string | undefined;
   #held: SharedAccess | undefined;
+  /** Which session's token `#held` is. A token belongs to one instance and says
+   * nothing about which — so what it was heard under is kept beside it, and a
+   * tab that has moved on answers with nothing rather than with the instance it
+   * left. */
+  #heldScope: string | undefined;
   #listener: ((shared: AuthSession) => void) | undefined;
   /** Set while an ask is outstanding, so the answer ends the wait. */
   #answered: (() => void) | undefined;
@@ -86,6 +91,24 @@ export class TabShare {
     this.#channel?.close();
     this.#channel = undefined;
     this.#name = undefined;
+    this.#forget();
+  }
+
+  /** Follow the person to another instance: drop what the last one's tabs
+   * settled on, and listen where this one's tabs are. Nothing here crosses
+   * over — a token, and the tabs that agree on one, belong to the instance they
+   * came from. */
+  moved(): void {
+    this.#channel?.close();
+    this.#channel = undefined;
+    this.#name = undefined;
+    this.#forget();
+    this.#reopen();
+  }
+
+  #forget(): void {
+    this.#held = undefined;
+    this.#heldScope = undefined;
   }
 
   /** The newest access token another tab passed on, while it is still worth
@@ -94,6 +117,7 @@ export class TabShare {
   fresh(): AuthSession | undefined {
     const held = this.#held;
     if (held === undefined) return undefined;
+    if (this.#heldScope !== this.#scope()) return undefined;
     if (held.expires_at - EXPIRY_MARGIN_MS <= this.#now()) return undefined;
     return { sub: held.sub, access: { value: held.value, expires_at: held.expires_at } };
   }
@@ -141,9 +165,10 @@ export class TabShare {
 
   /** Pass a session this tab settled on to the others. */
   share(session: AuthSession): void {
+    this.#reopen();
     const message = this.#messageOf(session);
     this.#held = message;
-    this.#reopen();
+    this.#heldScope = this.#scope();
     this.#channel?.postMessage(message);
   }
 
@@ -183,6 +208,9 @@ export class TabShare {
     const name = `ccmsg.auth:${this.#scope()}`;
     if (this.#name === name) return;
     this.#channel?.close();
+    // The name changing is this tab moving to another session, and what the
+    // last one's tabs passed on is not this one's to present.
+    this.#forget();
     this.#name = name;
     const open = this.#deps.channel ?? ((one: string) => new BroadcastChannel(one));
     const channel = open(name);
@@ -197,6 +225,10 @@ export class TabShare {
       }
       if (message?.kind !== "access") return;
       this.#held = message;
+      // Labelled with the name it arrived on, not with the name this tab reads
+      // now: a message from the instance this tab has left is still that
+      // instance's.
+      this.#heldScope = name.slice("ccmsg.auth:".length);
       const shared = this.fresh();
       if (shared === undefined) return;
       this.#answered?.();

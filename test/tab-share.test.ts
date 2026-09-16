@@ -243,4 +243,56 @@ describe("who a tab is coordinating with", () => {
       "ccmsg.auth:https://other.example/personal/:someone",
     );
   });
+
+  test("a token settled on at one instance is not answered with at another", () => {
+    // A token says who, never where (contract DR-0029). What one instance
+    // minted would open the next one's socket if this tab answered with it, so
+    // moving on is what makes it unavailable — not its expiry, which has not
+    // arrived.
+    let at = "http://h/";
+    const share = new TabShare({
+      endpoint: () => at,
+      subject: (): Subject => "someone" as Subject,
+      session: (): AuthSession | undefined => undefined,
+      channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
+    });
+    share.listen(() => {});
+    share.share(session("one-instance"));
+    expect(share.fresh()?.access.value).toBe("one-instance");
+
+    at = "https://other.example/";
+    expect(share.fresh()).toBeUndefined();
+    // And it does not come back by going back: what was dropped is dropped.
+    share.moved();
+    at = "http://h/";
+    expect(share.fresh()).toBeUndefined();
+  });
+
+  test("what the instance just left broadcasts is not taken up", () => {
+    let at = "http://h/";
+    const heard: string[] = [];
+    const share = new TabShare({
+      endpoint: () => at,
+      subject: (): Subject => "someone" as Subject,
+      session: (): AuthSession | undefined => undefined,
+      channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
+    });
+    share.listen((shared) => heard.push(shared.access.value));
+
+    // The person states another instance. The channel is not reopened here, so
+    // what is being fixed is the message and not the listening: a tab of the
+    // instance left behind rotates the family and says so where this tab is
+    // still listening, and what arrives is still that instance's token.
+    at = "https://other.example/";
+    const elsewhere = new FakeChannel("ccmsg.auth:http://h/:someone");
+    elsewhere.postMessage({
+      kind: "access",
+      sub: "someone" as Subject,
+      value: "left-behind",
+      expires_at: Date.now() + 60_000,
+    });
+
+    expect(heard).toHaveLength(0);
+    expect(share.fresh()).toBeUndefined();
+  });
 });
