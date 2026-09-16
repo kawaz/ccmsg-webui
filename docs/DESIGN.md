@@ -122,16 +122,9 @@ twelve steps. Which face the page stands in is then said in **one place only**
 `:root[data-theme="light|dark"]` where a person has stated one. Those two rules
 carry no colour at all.
 
-Choosing is a screen of its own (`/settings`, `src/ui/Settings.tsx`). What it
-offers is the layer-0 inputs and the face, and nothing of the step table — being
-readable is held there rather than in what a person picks. It is the one screen
-that **asks the instance nothing**, so it stands whether or not this page is
-connected, and what it writes is kept for this browser alone (`ccmsg.theme`).
-The brand is picked with a colour picker and kept as a hue and a chroma, since
-the lightness is the step's; turning the picked colour into those two is the
-browser's job through relative colour syntax, not arithmetic written here.
+Choosing happens in the **colour section** of the settings screen (`/settings`). What it offers is the layer-0 inputs and the face, and nothing of the step table — being readable is held there rather than in what a person picks. The brand is picked with a colour picker and kept as a hue and a chroma, since the lightness is the step's; turning the picked colour into those two is the browser's job through relative colour syntax, not arithmetic written here.
 
-**Touching an input is trying it**, and it is kept only when 保存 is pressed: leaving the screen or reloading puts the remembered colours back, so a value moved in order to compare does not stay. The named sets (standard, warm, cool, plain) hand out layer-0 inputs and nothing of the step table, so being readable survives whichever one is chosen. A set carries no face — a step holds a lightness for each face on one line, so one set already has both. Rows that differ from the base (the chosen set, or the remembered colours) are marked, and each can be put back on its own.
+The named sets (standard, warm, cool, plain) hand out layer-0 inputs and nothing of the step table, so being readable survives whichever one is chosen. A set carries no face — a step holds a lightness for each face on one line, so one set already has both.
 
 **What the platform offers now is used, rather than worked around.** The
 browsers this is built for are **the latest Chrome and the latest Safari** —
@@ -145,6 +138,18 @@ down, and what was measured, is in
 [DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md); how the
 whole thing is decided (inputs, steps, computation, checks, browser support) is
 in `docs/design/color-system.md`.
+
+## Settings are sections, and touching one is trying it
+
+Settings are **a set of sections**, and a section is a set of inputs. There is one today (colour); what comes next is layout, words, fonts, the size of parts, which items a timeline shows — each of them "how this browser should read", not something the instance says. So the screen **asks the instance nothing**: it stands whether or not this page is connected or signed in.
+
+**Touching an input is trying it**, and it is kept only when 保存 is pressed: leaving the screen or reloading puts back what is remembered, so a value moved in order to compare does not stay. A value is held in three shapes — what is remembered, the draft on screen, and **what it is compared against** (the chosen set, or what is remembered). Rows that differ from that base are marked and can each be put back on their own. The comparison is made in one place, and whether a row is marked is read by CSS from whether that row's 戻す can be pressed.
+
+What is remembered lives in **one document**, `ccmsg.settings`, holding each section under its own name. A key per section would mean that clearing, moving or reading them all needs someone who knows the list of sections.
+
+A section says what its inputs are, how they are written down, how they reach the screen, and where two values differ. The sets, the marks, the 戻す and the saving belong to machinery that knows none of that. Adding a section touches the section, the part that draws its inputs, and one line in the screen's list.
+
+Why it is decided this way, and what was turned down, is in [DR-0002](decisions/DR-0002-settings-are-sections-tried-before-they-are-kept.md).
 
 ## The parts, and what each of them holds
 
