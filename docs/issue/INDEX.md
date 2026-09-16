@@ -4,6 +4,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
+| 2026-09-16 | bug | open | [composer-send-clear-and-key](./2026-09-16-composer-send-clear-and-key.md) | TL 送信欄が送信後にクリアされない・送信キーが v1 と違う |
 | 2026-09-16 | bug | open | [session-list-section-order-as-v1](./2026-09-16-session-list-section-order-as-v1.md) | セッション一覧のセクション順序・表記を v1 に揃える (起動中が先頭は不自然) |
 | 2026-09-16 | bug | open | [no-custom-keyboard-shortcuts](./2026-09-16-no-custom-keyboard-shortcuts.md) | ⌘F がブラウザ標準検索を奪う。独自ショートカットを全廃し標準ショートカットと衝突させない |
 | 2026-09-16 | bug | open | [visual-threshold-misses-removed-bar-items](./2026-09-16-visual-threshold-misses-removed-bar-items.md) | visual test の閾値が要素まるごと削除の退行を検出できない (接続バーの例) |
