@@ -9,7 +9,7 @@ import { connect, endpoint } from "../state.ts";
  * same thing again rather than learning a second word for it.
  *
  * Registering is offered only once asking for a passkey has produced none — it
- * starts at a terminal, on purpose (DR-0001 §2.2), and it is work for the
+ * starts at a terminal, on purpose (daemon DR-0001 §2.2), and it is work for the
  * person who has no passkey rather than for the one whose finger slipped. */
 export function SignIn() {
   const working = useSignal(false);

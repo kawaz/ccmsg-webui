@@ -27,7 +27,7 @@ export function authUrl(endpoint: string, route: AuthRoute): string {
  *
  * `https:` is not rewritten to `wss:`: a WebSocket starts as an HTTP request
  * that upgrades, the browser accepts the http(s) spelling, and one spelling is
- * what keeps the URL comparable with the endpoint it came from (DR-0001 §2.7). */
+ * what keeps the URL comparable with the endpoint it came from (daemon DR-0001 §2.7). */
 export function socketUrl(endpoint: string): string {
   return `${endpoint}ws`;
 }

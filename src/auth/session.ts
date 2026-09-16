@@ -6,7 +6,7 @@ import { AuthError } from "./client.ts";
  *
  * The access token is in memory alone. It is what opens a connection, so it is
  * a secret with a few hours' life, and the store this page could write it to is
- * readable by every script that ever runs on this origin (DR-0001 §2.4). What
+ * readable by every script that ever runs on this origin (daemon DR-0001 §2.4). What
  * survives a reload is the refresh cookie, which this page cannot read and does
  * not have to: the instance reads it back. */
 

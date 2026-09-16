@@ -4,7 +4,7 @@
  * reaches an instance that may be another site (contract DR-0029), so where to
  * dial is something the person states and something they should not have to
  * state twice. No secret is kept — the access token is held in memory and the
- * refresh token is a cookie this page cannot read (DR-0001 §2.4). The rest is
+ * refresh token is a cookie this page cannot read (daemon DR-0001 §2.4). The rest is
  * per-screen memory, whose keys name the instance they belong to so that two
  * instances read through one page do not read each other's. */
 

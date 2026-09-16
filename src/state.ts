@@ -767,7 +767,7 @@ export function sessionPaths(sid: Sid): { cwd?: string; root?: string } {
 }
 
 /** The person's other tabs at the instance being dialed: who refreshes, and
- * what they all hold once one of them has (DR-0001 §2.4). The endpoint is read
+ * what they all hold once one of them has (daemon DR-0001 §2.4). The endpoint is read
  * each time it is needed, so tabs that move to another instance move the name
  * they coordinate under with them. */
 const tabs = new TabShare({
@@ -944,7 +944,7 @@ export function disconnect(): void {
  *
  * No relying party is named: a passkey answers for the domain of the page
  * asking, which is the web UI it was made at — the credential is held to that
- * UI and to the instance being dialed alike (DR-0001 §2.3, contract DR-0029).
+ * UI and to the instance being dialed alike (daemon DR-0001 §2.3, contract DR-0029).
  * Answers whether there is a session now; what raises a screen
  * is the refusal, which is where what the person can do next is known. */
 export async function signIn(): Promise<boolean> {
@@ -1019,7 +1019,7 @@ let renewTimer: ReturnType<typeof setTimeout> | undefined;
  * Two steps because they answer different questions: `/auth/refresh` mints a
  * token from the cookie, and `auth.extend` on this very connection moves its
  * deadline — a client that reconnected to use a fresh token would blink every
- * few hours for no reason (DR-0001 §2.5). */
+ * few hours for no reason (daemon DR-0001 §2.5). */
 async function renewConnection(): Promise<void> {
   const at = endpoint.peek();
   if (at === undefined || status.peek() !== "open") return;

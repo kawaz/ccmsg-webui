@@ -3,7 +3,7 @@ import type { AuthSession, Subject } from "@ccmsg/protocol";
 /** What the person's open tabs agree on: one refresh at a time, and one access
  * token between them.
  *
- * The access token belongs to the family rather than to a page (DR-0001 §2.4),
+ * The access token belongs to the family rather than to a page (daemon DR-0001 §2.4),
  * so two tabs refreshing on their own would each take the token out from under
  * the other. A lock makes the refresh one tab's work, and a channel hands the
  * answer to the rest — in memory, because an access token is a secret with a
