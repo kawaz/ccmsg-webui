@@ -115,8 +115,21 @@ to be read as a boundary meets 3.0, and the check for that is
 `test/color-contrast.test.ts`, which reads `app.css` and works it out (the ratio
 cannot be written as a CSS expression).
 
-How the whole thing is decided (inputs, steps, computation, checks, browser
-support) is in `docs/design/color-system.md`.
+Which face the page stands in is **the person's to state**, and the OS answers
+only where they have not: `:root[data-theme="light|dark"]` wins over
+`prefers-color-scheme`, and the dark row of lightnesses is written once
+(`--dark-*`) with both conditions doing nothing but adopt it.
+
+Choosing is a screen of its own (`/settings`, `src/ui/Settings.tsx`). What it
+offers is the layer-0 inputs and the face, and nothing of the step table — being
+readable is held there rather than in what a person picks. It is the one screen
+that **asks the instance nothing**, so it stands whether or not this page is
+connected, and what it writes is kept for this browser alone (`ccmsg.theme`).
+
+Why it is decided this way, and what was turned down, is in
+[DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md); how the
+whole thing is decided (inputs, steps, computation, checks, browser support) is
+in `docs/design/color-system.md`.
 
 ## The parts, and what each of them holds
 
@@ -126,19 +139,15 @@ which layer would have to change if it changed.
 
 | Part | Holds | Does not hold |
 |---|---|---|
-| `App` | which form the page takes (registering / signing in / nothing heard yet / the app) | arrangement, screens, reading |
+| `App` | which form the page takes (registering / signing in / nothing heard yet / the colour screen / the app) | arrangement, screens, reading |
 | `Shell` | the arrangement: the bar, the notices that cover everything, the two panes | which screen, what is read |
-| `ConnectionBar` | the connection's state, and the ways in (the list, usage) | what is in the list or the body |
+| `ConnectionBar` | the connection's state, and the ways in (the list, usage, colour) | what is in the list or the body |
 | `Panes` (inside `Shell`) | where the two panes sit, the remembered divider, the narrow-screen slide | what is inside them |
 | `Splitter` | grabbing, arrow keys, reading and writing the remembered width | what the two sides mean (its label and key are given to it) |
 | `SessionList` | the sessions and what a row can do | the screens, the layout |
 | `Main` | **URL to screen** | what a screen reads, the layout |
 | each screen (`Timeline`, `Files`, `Status`, `Usage`, `TerminalPanel`) | what it reads (topics, ops) and how it draws it | where it has been placed |
-
-Colours come from **the existing tokens only** (`--accent`, `--live`,
-`--waiting`, `--danger`, `--muted`, `--border`, `--surface`, `--bg`, `--text`).
-A part that adds a value of its own leaves one exception per part to sort out
-when the colour system is settled.
+| `Settings` | the layer-0 colour inputs and the face | anything the instance says — it reads none of it, which is why it hangs off `App` rather than off `Main` |
 
 ## The list and the body sit side by side, except where they cannot
 
@@ -642,7 +651,7 @@ A browser holds one store for the site while one person reaches several instance
 - **No secret is kept here** (above). The endpoint is, because it is the person's own statement of which instance they are reaching rather than something the page can read off itself
 - **What would collide names its instance (and its sid)**: a lock, a channel, a session's state — values where the same name on another instance means something else. One store reaches both, so without the names apart one would read the other's.
   - per session: `ccmsg.<feature>:<instance>:<sid>`, two levels (an agent drilldown adds `<sid>/<agentKey>`). An unsent draft (`ccmsg.draft:<instance>:<sid>`) and what the files tab remembers (`ccmsg.files:<instance>:<sid>`) are this
-- **A preference about reading is one for all of it**: a type's display attributes (`ccmsg.timeline.display:<main|sub>`) name neither an instance nor a sid. "Fold the thinking away", "stand the tools on the top level" is **how this person reads**, not a fact about which instance or session is open — splitting it per instance would mean deciding how to read again every time the same person opens another instance. What it does split by is the subject's face (main / worker), because there the reason for reading differs
+- **A preference about reading is one for all of it**: how colour looks (`ccmsg.theme`) and a type's display attributes (`ccmsg.timeline.display:<main|sub>`) name neither an instance nor a sid. "Fold the thinking away", "stand the tools on the top level" is **how this person reads**, not a fact about which instance or session is open — splitting it per instance would mean deciding how to read again every time the same person opens another instance. What it does split by is the subject's face (main / worker), because there the reason for reading differs
 
 ## The contract validates its own frames
 
