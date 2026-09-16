@@ -36,8 +36,11 @@ function writePart(id: string, part: unknown): void {
 export interface Preset<V> {
   readonly id: string;
   readonly label: string;
-  /** その組が何を変える所なのか。選ぶ前に読めるように、画面に添えて出す。 */
-  readonly note: string;
+  /** その組が何を変える所なのか。選ぶ前に読めるように、画面に添えて出す。
+   *
+   * **名前だけで何が来るか分かる組には要らない**。既知のテーマ名のように、名前が
+   * 既に世の中で通っているものに散文を添えると、名前より説明の方が長くなる。 */
+  readonly note?: string;
   readonly value: V;
 }
 
@@ -66,9 +69,8 @@ export interface Section<V> {
   revert(draft: V, from: V, names: readonly string[]): V;
   /** 組を選んだ時、**今の下書きから何を連れて行くか**。
    *
-   * 組が言っていない入力が section にはありうる (色の face がそれ — 層 0 の
-   * 入力だが、組は face を持たない)。連れて行くかどうかはその入力の意味で
-   * 決まるので、section が答える。連れて行った先がそのままベースになるので、
+   * 組が言っていない入力が section にはありうる。連れて行くかどうかはその入力の
+   * 意味で決まるので、section が答える。連れて行った先がそのままベースになるので、
    * 選んだ直後の差はいつも 0 になる。 */
   adopt(draft: V, chosen: V): V;
   /** 項の名前を、画面に出す語に直す。差の読み上げに使う。 */
@@ -86,7 +88,7 @@ export interface SectionFace {
   readonly presets: readonly {
     readonly id: string;
     readonly label: string;
-    readonly note: string;
+    readonly note?: string;
   }[];
   /** 選んでいる組。選んでいなければ、比べる先は覚えてある値の方。 */
   readonly preset: Signal<string | undefined>;

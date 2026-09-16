@@ -216,7 +216,9 @@ test("settings", async ({ page, instance }) => {
   await page.getByRole("link", { name: "設定" }).click();
   await expect(page).toHaveURL(new RegExp("/settings$"));
   await expect(page.getByRole("heading", { name: "色", exact: true })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /暖色/ })).toBeVisible();
+  // 組は既知のテーマの名前で並ぶ。名前だけで何が来るか分かるので説明は無い。
+  await expect(page.getByRole("radio", { name: "Nord" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Solarized Light" })).toBeVisible();
   // 何も触っていない所。覚えてある色と同じなので、差は 0 項で保存も押せない。
   await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
   await expect(page.getByRole("button", { name: "保存" })).toBeDisabled();
@@ -236,10 +238,15 @@ test("settings-detail", async ({ page, instance }) => {
 });
 
 /** 組を選んで、そこから 1 つ動かした所。ベースと違う項に印が付き、その行の
- * 「戻す」だけが押せる。 */
-test("settings-changed", async ({ page, instance }) => {
+ * 「戻す」だけが押せる。
+ *
+ * 選ぶ組はその face の方に合わせる。**名前付きのテーマは face を持つ**ので
+ * (DR-0001 §2.11)、dark の絵で Solarized Light を選ぶと画面が light に切り替わり、
+ * 2 つの face で同じ絵を撮ることになる。 */
+test("settings-changed", async ({ page, instance }, info) => {
   await page.goto(`${instance.endpoint}settings`);
-  await page.getByRole("radio", { name: /暖色/ }).check();
+  const named = info.project.name === "dark" ? "Solarized Dark" : "Solarized Light";
+  await page.getByRole("radio", { name: named }).check();
   // 組を選んだ時点では、比べる先がその組なので差は無い。
   await expect(page.getByText("選んだ組のまま")).toBeVisible();
   // 意味色の色相は基本に出ていない (基本は face と色相 3 つだけ) ので、詳細を開く。

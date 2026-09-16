@@ -30,8 +30,12 @@ function isFace(value: unknown): value is Face {
 
 /** 人が動かせる入力。名前は CSS の名前そのままで、`--` だけ落としてある。
  *
- * ここに無い層 0 の値 (`--semantic-c`、識別の族の明るさ) は、どれも「どのくらい
- * 目立つか」の設計値で、色相のように選び直すものではない。 */
+ * 意味色と誰かの色の**色味**もここに居る。テーマによって発色の強さが違う以上
+ * (Catppuccin Latte の C 0.21 と Nord の 0.08)、組がそれを連れて来られないと
+ * 名前だけ借りた別のテーマになる。
+ *
+ * ここに無い層 0 の値 (識別の族の明るさ) は「どのくらい目立つか」の設計値で、
+ * 色相のように選び直すものではない。 */
 export interface InputSpec {
   readonly name: string;
   /** 色相は度、色味は C。範囲と刻みが違うだけで、扱いは同じ。 */
@@ -50,6 +54,8 @@ export const INPUTS: readonly InputSpec[] = [
   { name: "h-danger", kind: "hue", max: 360 },
   { name: "h-main", kind: "hue", max: 360 },
   { name: "h-user", kind: "hue", max: 360 },
+  { name: "semantic-c", kind: "chroma", max: 0.3 },
+  { name: "member-c", kind: "chroma", max: 0.3 },
   { name: "tag-h0", kind: "hue", max: 360 },
   { name: "tag-step", kind: "hue", max: 120 },
 ];
@@ -128,36 +134,229 @@ export const PRESETS: readonly Preset<Theme>[] = [
   {
     id: "default",
     label: "標準",
-    note: "app.css のまま。何も選んでいない状態",
     value: EMPTY,
   },
   {
-    id: "warm",
-    label: "暖色",
-    note: "中立に橙を濃く混ぜ、主語の色も暖色へ",
+    id: "solarized-light",
+    label: "Solarized Light",
     value: {
-      inputs: { "brand-h": 55, "brand-c": 0.17, "neutral-h": 70, "neutral-c": 0.09, "tag-h0": 30 },
-    },
-  },
-  {
-    id: "cool",
-    label: "寒色",
-    note: "中立に青緑を薄く混ぜ、主語の色も寒色へ",
-    value: {
+      face: "light",
       inputs: {
-        "brand-h": 205,
-        "brand-c": 0.1,
-        "neutral-h": 230,
-        "neutral-c": 0.07,
-        "tag-h0": 190,
+        "brand-h": 245,
+        "brand-c": 0.139,
+        "neutral-h": 92,
+        "neutral-c": 0.087,
+        "h-main": 279,
+        "h-user": 356,
+        "h-info": 245,
+        "h-success": 119,
+        "h-warning": 86,
+        "h-danger": 27,
+        "semantic-c": 0.158,
+        "member-c": 0.164,
+        "tag-h0": 245,
       },
     },
   },
   {
-    id: "plain",
-    label: "無彩",
-    note: "中立から色味を抜く。地と罫が完全な灰になる",
-    value: { inputs: { "neutral-c": 0 } },
+    id: "solarized-dark",
+    label: "Solarized Dark",
+    value: {
+      face: "dark",
+      inputs: {
+        "brand-h": 245,
+        "brand-c": 0.139,
+        "neutral-h": 220,
+        "neutral-c": 0.12,
+        "h-main": 279,
+        "h-user": 356,
+        "h-info": 245,
+        "h-success": 119,
+        "h-warning": 86,
+        "h-danger": 27,
+        "semantic-c": 0.158,
+        "member-c": 0.164,
+        "tag-h0": 245,
+      },
+    },
+  },
+  {
+    id: "nord",
+    label: "Nord",
+    value: {
+      face: "dark",
+      inputs: {
+        "brand-h": 218,
+        "brand-c": 0.062,
+        "neutral-h": 267,
+        "neutral-c": 0.097,
+        "h-main": 333,
+        "h-user": 38,
+        "h-info": 249,
+        "h-success": 131,
+        "h-warning": 84,
+        "h-danger": 15,
+        "semantic-c": 0.086,
+        "member-c": 0.079,
+        "tag-h0": 218,
+      },
+    },
+  },
+  {
+    id: "dracula",
+    label: "Dracula",
+    value: {
+      face: "dark",
+      inputs: {
+        "brand-h": 302,
+        "brand-c": 0.149,
+        "neutral-h": 278,
+        "neutral-c": 0.107,
+        "h-main": 347,
+        "h-user": 67,
+        "h-info": 213,
+        "h-success": 148,
+        "h-warning": 113,
+        "h-danger": 24,
+        "semantic-c": 0.163,
+        "member-c": 0.154,
+        "tag-h0": 302,
+      },
+    },
+  },
+  {
+    id: "gruvbox-light",
+    label: "Gruvbox Light",
+    value: {
+      face: "light",
+      inputs: {
+        "brand-h": 200,
+        "brand-c": 0.066,
+        "neutral-h": 89,
+        "neutral-c": 0.12,
+        "h-main": 344,
+        "h-user": 155,
+        "h-info": 216,
+        "h-success": 107,
+        "h-warning": 71,
+        "h-danger": 28,
+        "semantic-c": 0.125,
+        "member-c": 0.103,
+        "tag-h0": 200,
+      },
+    },
+  },
+  {
+    id: "gruvbox-dark",
+    label: "Gruvbox Dark",
+    value: {
+      face: "dark",
+      inputs: {
+        "brand-h": 170,
+        "brand-c": 0.042,
+        "neutral-h": 49,
+        "neutral-c": 0.023,
+        "h-main": 2,
+        "h-user": 52,
+        "h-info": 170,
+        "h-success": 111,
+        "h-warning": 83,
+        "h-danger": 30,
+        "semantic-c": 0.144,
+        "member-c": 0.14,
+        "tag-h0": 170,
+      },
+    },
+  },
+  {
+    id: "catppuccin-latte",
+    label: "Catppuccin Latte",
+    value: {
+      face: "light",
+      inputs: {
+        "brand-h": 262,
+        "brand-c": 0.226,
+        "neutral-h": 265,
+        "neutral-c": 0.03,
+        "h-main": 297,
+        "h-user": 338,
+        "h-info": 235,
+        "h-success": 140,
+        "h-warning": 68,
+        "h-danger": 20,
+        // 公式の平均は 0.172 だが、段 11 の弱い文字がこの組の色相で 4.5 を
+        // 0.0015 割る。段表を動かさない以上、頭打ちになるのは写す側。
+        "semantic-c": 0.165,
+        "member-c": 0.212,
+        "tag-h0": 262,
+      },
+    },
+  },
+  {
+    id: "catppuccin-mocha",
+    label: "Catppuccin Mocha",
+    value: {
+      face: "dark",
+      inputs: {
+        "brand-h": 260,
+        "brand-c": 0.111,
+        "neutral-h": 282,
+        "neutral-c": 0.107,
+        "h-main": 305,
+        "h-user": 336,
+        "h-info": 210,
+        "h-success": 143,
+        "h-warning": 87,
+        "h-danger": 3,
+        "semantic-c": 0.098,
+        "member-c": 0.097,
+        "tag-h0": 260,
+      },
+    },
+  },
+  {
+    id: "github-light",
+    label: "GitHub Light",
+    value: {
+      face: "light",
+      inputs: {
+        "brand-h": 258,
+        "brand-c": 0.191,
+        "neutral-h": 248,
+        "neutral-c": 0.01,
+        "h-main": 295,
+        "h-user": 348,
+        "h-info": 258,
+        "h-success": 148,
+        "h-warning": 75,
+        "h-danger": 25,
+        "semantic-c": 0.163,
+        "member-c": 0.197,
+        "tag-h0": 258,
+      },
+    },
+  },
+  {
+    id: "github-dark",
+    label: "GitHub Dark",
+    value: {
+      face: "dark",
+      inputs: {
+        "brand-h": 253,
+        "brand-c": 0.152,
+        "neutral-h": 257,
+        "neutral-c": 0.053,
+        "h-main": 299,
+        "h-user": 350,
+        "h-info": 253,
+        "h-success": 146,
+        "h-warning": 80,
+        "h-danger": 27,
+        "semantic-c": 0.17,
+        "member-c": 0.173,
+        "tag-h0": 253,
+      },
+    },
   },
 ];
 
@@ -177,6 +376,8 @@ const LABELS: Readonly<Record<string, string>> = {
   "h-danger": "危険 (danger) の色相",
   "h-main": "メインの色相 (このセッションが言ったこと)",
   "h-user": "ユーザの色相 (人が言ったこと)",
+  "semantic-c": "意味色 4 つの色味",
+  "member-c": "誰かの色の色味",
   "tag-h0": "識別の族の始まりの色相",
   "tag-step": "識別の族の色相の間隔",
 };
@@ -239,8 +440,10 @@ export const colourSection: Section<Theme> = {
     }
     return next;
   },
-  // 組は face を持たないので、今立っている face はそのまま連れて行く。
+  // 組が face を言っていれば、それがその組の姿。言っていない組 (標準) を選んだ
+  // 時だけ、今立っている face をそのまま連れて行く。
   adopt(draft, chosen) {
+    if (chosen.face !== undefined) return chosen;
     return { ...chosen, ...(draft.face === undefined ? {} : { face: draft.face }) };
   },
 };

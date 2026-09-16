@@ -81,7 +81,7 @@ export function SettingPresets({ store }: { store: SectionFace }) {
             }}
           />
           <span class="theme-preset-name">{one.label}</span>
-          <span class="theme-preset-note meta">{one.note}</span>
+          {one.note !== undefined && <span class="theme-preset-note meta">{one.note}</span>}
         </label>
       ))}
     </fieldset>

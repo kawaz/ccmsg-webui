@@ -72,8 +72,31 @@ describe("色の組", () => {
     }
   });
 
-  test("face は持たない (light と dark は同じ入力の別の L 行)", () => {
-    for (const one of PRESETS) expect(one.value.face).toBeUndefined();
+  // 名前付きテーマは face そのものが名前の一部で、Solarized Dark を light で
+  // 立てたものは別のテーマになる。face を言わないのは「標準」だけ。
+  test("名前付きテーマは face を持ち、標準だけが持たない", () => {
+    for (const one of PRESETS) {
+      if (one.id === "default") expect(one.value.face).toBeUndefined();
+      else expect(one.value.face === "light" || one.value.face === "dark").toBe(true);
+    }
+  });
+
+  test("face を言う組はその face を連れて行き、言わない組は今の face を残す", () => {
+    const standing: Theme = { face: "light", inputs: {} };
+    const named = PRESETS.find((one) => one.id === "solarized-dark");
+    expect(named).toBeDefined();
+    expect(colourSection.adopt(standing, (named as (typeof PRESETS)[number]).value).face).toBe(
+      "dark",
+    );
+    expect(colourSection.adopt(standing, EMPTY).face).toBe("light");
+  });
+
+  // 散文の説明は付けない。名前が既に世の中で通っているものに添えると、名前より
+  // 説明の方が長くなる。
+  test("名前付きテーマは説明を持たない", () => {
+    for (const one of PRESETS) {
+      if (one.id !== "default") expect(one.note).toBeUndefined();
+    }
   });
 
   test("覚えた値としてそのまま読み戻る", () => {

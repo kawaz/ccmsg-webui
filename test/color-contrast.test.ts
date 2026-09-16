@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { contrast, type Oklch } from "../src/color/oklch.ts";
+import { PRESETS } from "../src/theme.ts";
 
 /** 段表がコントラストの基準を満たしているかを、**CSS を正本にして**測る。
  *
@@ -12,6 +13,10 @@ import { contrast, type Oklch } from "../src/color/oklch.ts";
 
 const CSS = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
 
+/** 今測っている組が言っている入力。`undefined` の項は `app.css` の値がそのまま
+ * 出るので (DR-0001 §2.6)、読む側もそこへ落ちる。 */
+let chosen: Readonly<Record<string, number>> = {};
+
 /** ある規則の本文を字面から取る。 */
 function block(from: string): string {
   const at = CSS.indexOf(from);
@@ -22,6 +27,8 @@ function block(from: string): string {
 const ROOT = block(":root {");
 
 function value(name: string): number {
+  const picked = chosen[name];
+  if (picked !== undefined) return picked;
   const said = new RegExp(`--${name}:\\s*([0-9.]+)\\s*;`).exec(ROOT);
   if (said === null) throw new Error(`${name} が読めません`);
   return Number(said[1]);
@@ -61,9 +68,36 @@ const SEMANTIC = ["info", "success", "warning", "danger"] as const;
 /** 文字と罫が乗る面 = 段 1〜3。いちばん厳しい組を測る。 */
 const GROUNDS = [1, 2, 3];
 
-for (const dark of [false, true]) {
+/** 組ごとに、その組の face で測る。
+ *
+ * **組を選べる以上、基準を満たすのは既定の入力だけでは足りない。** 段表は組が
+ * 動かさないが (DR-0001 §2.11)、彩度は組ごとに変わるので、緑の弱い文字のように
+ * 元から余裕の無い組が、ある組でだけ割ることがありうる。face を持つ組はその face
+ * だけを見る — light で立たないテーマを light で測っても、誰も見ない絵を測る
+ * ことになる。 */
+const CASES: readonly {
+  readonly name: string;
+  readonly dark: boolean;
+  readonly inputs: Readonly<Record<string, number>>;
+}[] = [
+  { name: "既定", dark: false, inputs: {} },
+  { name: "既定", dark: true, inputs: {} },
+  ...PRESETS.flatMap((preset) => {
+    const inputs = preset.value.inputs;
+    const faces = preset.value.face === undefined ? [false, true] : [preset.value.face === "dark"];
+    return faces.map((dark) => ({ name: preset.label, dark, inputs }));
+  }),
+];
+
+for (const { name, dark, inputs } of CASES) {
   const face = dark ? "dark" : "light";
-  describe(`${face} の段表`, () => {
+  describe(`${name} (${face}) の段表`, () => {
+    beforeEach(() => {
+      chosen = inputs;
+    });
+    afterEach(() => {
+      chosen = {};
+    });
     const ground = (n: number): Oklch => step(dark, n, NEUTRAL.c(), NEUTRAL.h());
 
     test("本文 (段 12) は地と面の上で 4.5 以上", () => {
