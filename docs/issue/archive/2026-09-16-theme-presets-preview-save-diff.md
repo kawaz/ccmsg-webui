@@ -1,6 +1,6 @@
 ---
 title: 色の設定画面にプリセット・プレビュー/保存の区別・変更差分 UI を追加
-status: open
+status: resolved
 category: request
 created: 2026-09-16T17:42:31+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T18:52:43+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["dr/DR-0002","implemented","v1.6.0: 設定の土台 (DR-0002、ccmsg.settings の1文書に section、Section の parse/format/apply/changed/revert/adopt)、色 section にプリセット4組 (標準/暖色/寒色/無彩、高コントラストは段表に触れない方針で層0に作れず無彩に)、プレビューのみと保存の区別、ベースとの差分と項別の戻す。帯の入口は「設定」"]
 blocked_by:
 origin: kawaz
 ---
