@@ -203,6 +203,18 @@ export function setEndpoint(next: string): boolean {
  * `passkey add` handed over, and the six digits that go with it arrive by the
  * other route (the person's eyes, from a terminal). */
 export const registration = signal<Registration | undefined>(undefined);
+
+/** Take up what a registration link brought.
+ *
+ * The link names the instance it is for, so opening one is the person stating
+ * an endpoint — and the field takes that value here rather than after the
+ * ceremony, so that nobody types it back in. Dismissing the screen leaves them
+ * pointed at the instance they were sent to, which is the one they were given a
+ * link for. */
+export function holdRegistration(held: Registration): void {
+  setEndpoint(held.claims.endpoint);
+  registration.value = held;
+}
 export const status = signal<ConnectionStatus>("idle");
 
 /** この画面が instance から一覧を**一度でも**受け取ったか。
@@ -948,10 +960,6 @@ export async function completeRegistration(code: string, deviceLabel: string): P
       code,
       deviceLabel,
     });
-    // The link said which instance this passkey is for, and that is the one to
-    // dial: a person who opened a registration URL stated an endpoint by
-    // opening it, and it need not be the one this page was last pointed at.
-    setEndpoint(held.claims.endpoint);
     holdSession(session);
     registration.value = undefined;
     wanted.value = true;
