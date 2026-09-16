@@ -1,5 +1,5 @@
 import { JOIN_SAID, JOIN_SID } from "./fixture.ts";
-import { expect, scrollBodyToTop, test } from "./harness.ts";
+import { expect, holdTimelineAtTop, test } from "./harness.ts";
 
 /** 頁をまたいで並んだ呼び出しと答えが、遡った後に 1 行として読めるか。
  *
@@ -22,10 +22,10 @@ test("頁をまたいで並んだ呼び出しと答えは、遡ると 1 行に�
   await expect(heading).toHaveText(/200 item/, { timeout: 20_000 });
 
   /** 1 頁遡る。頁の大きさは instance が決めるので、数そのものではなく「手元が
-   * 増えた」ことで待つ。 */
+   * 増えた」ことで待つ (上端に居続ける所は `holdTimelineAtTop` を読む)。 */
   const top = async () => {
     const before = (await heading.textContent()) ?? "";
-    await scrollBodyToTop(page);
+    await holdTimelineAtTop(page);
     await expect(heading).not.toHaveText(before);
   };
   // 2 頁目の先頭が答え、3 頁目の末尾が呼び出し。

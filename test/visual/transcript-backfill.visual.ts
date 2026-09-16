@@ -1,5 +1,5 @@
 import { BULK_ITEMS, BULK_SID } from "./fixture.ts";
-import { expect, scrollBodyToTop, test } from "./harness.ts";
+import { expect, holdTimelineAtTop, test } from "./harness.ts";
 
 /** 末尾から始めて、手前へ 1 頁ずつ歩けるか。
  *
@@ -26,17 +26,14 @@ test("末尾から始まり、遡ると手前が頁ずつ足される", async ({
 
   const held = async (): Promise<number> =>
     Number(/(\d+) item/.exec((await heading.textContent()) ?? "")?.[1]);
-  const top = async () => {
-    await scrollBodyToTop(page);
-  };
 
   // 開いた時点で持っているのは末尾の 1 頁ぶん。
   const first = await held();
   expect(first).toBe(PAGE);
 
-  await top();
+  await holdTimelineAtTop(page);
   await expect(heading).toHaveText(new RegExp(`${String(first + PAGE)} item`));
-  await top();
+  await holdTimelineAtTop(page);
   // 最初の 1 行ごと、transcript ぜんぶ。`prev` が返らなくなった所が始まり。
   await expect(heading).toHaveText(new RegExp(`${String(BULK_ITEMS + 1)} item`));
   await expect(page.locator(".tl-edge").first()).toHaveText("— 先頭 —");

@@ -220,6 +220,31 @@ export async function scrollBodyToTop(page: Page): Promise<void> {
   }, BODY);
 }
 
+/** transcript の窓を上端に**居続けさせて**、手前の 1 頁を頼む。
+ *
+ * 頼みが起きるのは「上端に着いた」という出来事だが、頁が届くと、見ている行を
+ * 動かさないために位置が戻される。1 度きりの移動だと、その戻しが**出来事が
+ * 配られる前**に走ることがあり (同じ frame の中で 0 と戻し先が書かれると、
+ * 届く scroll は後に書いた方 1 つだけになる)、上端に居たことが誰にも伝わらない
+ * まま、待つ側だけが待ち続ける。
+ *
+ * だから 1 度動かして終わりにせず、**頼みが届くまで上端に居させる**。届いたこと
+ * は端の 1 行が言い (「読み込み中…」、遡り切っていれば「— 先頭 —」)、届いた頁は
+ * 見出しの数が言う — どちらかが動いた所で手を離す。 */
+export async function holdTimelineAtTop(page: Page): Promise<void> {
+  const was = (await page.locator(".timeline h2").textContent()) ?? "";
+  await page.waitForFunction(
+    ({ was: before, where }: { was: string; where: string }) => {
+      if (document.querySelector(".timeline h2")?.textContent !== before) return true;
+      const edge = document.querySelector(".tl-edge")?.textContent ?? "";
+      if (edge.includes("読み込み中") || edge.includes("先頭")) return true;
+      document.querySelector(where)?.scrollTo(0, 0);
+      return false;
+    },
+    { was, where: BODY },
+  );
+}
+
 /** 本文が今どこに居るか。 */
 export async function bodyScrollTop(page: Page): Promise<number> {
   return await page.evaluate(
