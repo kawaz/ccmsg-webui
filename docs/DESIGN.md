@@ -105,10 +105,12 @@ colours hold together as one person's. The quieter voice of the same person
 folded answer, a message not yet handed over, a notice — is said by the shape of
 its rule, never mixed into the hue.
 
-Two hues are picked by a person: this session's own and the user's. Every other
-party's hue is handed out by `src/member.ts`, which stays 15 degrees clear of
-the four meanings and those two, starts from a wish made out of the party's own
-name, and **never moves a hue once it is placed** — a colour that shifts as
+Two hues are picked by a person: the selected session's **main** (`--h-main`)
+and the user's. Every other party's hue is handed out by `src/member.ts`, which
+stays 15 degrees clear of the four meanings and those two, **never uses a gap
+narrower than 30 degrees** (between danger and warning only 16 degrees are left,
+and a party placed there reads as a caution), starts from a wish made out of the
+party's own name, and **never moves a hue once it is placed** — a colour that shifts as
 people arrive is not a colour anyone can learn. The naming sits at step 12 and
 the rule at step 8 because a machine places the hue: only those steps meet 4.5
 and 3.0 **all the way around the circle**, which `test/color-contrast.test.ts`
@@ -138,6 +140,14 @@ twelve steps. Which face the page stands in is then said in **one place only**
 — `color-scheme`, left as `light dark` for the OS to answer and pinned by
 `:root[data-theme="light|dark"]` where a person has stated one. Those two rules
 carry no colour at all.
+
+**Choosing is not separable from seeing.** Moving a hue says nothing until it is
+visible where it lands, so a section stands beside a **worked example** — the
+real parts, drawn in the colours being chosen: bubbles (main, the user, other
+parties, thinking, a notice), buttons, links, rows, the four meanings as both a
+ground and a fill, the identification family, the connection dots, a code block.
+Nothing feeds it: it reads the same `:root` the rest of the page reads, so the
+moment an input is written it solves again.
 
 Choosing happens in the **colour section** of the settings screen (`/settings`), in **two tiers**: what stands out front is the face and three hues (the brand, this session, the user), and everything else is led from its default. The detail is folded away and holds **the rest** — the neutral's chroma, the four meanings' hues, the identification family. The same input is not put in both, since two controls of one value read out under one name twice. What it offers is the layer-0 inputs and the face, and nothing of the step table — being readable is held there rather than in what a person picks. The brand is picked with a colour picker and kept as a hue and a chroma, since the lightness is the step's; turning the picked colour into those two is the browser's job through relative colour syntax, not arithmetic written here.
 
