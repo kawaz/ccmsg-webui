@@ -9,12 +9,14 @@
    少し広く取り、溢れた文字は切る (どうせ覆う所なので、切れても絵は変わらない)。
    狭い画面では入れ物より広くならないように留める。
 
-   ここに無い mask 対象 (`.run-pid` / `.run-when` / `.dump-path` /
-   `.launch-cwd`) は、箱の幅が入れ物で決まっていて中の文字に依らない。 */
+   ここに無い mask 対象 (`.dump-path` / `.launch-cwd`) は、箱の幅が入れ物で
+   決まっていて中の文字に依らない。 */
 
 .connection-who,
 .app-bar .footer,
 .hit-when,
+.run-pid,
+.run-when,
 .status-elapsed,
 .tl-when {
   display: inline-block;
@@ -35,6 +37,18 @@
 
 /* 探して見つけた file の更新時刻。 */
 .hit-when {
+  width: 140px;
+}
+
+/* run と端末の pid。OS が配る番号そのもので、桁数も走るたびに変わる。行 (`.row`)
+   の中では中の文字が箱の幅を決めるので、隣に並ぶものまで押す。 */
+.run-pid {
+  width: 100px;
+}
+
+/* run と端末が始まった時刻。`toLocaleString` なので月・日・時が 1 桁の間は
+   文字数が縮む (9 時台と 11 時台で幅が違う)。 */
+.run-when {
   width: 140px;
 }
 
