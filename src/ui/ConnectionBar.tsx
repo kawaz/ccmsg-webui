@@ -1,4 +1,5 @@
 import { connectionExpiresAt, subject } from "../auth/session.ts";
+import type { ConnectionStatus } from "../connection.ts";
 import { instanceLabel } from "../instance-label.ts";
 import { statusBadge } from "../llm/status-view.ts";
 import { href } from "../base.ts";
@@ -8,6 +9,7 @@ import {
   disconnect,
   endpoint,
   hello,
+  listed,
   llmStatusReports,
   navigate,
   route,
@@ -21,8 +23,12 @@ import {
 /** 一覧の出し入れ。
  *
  * 広い画面では左のペインを畳む / 出す。狭い画面では 2 枚が並んでいないので、
- * これは**一覧へ戻る道**になる (押すと URL が一覧を指し、画面がそちらへ滑る)。 */
+ * これは**一覧へ戻る道**になる (押すと URL が一覧を指し、画面がそちらへ滑る)。
+ *
+ * 一覧の snapshot を聞くまでは出さない (`listed`) — 出し入れする相手がまだ
+ * 無いので、押せる所があること自体が「向こうに一覧がある」と嘘をつく。 */
 function SessionsToggle() {
+  if (!listed.value) return null;
   const at = route.value;
   const open = sessionsOpen.value;
   // 並べているかどうかは **CSS が正本** (幅の境目は 1 か所に持つ)。押した瞬間の
@@ -74,8 +80,12 @@ function UsageLink() {
   );
 }
 
-const WORDS: Record<string, string> = {
-  idle: "未接続",
+/** socket が今していることを言う語。
+ *
+ * まだ何も始めていない時 (`idle`) だけ語が無い — ドットが灰のままであることが
+ * それで、隣に「未接続」と書くのは同じことを 2 度言っている。何かをしている
+ * 間は、ドットの色だけでは何をしているかまでは言えないので語が要る。 */
+const WORDS: Partial<Record<ConnectionStatus, string>> = {
   connecting: "接続中",
   greeting: "hello 送信中",
   open: "接続済み",
@@ -105,7 +115,7 @@ export function ConnectionBar() {
   return (
     <div class="bar app-bar">
       <span class={`dot ${state === "open" ? "open" : state === "closed" ? "closed" : ""}`} />
-      <span>{WORDS[state] ?? state}</span>
+      {WORDS[state] !== undefined && <span>{WORDS[state]}</span>}
       <code class="endpoint">{endpoint}</code>
       <button
         type="button"

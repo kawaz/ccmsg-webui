@@ -32,8 +32,8 @@
       "linux/light": "aa1fde4ca7cc7bf0e1df607d867c16c9668f03f99dfda82b83eb6ae3614f753f"
     },
     "first-connect": {
-      "darwin/dark": "4942516325225c01cad6be9f2ead347e32867bf30c4a6cdaaf0cfb5385743e16",
-      "darwin/light": "57beee106838d3572c9a14f2f4ae847ad47b6d1e1f8cf3bd9698cddce54a8c2c",
+      "darwin/dark": "e0ca4a8e42a51441349fe85a8ee98b35b75c0d8ba6d9411bfc928a0ae6d01396",
+      "darwin/light": "ad020fedbfa0c59ea528b66090cf35a229ffe5e9e6040c1de61ad8bf158cf9cc",
       "linux/dark": "58651dc91423205b04a12a522d70fa647e739e4e7e5d8303a77063603a0b7d9b",
       "linux/light": "f3d3282bac076a221566d60c480373eae6c316fd308f5f5c6197d4aa725a8baa"
     },
@@ -152,8 +152,8 @@
       "linux/light": "be83c9edacbd2cc56b93a28a55b9ab749bf1392c9c90d2d0bdc40f708cc48b61"
     },
     "sign-in": {
-      "darwin/dark": "b41d4a9c78f8b260eb5b89f1f16816e99474f8ebd2fd5e51b93e94f1dea0e4ec",
-      "darwin/light": "c96bf23b24a93e8767ddf688e9c45508559b2993636b69c15ef47b3325a7299b",
+      "darwin/dark": "bd1dda7065074e13365db4b5648a29a4cea7e6c433698ff6ee1eceb5edb02fc6",
+      "darwin/light": "6cc50462d55ff96423e012d1aa18c44817c5a9984cbe0ffe3ee4ef41802cb05d",
       "linux/dark": "e091f4b1fc78f86b0592c6c218a2d4838fe9d988d64e375908a2891e375c8709",
       "linux/light": "50e9163997e9cd1bee4f0296b9f918c0d8cfdb41041846e7fea3eccb627a28a0"
     },

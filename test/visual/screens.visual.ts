@@ -17,6 +17,10 @@ test("first-connect", async ({ page, instance }) => {
   // 押す所は接続バーの 1 つだけ。本文には何も置かない — 繋がっていないことも、
   // 繋ぐ手も、バーが既に持っている。
   await expect(page.getByRole("button", { name: "接続" })).toHaveCount(1);
+  // バーに在るのは行き先の綴りと、そこへ繋ぐ 1 つだけ。まだ何も始めていない
+  // ことはドットが言うので語は要らず、出し入れする一覧もまだ無い。
+  await expect(page.getByRole("button", { name: "一覧" })).toHaveCount(0);
+  await expect(page.locator(".app-bar")).not.toContainText("未接続");
   await expect(page.getByRole("heading", { name: "passkey で認証する" })).toBeHidden();
   // 一覧そのものが無いこと。行が 0 件の一覧は「セッションが 1 つも無い」と
   // 読めてしまい、繋がっていないことを言わない。
@@ -145,10 +149,13 @@ test("conversation", async ({ ui: page, instance }) => {
 
 test("notification", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
-  // 接続が立っていることを先に確かめる。下の送り直しを、普段は 1 回で終わらせる
-  // ため — 立っていない所へ送っても、届く先が無い。
+  // この画面が出るまでに、繋ぐ・購読する・最初の頁が届く、が順に起きる。段ごとに
+  // 待つ — 最後の 1 つだけを待つと、手前の段が遅れた時に、何を待っていたのかを
+  // 言わずに落ちる。接続が立っていることは下の送り直しの前提でもある (立って
+  // いない所へ送っても届く先が無い)。
   await expect(page.locator(".app-bar")).toContainText("接続済み");
+  await expect(page.getByRole("heading", { name: /transcript — / })).toBeVisible();
+  await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
   // 送って、出るまで送り直す。`notify` は**保持されない** topic なので、購読が
   // 立つ前や再接続の隙間に投げられた 1 通はそこで失われ、待っても戻ってこない
   // — 取り戻す手段は送り直すことしかない。回数ではなく「出たか」で終わるので、
