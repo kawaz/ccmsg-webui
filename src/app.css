@@ -12,7 +12,7 @@
      この 2 つを取り出すのはブラウザにやらせる (`src/theme.ts`)。 */
   --brand-h: 253;
   --brand-c: 0.13;
-  /* 中立に混ぜる色味。0 にすると完全な無彩色になる。 */
+  /* 中立に混ぜる色味。0 にすると完全な無彩色になる。
   --neutral-h: 250;
   --neutral-c: 0.008;
   /* 意味色 4 つの色相。brand から回して作らない — brand が赤や緑になった瞬間に
@@ -878,22 +878,47 @@ select {
   overflow-wrap: anywhere;
 }
 
-/* 会話の吹き出し。**話者で色を変えない** — 誰が言ったかは名乗りが言っていて、
- * 色で言い直す必要が無い。色が言うのは型の違い (確定した行か、まだ transcript に
- * 追いついていない知らせか) だけ。
+/* 会話の吹き出し。
  *
  * 名乗りは本文の**上**に置く。横に並べると本文の左に名乗りの幅だけ余白が立ち、
  * 狭い画面では読む所が窓の半分になる。縦に積めば本文は吹き出しの左端から始まり、
- * 名乗りと同じ所で揃う。 */
+ * 名乗りと同じ所で揃う。
+ *
+ * 既定は**上の段** (`docs/design/color-system.md` §8.3) — 実線で全周を囲う。
+ * 一段弱い声だけが名前を持ち、そこで罫の形と字の大きさを下げる。 */
 .tl-bubble {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 6px 8px;
   margin: 4px 0;
-  border-left: 3px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+/* 声の強さは 2 段。全部が同じ重さで並ぶと、画面がどこを読む所か言わなくなる。
+ *
+ * 強さを言うのは**罫の形と字の大きさと文字の段**だけで、色相には触らない —
+ * 色相が言うのは誰かであって、その声がどれだけ重いかではない (§8.2)。
+ *
+ * 下の段は 3 つあり、弱い順に枠を減らしていく: 思考は上の段と同じ形のまま破線、
+ * 別セッションは左の 1 本だけを残し、渡した先 (teammate / サブエージェント) は
+ * 枠を持たず地だけで立つ。 */
+.tl-bubble.quiet {
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+/* 別セッションから届いた 1 通。左の 1 本だけが残って、居ることは言うが囲わない。 */
+.tl-bubble.quiet.peer {
+  border-width: 0 0 0 3px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* こちらから渡した先の声。枠を持たず、地だけで 1 人分にまとまる。 */
+.tl-bubble.quiet.agent {
+  border-width: 0;
 }
 
 /* 名乗りは畳みの取っ手そのもの。閉じている間は名乗りの隣に 1 行の要約が出る。 */
@@ -965,17 +990,22 @@ select {
  * 色相と混ざらない。 */
 .tl-bubble.member {
   background: var(--member-surface);
-  border-left-color: var(--member-border);
+  border-color: var(--member-border);
 }
 
 .tl-bubble.member .tl-who {
   color: var(--member-fg);
 }
 
-/* 思考は同じ人の声のまま**弱める**ので、色相はそのままで段を 1 つ下げる。 */
+/* 思考は同じ人の声のまま**弱める**ので、色相はそのままで段を 1 つ下げる。
+ * 形は上の段と同じ全周のまま、罫だけを破線にする — 同じ人が同じ重さで言った
+ * ことではない、と言うのに枠を減らす必要は無い。 */
 .tl-aside.member {
   background: var(--member-surface-subtle);
   border-color: var(--member-border);
+  border-style: dashed;
+  font-size: 13px;
+  color: var(--fg-muted);
 }
 
 /* 通知の吹き出しは transcript が追いつくまでの仮の姿なので、確定した行と
@@ -1070,11 +1100,13 @@ select {
   color: var(--fg);
 }
 
+/* 開いているタブ。**選ばれているもの**なので主語の色で立つ — 中立で塗ると
+  * 「今どこに居るか」が地と罫の 1 段差でしか言われない。 */
 .tabs a.on {
-  border-color: var(--border);
+  border-color: var(--brand-border);
   margin-bottom: -1px;
-  background: var(--surface);
-  color: var(--fg);
+  background: var(--brand-surface);
+  color: var(--brand-fg);
 }
 
 /* ---- Markdown の見出しセクション ---- */

@@ -16,10 +16,20 @@ const SAMPLE = `export function hue(name: string): number {
   return wishedHue(name); // 名前から希望の色相
 }`;
 
-/** 1 人分の吹き出し。色相以外は timeline と同じもの。 */
-function Bubble({ who, hue, text }: { who: string; hue: string; text: string }) {
+/** 1 人分の吹き出し。色相と声の段以外は timeline と同じもの。 */
+function Bubble({
+  who,
+  hue,
+  text,
+  voice = "",
+}: {
+  who: string;
+  hue: string;
+  text: string;
+  voice?: string;
+}) {
   return (
-    <div class="tl-bubble member" style={`--member-h:${hue}`}>
+    <div class={`tl-bubble member ${voice}`.trimEnd()} style={`--member-h:${hue}`}>
       <span class="tl-who">{who}</span>
       <div class="tl-body">
         <p class="tl-text">{text}</p>
@@ -49,11 +59,13 @@ export function ColourPreview() {
           who="← lead"
           hue={memberHue("session:lead")}
           text="別のセッションから届いた 1 通。"
+          voice="quiet peer"
         />
         <Bubble
           who="→ reviewer"
           hue={memberHue("sub:reviewer")}
           text="サブエージェントへ渡した 1 通。"
+          voice="quiet agent"
         />
         <div class="tl-aside member" style={`--member-h:${memberHue(MAIN)}`}>
           思考 (255 文字)

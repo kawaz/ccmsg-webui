@@ -14,7 +14,7 @@ import { holdSection, type Preset, type Section } from "./settings-section.ts";
  * 触ることと決めることは別に持つ: 触った値は下書き (`theme`) として画面に出る
  * だけで、覚えるのは `save()` を通った時だけ (`saved`)。色は見てみないと決め
  * られないので、見るために選ぶことと、選び終えることを同じ操作にしない
- * (DR-0001 §2.8)。
+ * (DR-0001 §2.9)。
  *
  * 既定を持たないのも同じ理由による: 何も選んでいない時に出るのは `app.css` が
  * 書いてある値で、この module はそれを読んで見せる。数をこちらにも書けば、
@@ -117,7 +117,7 @@ export function clamp(spec: InputSpec, value: number): number {
  * 始める」であって「これで完成」ではない。
  *
  * **中身は層 0 の入力の組でしかない** — 段表は持たないので、どれを選んでも
- * 文字が読めることは崩れない (DR-0001 §2.3 / §2.8)。face を持たないのも決め
+ * 文字が読めることは崩れない (DR-0001 §2.3 / §2.10)。face を持たないのも決め
  * ごと: 段が face ごとの明るさを `light-dark()` の 1 行で持っている以上
  * (§2.4)、1 つの組は**両方の face の姿を既に持っている**。 */
 export const PRESETS: readonly Preset<Theme>[] = [

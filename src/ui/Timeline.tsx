@@ -21,6 +21,7 @@ import {
   itemLabel,
   itemProse,
   memberOf,
+  voiceOf,
 } from "../timeline/item-view.ts";
 import { MAIN, memberHue } from "../member.ts";
 import {
@@ -1017,7 +1018,7 @@ function MessageView({ item }: { item: TranscriptItem }) {
   );
   return (
     <Fold
-      class="tl-bubble member"
+      class={`tl-bubble member ${voiceOf(item)}`.trimEnd()}
       style={`--member-h:${memberHue(memberOf(item))}`}
       folds={timelineFolds.value}
       foldKey={key}

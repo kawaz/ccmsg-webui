@@ -123,6 +123,27 @@ export function memberOf(item: TranscriptItem): string {
   return MAIN;
 }
 
+/** その声の強さ。**誰か (`memberOf`) とは別の軸**で、色相には触らない — 同じ
+ * 相手の声が場面によって重くなるわけではないが、誰が言ったかと、その行が読む所
+ * かどうかは違う問いだから。
+ *
+ * 上の段はこのセッションと人の 2 つだけ。残りは一段弱い所へ落ち、弱い順に枠を
+ * 減らしていく (`docs/design/color-system.md` §8.3)。
+ *
+ * 返すのが CSS の綴りなのは、段が CSS の規則の側にあるから — ここが答えるのは
+ * どの段かだけで、その段がどう見えるかは持たない。 */
+export function voiceOf(item: TranscriptItem): string {
+  const type = item.type;
+  if (type === "message.session.in" || type === "message.session.out") return "quiet peer";
+  if (
+    type.startsWith("message.sub.") ||
+    type.startsWith("message.team.") ||
+    type.startsWith("message.parent.")
+  )
+    return "quiet agent";
+  return "";
+}
+
 /** 専用の見た目を持っている道具。ここに無い道具も出るが、出るのは呼ばれた時の
  * 入力そのままで、読みやすく整えた形ではない。 */
 const DRAWN_TOOLS = new Set([

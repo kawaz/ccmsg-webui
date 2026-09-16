@@ -105,6 +105,18 @@ colours hold together as one person's. The quieter voice of the same person
 folded answer, a message not yet handed over, a notice — is said by the shape of
 its rule, never mixed into the hue.
 
+**How much a voice weighs is not said in colour.** There are two tiers, and the
+upper one holds two voices only: this session and the person. That is where the
+thread of the conversation runs; everything else drops a tier, to a smaller type
+and the muted step. Within the lower tier the rule is **taken away a piece at a
+time**: thinking keeps the full outline and turns it dashed (the same person
+said it, more quietly, so the outline stays), a message from another session
+keeps only the rule on its left, and a voice handed to a subagent or teammate
+carries no rule at all. The amount of rule says how far away the party is, so
+the tiers cost no hues. Which tier a line takes is `voiceOf`, a function apart
+from `memberOf` — who said a line and whether a line is a place to read are
+different questions.
+
 Two hues are picked by a person: the selected session's **main** (`--h-main`)
 and the user's. Every other party's hue is handed out by `src/member.ts`, which
 stays 15 degrees clear of the four meanings and those two, **never uses a gap
