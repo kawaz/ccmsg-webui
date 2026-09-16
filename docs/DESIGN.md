@@ -131,6 +131,8 @@ The brand is picked with a colour picker and kept as a hue and a chroma, since
 the lightness is the step's; turning the picked colour into those two is the
 browser's job through relative colour syntax, not arithmetic written here.
 
+**Touching an input is trying it**, and it is kept only when 保存 is pressed: leaving the screen or reloading puts the remembered colours back, so a value moved in order to compare does not stay. The named sets (standard, warm, cool, plain) hand out layer-0 inputs and nothing of the step table, so being readable survives whichever one is chosen. A set carries no face — a step holds a lightness for each face on one line, so one set already has both. Rows that differ from the base (the chosen set, or the remembered colours) are marked, and each can be put back on its own.
+
 **What the platform offers now is used, rather than worked around.** The
 browsers this is built for are **the latest Chrome and the latest Safari** —
 not Firefox, not older versions — so a feature is taken up once it works in
