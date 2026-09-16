@@ -105,10 +105,9 @@ family (`--tag-*`) rather than borrowed from the meanings — borrowed, a green
 series reads as "healthy".
 
 The values are **computed from inputs**. What a person picks is only the layer-0
-block in `app.css` (the brand colour, the neutral and semantic hues, the
-identification family's spacing); the twelve steps fall out of it through CSS's
-relative colour syntax — no colour is computed in JavaScript. Light and dark are
-the same table with a different row of lightnesses.
+block in `app.css` (the brand's hue and chroma, the neutral and semantic hues,
+the identification family's spacing); the twelve steps fall out of it through
+CSS's relative colour syntax — no colour is computed in JavaScript.
 
 Being readable is **held inside the step table**: text meets 4.5 and a line meant
 to be read as a boundary meets 3.0, and the check for that is
@@ -137,11 +136,10 @@ browsers this is built for are **the latest Chrome and the latest Safari** —
 not Firefox, not older versions — so a feature is taken up once it works in
 those two and is measured doing so, rather than waited on until it is Widely
 available. `light-dark()`, relative colour syntax, `oklch()` and `color-scheme`
-are what the colour system stands on, and which features were taken up, which
-were turned down, and what was measured are in
-[DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md).
+are what the colour system stands on.
 
-Why it is decided this way, and what was turned down, is in
+Why it is decided this way, which features were taken up and which were turned
+down, and what was measured, is in
 [DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md); how the
 whole thing is decided (inputs, steps, computation, checks, browser support) is
 in `docs/design/color-system.md`.
