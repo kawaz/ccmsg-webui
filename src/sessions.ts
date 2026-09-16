@@ -87,13 +87,18 @@ export const SESSION_SECTIONS = [
 ] as const;
 export type SessionSection = (typeof SESSION_SECTIONS)[number];
 
+/** 見出しに出る語。**セクションの名前をそのまま出す** — 状態の名前は契約と
+ * この画面が共有している語彙で、読み手が行の状態として目にするのも、issue や
+ * 会話で呼ぶのも同じ綴りになる。訳すと、同じものが画面と会話で別名になる。
+ * 行の側が持つ詳しさ (どこまで届かないのか等) は行に書いてあるので、見出しは
+ * 1 語でよい。 */
 export const SESSION_SECTION_LABELS: Readonly<Record<SessionSection, string>> = {
-  duplicated: "二重に走っている",
-  waiting: "答え待ち",
-  live: "稼働中",
-  unreachable: "稼働中 (届かない)",
-  paused: "終了",
-  disappeared: "消失",
+  duplicated: "Duplicated",
+  waiting: "Waiting",
+  live: "Live",
+  unreachable: "Unreachable",
+  paused: "Paused",
+  disappeared: "Disappeared",
 };
 
 /** Which heading one row stands under.

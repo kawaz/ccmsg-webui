@@ -399,20 +399,6 @@ export function SessionList() {
       <Launcher />
       <SessionSearch />
 
-      {startingRuns.value.length > 0 && (
-        <section class="section">
-          <h2>起動中 ({startingRuns.value.length})</h2>
-          <p class="empty">
-            ハーネスは起動しているのに、状態ファイルも挨拶もまだ届いていません。端末を開いて
-            様子を確かめてください。
-          </p>
-          <div class="rows">
-            {startingRuns.value.map((row) => (
-              <StartingRow key={`${row.instance} ${row.id}`} row={row} />
-            ))}
-          </div>
-        </section>
-      )}
       {groups.length === 0 && (
         <section class="section">
           <h2>セッション (0)</h2>
@@ -431,6 +417,25 @@ export function SessionList() {
           </div>
         </section>
       ))}
+
+      {/* まだ名乗っていないハーネスは、セッションの見出しの**後ろ**に置く。
+          ここから出来ることは端末を覗くことだけで、一覧の中でいちばん手が
+          少ない — 先頭に立てると、人が決めるべき行より先に、まだ何も言って
+          いないものを読ませることになる。 */}
+      {startingRuns.value.length > 0 && (
+        <section class="section">
+          <h2>起動中 ({startingRuns.value.length})</h2>
+          <p class="empty">
+            ハーネスは起動しているのに、状態ファイルも挨拶もまだ届いていません。端末を開いて
+            様子を確かめてください。
+          </p>
+          <div class="rows">
+            {startingRuns.value.map((row) => (
+              <StartingRow key={`${row.instance} ${row.id}`} row={row} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section class="section">
         <h2>agents ({agents.value.length})</h2>
