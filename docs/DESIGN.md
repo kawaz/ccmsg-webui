@@ -88,7 +88,7 @@ It shows up only after scrolling back, because what pushes (a table, a code bloc
 
 The only colours a part's CSS may write are **the semantic names in `app.css`'s
 `:root`** (`--bg`, `--surface`, `--border`, `--fg`, `--brand-*`, `--info-*`,
-`--success-*`, `--warning-*`, `--danger-*`, `--tag-*`). No raw hex, no mixes, no
+`--success-*`, `--warning-*`, `--danger-*`, `--member-*`, `--tag-*`). No raw hex, no mixes, no
 translucent one-offs — a colour that is not in the vocabulary is added to the
 vocabulary first (and if it cannot be, it is something to express by other means
 than colour).
@@ -98,11 +98,25 @@ is while a finger is on it, `--border-strong` says a thing can be pressed. The
 same role takes the same shape of name in every colour, so "neutral here, danger
 just here" is written by swapping the name.
 
-Speakers are not given colours: who said something is what the name beside it
-says, and colour is left to say what kind of thing it is. Colours that exist
-only to be told apart (search bands, spend series) come from an independent
-family (`--tag-*`) rather than borrowed from the meanings — borrowed, a green
-series reads as "healthy".
+**Who said a line is a hue**, and the ground, the rule and the text of that line
+are all read from that one hue at different steps (`--member-*`), so a line's
+colours hold together as one person's. The quieter voice of the same person
+(thinking) keeps the hue and drops a step. What kind of thing a line is — a
+folded answer, a message not yet handed over, a notice — is said by the shape of
+its rule, never mixed into the hue.
+
+Two hues are picked by a person: this session's own and the user's. Every other
+party's hue is handed out by `src/member.ts`, which stays 15 degrees clear of
+the four meanings and those two, starts from a wish made out of the party's own
+name, and **never moves a hue once it is placed** — a colour that shifts as
+people arrive is not a colour anyone can learn. The naming sits at step 12 and
+the rule at step 8 because a machine places the hue: only those steps meet 4.5
+and 3.0 **all the way around the circle**, which `test/color-contrast.test.ts`
+checks degree by degree.
+
+Colours that exist only to be told apart (search bands, spend series) come from
+an independent family (`--tag-*`) rather than borrowed from the meanings —
+borrowed, a green series reads as "healthy".
 
 The values are **computed from inputs**. What a person picks is only the layer-0
 block in `app.css` (the brand's hue and chroma, the neutral and semantic hues,
@@ -122,7 +136,7 @@ twelve steps. Which face the page stands in is then said in **one place only**
 `:root[data-theme="light|dark"]` where a person has stated one. Those two rules
 carry no colour at all.
 
-Choosing happens in the **colour section** of the settings screen (`/settings`). What it offers is the layer-0 inputs and the face, and nothing of the step table — being readable is held there rather than in what a person picks. The brand is picked with a colour picker and kept as a hue and a chroma, since the lightness is the step's; turning the picked colour into those two is the browser's job through relative colour syntax, not arithmetic written here.
+Choosing happens in the **colour section** of the settings screen (`/settings`), in **two tiers**: what stands out front is the face and three hues (the brand, this session, the user), and everything else is led from its default. The detail is folded away and holds **every** input; the same input appears in both, so whichever one is moved, one value moves. What it offers is the layer-0 inputs and the face, and nothing of the step table — being readable is held there rather than in what a person picks. The brand is picked with a colour picker and kept as a hue and a chroma, since the lightness is the step's; turning the picked colour into those two is the browser's job through relative colour syntax, not arithmetic written here.
 
 The named sets (standard, warm, cool, plain) hand out layer-0 inputs and nothing of the step table, so being readable survives whichever one is chosen. A set carries no face — a step holds a lightness for each face on one line, so one set already has both.
 
