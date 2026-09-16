@@ -1,6 +1,6 @@
 ---
 title: 独自キーボードショートカットを全廃し、ブラウザ標準ショートカットと衝突させない
-status: open
+status: resolved
 category: bug
 created: 2026-09-16T17:02:38+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T17:42:38+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:v1.5.0で SearchBar のdocument-level keydown(⌘F と /)を削除。残るのはFileWordのEscapeとリンクのmetaKey判定のみ。DESIGN に「打鍵はブラウザのもの」節を追加"]
 blocked_by:
 origin: kawaz
 ---
