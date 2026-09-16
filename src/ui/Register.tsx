@@ -80,8 +80,8 @@ export function Register() {
         // instance も clientDataJSON.origin を claims.webui と突き合わせる。
         // 押させてから browser の不透明なエラーに出会うより、先に言う。
         <p class="banner">
-          この URL は <code>{claims.webui}</code> で開く前提で発行されています。そちらで開き直して
-          ください。
+          この URL は <code>{claims.webui}</code>{" "}
+          で開く前提で発行されています。そちらで開き直してください。
         </p>
       )}
       {authProblem.value !== undefined && <p class="banner">{authProblem.value}</p>}

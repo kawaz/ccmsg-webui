@@ -662,6 +662,8 @@ The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMS
 
 **Where this page may connect is stated as a shape rather than as a list.** The build carries one CSP directive, `connect-src 'self' https: wss:` (the development build adds the loopback origins a daemon answers on). It is not an allowlist of instances: which instance is dialed is the person's to state, and a UI published independently of the instances it reaches would need a build per deployment and another one for every instance added — which is the thing publishing it separately exists to avoid (contract DR-0029). Nothing else is stated, and a policy with no `default-src` restricts only what it names.
 
+One consequence is worth saying plainly: **a plain-HTTP instance on another origin can be stated and will not connect.** The field admits it, because the contract's `Endpoint` does; the policy does not carry it. Nothing is lost by that — the refresh cookie is `Secure` and a web UI must be `https` or a loopback name (`WebUi`), so such an instance could not have authenticated anyone anyway.
+
 vite with esbuild's automatic JSX (`jsxImportSource: preact`). `@preact/preset-vite` is not used: what it adds is prefresh HMR, and it brings the whole Babel toolchain in for it, while esbuild emits the same JSX. Wanting HMR is what would bring the preset back.
 
 ## Tests

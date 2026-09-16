@@ -591,6 +591,8 @@ dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon (`CCMSG_DEV_DAEMON`�
 
 **どこへ繋いでよいかは、一覧ではなく形で述べる。** 成果物は CSP の directive を 1 つだけ持つ (`connect-src 'self' https: wss:`、dev ビルドは daemon が答える loopback origin を足す)。instance の許可リストではない — 繋ぐ先は人が述べるもので、繋ぐ先とは独立に publish される UI に許可リストを焼くと、配る場所ごとに、instance を足すたびにビルドが要る。それは UI を別に publish する目的そのものを壊す (契約 DR-0029)。他は何も述べない。`default-src` を持たない policy は、名指したものだけを縛る。
 
+帰結を 1 つ明記しておく: **別 origin の平の HTTP の instance は、述べられるが繋がらない。** 入力欄が受けるのは契約 `Endpoint` がそれを許すからで、policy は運ばない。それで失うものは無い — refresh cookie は `Secure` で、webui は `https` か loopback 名でなければならない (`WebUi`) ので、そういう instance はそもそも誰も認証できない。
+
 vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-vite` は使っていない: 提供するのは prefresh の HMR で、そのために Babel のツールチェーン全体が依存に入る。JSX の変換自体は esbuild が同じ出力を出す。HMR が要るようになったら preset を入れる判断に戻る。
 
 ## テスト

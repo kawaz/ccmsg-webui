@@ -111,17 +111,26 @@ function untilWords(at: number): string {
  * それが正しく、それ以外では出発点にすぎない。
  *
  * 書き換えは離れた時 (or Enter) に確定する。1 文字ごとに確定すると、打って
- * いる途中の URL に繋ぎ変えることになる。 */
+ * いる途中の URL に繋ぎ変えることになる。受け取れない綴りは**打った文字を
+ * 残したまま**断る — 直す相手が消えたら、何を直せばいいのか分からない。 */
 function EndpointField() {
   const at = endpoint.value;
   const draft = useSignal<string | undefined>(undefined);
   const refused = useSignal(false);
   const shown = draft.value ?? at ?? "";
   const commit = (): void => {
-    const next = draft.value;
+    const next = draft.value?.trim();
+    if (next === undefined || next === at) {
+      draft.value = undefined;
+      return;
+    }
+    if (!setEndpoint(next)) {
+      refused.value = true;
+      draft.value = next;
+      return;
+    }
+    refused.value = false;
     draft.value = undefined;
-    if (next === undefined || next === at) return;
-    refused.value = !setEndpoint(next.trim());
   };
   return (
     <input
