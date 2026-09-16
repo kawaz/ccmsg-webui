@@ -1,6 +1,6 @@
 ---
 title: セッション一覧のセクション順序・表記を v1 に揃える
-status: open
+status: resolved
 category: bug
 created: 2026-09-16T17:02:36+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T17:42:40+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:v1.5.0で一番上にあったstartingセクション(DR-0026)をagents直前に移動。表記はv1のcapitalize規則(Duplicated/Waiting/Live/Unreachable/Paused/Disappeared)。「起動中」の見出し名はv1に対応概念が無く据え置き"]
 blocked_by:
 origin: kawaz
 ---
