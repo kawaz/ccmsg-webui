@@ -1,6 +1,6 @@
 ---
 title: 色システムを 3 層構造 (入力 / scale / 意味名) で v2 webui に導入する
-status: open
+status: resolved
 category: design
 created: 2026-09-12T07:22:44+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T17:43:13+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["dr/DR-0001","implemented","design/color-system","done:v1.5.0でdata-themeによるface切替と/settingsの色画面を追加"]
 blocked_by:
 origin: v1 (plugin claude-ccmsg) DR-0033-webui-color-system.md からの移管
 ---
