@@ -41,3 +41,7 @@ vite cache を消しても再現するので `visual-accept-stale-module` (docs/
 ## 追記: 同根の観測 (2026-09-16、統括)
 
 CI の `redraw_baselines` と `just visual-accept` は `bun x playwright test --update-snapshots` を値なしで呼んでいて、Playwright ではこれは `changed` (閾値を越えた時だけ基準を書き直す) になる。v1.3.1 で再描画した linux 基準は 80 枚すべて既存と同一 md5 で、`first-connect` の linux 基準は v0.17.0 のまま。閾値内の変化は検出されないだけでなく基準にも取り込まれず、次に閾値を越えた時に複数版の差分がまとめて出る。再描画は `--update-snapshots=all` で全枚を書き直すべきか、閾値の見直しと合わせて決める。
+
+## 追記: 2026-09-16 (member 色の導入時)
+
+吹き出しの色が変わった timeline / translate / conversation は閾値 0.002 を下回って `just visual-accept` (`--update-snapshots` の changed 動作) では基準に入らず、設定画面の 4 枚しか書き換わらなかった。`playwright test --update-snapshots=all` で全面的に書き直して解消。色だけの変更は今の閾値では検出も更新もされない、の 2 例目。
