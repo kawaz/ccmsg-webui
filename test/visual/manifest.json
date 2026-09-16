@@ -44,8 +44,8 @@
       "linux/light": "cb1ae7116135b885dcdee32c08bb7f4ce531820d1c6328589c8a0205a95fa4a6"
     },
     "layout-list-off": {
-      "darwin/dark": "e85099b25164d8f2d1e460059437d6244a823031eeb37572079395aa212bdb15",
-      "darwin/light": "1d64a6d5b156c40a6b972d166a65d4c5330585fb756a17c217abcbcd6ce25ce1",
+      "darwin/dark": "1a85ad5abc1c250e5f73c752ad7a1f040a8062620434fe473e8c3e4b58974f64",
+      "darwin/light": "93fdf72d4088e914464dae906b50b47716e9b37afd3ba1f8f2ea255cfd44ff5a",
       "linux/dark": "e64d77b47243e2f8bc68a83c1d2e639e588b97d7d821550ff29809da25dcbda2",
       "linux/light": "f46a1adfef7dadffaa7d6bb047c118f23913345feb5a8980aaf7194c460ef0df"
     },
