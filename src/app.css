@@ -2597,9 +2597,24 @@ select {
   max-width: 720px;
 }
 
+.theme > h2:not(:first-child) {
+  margin-top: 20px;
+}
+
+.theme .meta {
+  margin: 4px 0 12px;
+  color: var(--fg-muted);
+}
+
 .theme-faces {
   display: flex;
   gap: 8px;
+}
+
+/* 選んでいる face。`.tabs` と同じ言い方 (主語の色の文字と枠) で、形は足さない。 */
+.theme-faces button.on {
+  border-color: var(--brand-fg);
+  color: var(--brand-fg);
 }
 
 .theme-row {
