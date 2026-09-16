@@ -5,6 +5,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
 | 2026-09-17 | request | open | [timeline-selected-message-and-voice-nav](./2026-09-17-timeline-selected-message-and-voice-nav.md) | v2 の TL に選択中メッセージと同じ声の前後移動を追加 |
+| 2026-09-17 | bug | open | [visual-sessions-depends-on-spec-order](./2026-09-17-visual-sessions-depends-on-spec-order.md) | sessions の visual test が同一走行内の他 spec の副作用に依存している |
 | 2026-09-16 | bug | open | [composer-send-clear-and-key](./2026-09-16-composer-send-clear-and-key.md) | TL 送信欄が送信後にクリアされない・送信キーが v1 と違う |
 | 2026-09-16 | bug | open | [visual-threshold-misses-removed-bar-items](./2026-09-16-visual-threshold-misses-removed-bar-items.md) | visual test の閾値が要素まるごと削除の退行を検出できない (接続バーの例) |
 | 2026-09-16 | bug | open | [visual-inbox-pixel-diff-single-run-flaky](./2026-09-16-visual-inbox-pixel-diff-single-run-flaky.md) | visual の inbox 画面が全体走行で 1 度だけ pixel 差で落ちた (単体・次の全体走行では再現せず) |
