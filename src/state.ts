@@ -211,9 +211,12 @@ export const registration = signal<Registration | undefined>(undefined);
  *
  * The link names the instance it is for, so opening one is the person stating
  * an endpoint — and the field takes that value here rather than after the
- * ceremony, so that nobody types it back in. Dismissing the screen leaves them
- * pointed at the instance they were sent to, which is the one they were given a
- * link for.
+ * ceremony. **Nothing is acted on here**: the claims are read without a
+ * signature — anyone can write a token and hand somebody the link — so what
+ * this page does with them is show them, and the person decides. The instance
+ * named in them is dialed once the registration succeeds, which is the point at
+ * which the instance holding the secret has said the link was its own. Leaving
+ * the screen leaves this page where it already was.
  *
  * A link that cannot be registered by says so instead. Somebody opened a URL
  * they were handed, and a page that quietly carried on would leave them
@@ -223,7 +226,6 @@ export function holdRegistration(link: RegisterLink): void {
     authProblem.value = link.refused;
     return;
   }
-  setEndpoint(link.claims.endpoint);
   registration.value = link;
 }
 export const status = signal<ConnectionStatus>("idle");
@@ -983,6 +985,10 @@ export async function completeRegistration(code: string, deviceLabel: string): P
       code,
       deviceLabel,
     });
+    // The link is spent and the issuing instance has answered for it, so what
+    // it named is now something this page has been told rather than something a
+    // fragment claimed: this is where the instance becomes the one being dialed.
+    setEndpoint(held.claims.endpoint);
     holdSession(session);
     registration.value = undefined;
     wanted.value = true;
