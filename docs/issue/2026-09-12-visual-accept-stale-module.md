@@ -39,3 +39,9 @@ origin: 自リポ TODO
       dev server の起動タイミングのどれが効くか切り分け)
 - [ ] visual harness 側に「基準と同じ画像が撮れた時に module の鮮度を確認する」
       仕組みを入れるか、accept 前に vite cache を捨てる 1 行を追加する
+
+## 追記
+
+2026-09-16 の観測 (worker webui-theme-presets): 基準の撮り直しで差分が残る現象が
+再現し、`node_modules/.vite` を消して撮り直すと解消。vite の変換キャッシュという
+仮説を 1 例支持する。
