@@ -1,6 +1,6 @@
 ---
 title: visual test の backfill 件数 assert が全件走行の負荷下で早着き race を起こす
-status: open
+status: resolved
 category: bug
 created: 2026-09-15T13:05:25+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T09:59:58+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: commit 14e62be2 / 9cd9ad70 で真因(scrollのframe畳み込みで上端到達がハンドラに届かない)を修正。harnessのholdTimelineAtTopで、頼みが届く事象(見出し数の変化/端の1行)まで上端に居させる形に。notificationは接続→見出し→語の段で待つ。--repeat-each=5の全件走行で3テストとも10/10 pass"]
 blocked_by:
 origin: ccmsg
 ---

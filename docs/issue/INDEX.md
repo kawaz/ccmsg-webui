@@ -6,7 +6,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 |---|---|---|---|---|
 | 2026-09-16 | bug | open | [terminals-visual-pid-elapsed-band-diff](./2026-09-16-terminals-visual-pid-elapsed-band-diff.md) | terminals visual test が pid/経過時刻の帯で閾値超え diff を出す |
 | 2026-09-16 | bug | open | [visual-threshold-misses-removed-bar-items](./2026-09-16-visual-threshold-misses-removed-bar-items.md) | visual test の閾値が要素まるごと削除の退行を検出できない (接続バーの例) |
-| 2026-09-15 | bug | open | [visual-backfill-page-count-race](./2026-09-15-visual-backfill-page-count-race.md) | visual test の backfill 件数 assert が全件走行の負荷下で早着き race を起こす |
 | 2026-09-12 | task | open | [composer-autogrow-and-touch-targets](./2026-09-12-composer-autogrow-and-touch-targets.md) | Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性) |
 | 2026-09-12 | task | open | [launcher-cwd-tree](./2026-09-12-launcher-cwd-tree.md) | Session Launcher の「始める場所」にディレクトリツリー選択 (展開/フィルタ) を追加 |
 | 2026-09-12 | task | open | [v1-parity-for-migration](./2026-09-12-v1-parity-for-migration.md) | kawaz が v1 webui から v2 に移るために要るものの棚卸し。画面が無いだけの機能が上位 |
