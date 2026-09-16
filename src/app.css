@@ -1,12 +1,17 @@
 :root {
+  /* face (light か dark か) を決めるのは **`color-scheme` ただ 1 つ**。段の値は
+     `light-dark()` が face ごとに解くので、face を見分ける規則も、dark 用の
+     第 2 の表も要らない。 */
   color-scheme: light dark;
 
   /* --- 層 0: 入力 --- */
   /* 人が選ぶのはここだけ。これ以外の色は全部この下で算出される。 */
 
-  /* この画面の主語の色。色として持つのは、カラーピッカーで選べるのが色だから
-     — 段の L は段表が上書きするので、実際に効くのは色相と色味。 */
-  --brand: oklch(0.545 0.13 253);
+  /* この画面の主語の色。効くのは色相と色味で、明るさは段が決める — だから入力
+     として持つのもその 2 つ。設定画面はカラーピッカーで選ばせ、選ばれた色から
+     この 2 つを取り出すのはブラウザにやらせる (`src/theme.ts`)。 */
+  --brand-h: 253;
+  --brand-c: 0.13;
   /* 中立に混ぜる色味。0 にすると完全な無彩色になる。 */
   --neutral-h: 250;
   --neutral-c: 0.008;
@@ -20,26 +25,29 @@
   /* 識別の族: 目立ち方 (L と C) を先に決め、色相だけを動かして増やす。 */
   --tag-h0: 86;
   --tag-step: 58;
-  --tag-l: 0.9;
-  --tag-c: 0.08;
 
   /* --- 層 1: 段表 --- */
-  /* 段の番号が役割 (1 地 … 12 文字)。L はコントラストの基準から決めてあり
-     (`docs/design/color-system.md` §4.2 / §7)、**light と dark はこの行だけが
-     違う**。C 係数は入力の C に掛かる。 */
-  --l-1: 1;
-  --l-2: 0.985;
-  --l-3: 0.962;
-  --l-4: 0.935;
-  --l-5: 0.905;
-  --l-6: 0.855;
-  --l-7: 0.635;
-  --l-8: 0.56;
-  --l-9: 0.545;
-  --l-10: 0.485;
-  --l-11: 0.525;
-  --l-12: 0.27;
+  /* 段の番号が役割 (1 地 … 12 文字)。**段が持つのは明るさだけ**で、色味は層 2 で
+     載せる — そうすると中立も意味色も同じ 1 本の段表を使える。
 
+     明るさは `light-dark(light, dark)` の 1 行に両方を並べる。face で違うのはこの
+     行だけで、L はコントラストの基準から決めてある
+     (`docs/design/color-system.md` §4.2 / §7)。 */
+  --step-1: light-dark(oklch(1 0 0), oklch(0.178 0 0));
+  --step-2: light-dark(oklch(0.985 0 0), oklch(0.208 0 0));
+  --step-3: light-dark(oklch(0.962 0 0), oklch(0.238 0 0));
+  --step-4: light-dark(oklch(0.935 0 0), oklch(0.272 0 0));
+  --step-5: light-dark(oklch(0.905 0 0), oklch(0.306 0 0));
+  --step-6: light-dark(oklch(0.855 0 0), oklch(0.372 0 0));
+  --step-7: light-dark(oklch(0.635 0 0), oklch(0.545 0 0));
+  --step-8: light-dark(oklch(0.56 0 0), oklch(0.61 0 0));
+  --step-9: light-dark(oklch(0.545 0 0), oklch(0.64 0 0));
+  --step-10: light-dark(oklch(0.485 0 0), oklch(0.7 0 0));
+  --step-11: light-dark(oklch(0.525 0 0), oklch(0.655 0 0));
+  --step-12: light-dark(oklch(0.27 0 0), oklch(0.945 0 0));
+
+  /* 入力の C に掛かる係数。face で動かさない — テーマが変わると中立の温度まで
+     変わる、という結び付きを作らない。 */
   --c-1: 0;
   --c-2: 0.2;
   --c-3: 0.3;
@@ -53,153 +61,92 @@
   --c-11: 0.9;
   --c-12: 0.35;
 
-  /* dark の行。**dark の値はここ 1 か所**にあり、下の 2 つの規則は「どちらの
-     条件でこの行を採るか」だけを言う — 同じ数を 2 か所に書けば、片方だけ古く
-     なる。face で動くのは L だけで、色相も C 係数も動かさない。 */
-  --dark-l-1: 0.178;
-  --dark-l-2: 0.208;
-  --dark-l-3: 0.238;
-  --dark-l-4: 0.272;
-  --dark-l-5: 0.306;
-  --dark-l-6: 0.372;
-  --dark-l-7: 0.545;
-  --dark-l-8: 0.61;
-  --dark-l-9: 0.64;
-  --dark-l-10: 0.7;
-  --dark-l-11: 0.655;
-  --dark-l-12: 0.945;
-  --dark-brand: oklch(0.64 0.13 253);
-  --dark-tag-l: 0.74;
-  --dark-tag-c: 0.085;
-  --dark-on-tag-l: 0.178;
-  --dark-shadow-l: 0.05;
-  --dark-shadow-a: 45%;
-
   /* --- 層 2: 意味名 --- */
   /* 部品が書いてよい色の名前は**ここにあるものだけ**。同じ役割は色が違っても
-     同じ形の名前を取る (`--danger-fill` は「危険の塗り」)。 */
+     同じ形の名前を取る (`--danger-fill` は「危険の塗り」)。
 
-  --bg: oklch(var(--l-1) calc(var(--neutral-c) * var(--c-1)) var(--neutral-h));
-  --bg-subtle: oklch(var(--l-2) calc(var(--neutral-c) * var(--c-2)) var(--neutral-h));
-  --surface: oklch(var(--l-3) calc(var(--neutral-c) * var(--c-3)) var(--neutral-h));
-  --surface-hover: oklch(var(--l-4) calc(var(--neutral-c) * var(--c-4)) var(--neutral-h));
-  --surface-active: oklch(var(--l-5) calc(var(--neutral-c) * var(--c-5)) var(--neutral-h));
-  --border-subtle: oklch(var(--l-6) calc(var(--neutral-c) * var(--c-6)) var(--neutral-h));
-  --border: oklch(var(--l-7) calc(var(--neutral-c) * var(--c-7)) var(--neutral-h));
-  --border-strong: oklch(var(--l-8) calc(var(--neutral-c) * var(--c-8)) var(--neutral-h));
-  --fill: oklch(var(--l-9) calc(var(--neutral-c) * var(--c-9)) var(--neutral-h));
-  --fill-hover: oklch(var(--l-10) calc(var(--neutral-c) * var(--c-10)) var(--neutral-h));
-  --fg-muted: oklch(var(--l-11) calc(var(--neutral-c) * var(--c-11)) var(--neutral-h));
-  --fg: oklch(var(--l-12) calc(var(--neutral-c) * var(--c-12)) var(--neutral-h));
+     どれも「段から明るさを取り、入力から色味を載せる」の 1 行で、色相を差し
+     替えれば別の族になる。 */
+  --bg: oklch(from var(--step-1) l calc(var(--neutral-c) * var(--c-1)) var(--neutral-h));
+  --bg-subtle: oklch(from var(--step-2) l calc(var(--neutral-c) * var(--c-2)) var(--neutral-h));
+  --surface: oklch(from var(--step-3) l calc(var(--neutral-c) * var(--c-3)) var(--neutral-h));
+  --surface-hover: oklch(from var(--step-4) l calc(var(--neutral-c) * var(--c-4)) var(--neutral-h));
+  --surface-active: oklch(
+    from var(--step-5) l calc(var(--neutral-c) * var(--c-5)) var(--neutral-h)
+  );
+  --border-subtle: oklch(from var(--step-6) l calc(var(--neutral-c) * var(--c-6)) var(--neutral-h));
+  --border: oklch(from var(--step-7) l calc(var(--neutral-c) * var(--c-7)) var(--neutral-h));
+  --border-strong: oklch(from var(--step-8) l calc(var(--neutral-c) * var(--c-8)) var(--neutral-h));
+  --fill: oklch(from var(--step-9) l calc(var(--neutral-c) * var(--c-9)) var(--neutral-h));
+  --fill-hover: oklch(from var(--step-10) l calc(var(--neutral-c) * var(--c-10)) var(--neutral-h));
+  --fg-muted: oklch(from var(--step-11) l calc(var(--neutral-c) * var(--c-11)) var(--neutral-h));
+  --fg: oklch(from var(--step-12) l calc(var(--neutral-c) * var(--c-12)) var(--neutral-h));
 
   /* 塗りの上に乗る文字は地の側 (段 1)。 */
-  --on-fill: oklch(var(--l-1) 0 var(--neutral-h));
+  --on-fill: oklch(from var(--step-1) l 0 0);
 
-  /* brand だけは色から取る: 段が L を、入力が色相と色味を決める。 */
-  --brand-surface: oklch(from var(--brand) var(--l-5) calc(c * var(--c-5)) h);
-  --brand-border: oklch(from var(--brand) var(--l-8) calc(c * var(--c-8)) h);
-  --brand-fill: oklch(from var(--brand) var(--l-9) calc(c * var(--c-9)) h);
-  --brand-fg: oklch(from var(--brand) var(--l-11) calc(c * var(--c-11)) h);
+  --brand-surface: oklch(from var(--step-5) l calc(var(--brand-c) * var(--c-5)) var(--brand-h));
+  --brand-border: oklch(from var(--step-8) l calc(var(--brand-c) * var(--c-8)) var(--brand-h));
+  --brand-fill: oklch(from var(--step-9) l calc(var(--brand-c) * var(--c-9)) var(--brand-h));
+  --brand-fg: oklch(from var(--step-11) l calc(var(--brand-c) * var(--c-11)) var(--brand-h));
 
-  --info-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-info));
-  --info-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-info));
-  --info-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-info));
-  --info-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-info));
+  --info-surface: oklch(from var(--step-5) l calc(var(--semantic-c) * var(--c-5)) var(--h-info));
+  --info-border: oklch(from var(--step-8) l calc(var(--semantic-c) * var(--c-8)) var(--h-info));
+  --info-fill: oklch(from var(--step-9) l calc(var(--semantic-c) * var(--c-9)) var(--h-info));
+  --info-fg: oklch(from var(--step-11) l calc(var(--semantic-c) * var(--c-11)) var(--h-info));
 
-  --success-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-success));
-  --success-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-success));
-  --success-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-success));
-  --success-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-success));
+  --success-surface: oklch(
+    from var(--step-5) l calc(var(--semantic-c) * var(--c-5)) var(--h-success)
+  );
+  --success-border: oklch(
+    from var(--step-8) l calc(var(--semantic-c) * var(--c-8)) var(--h-success)
+  );
+  --success-fill: oklch(from var(--step-9) l calc(var(--semantic-c) * var(--c-9)) var(--h-success));
+  --success-fg: oklch(from var(--step-11) l calc(var(--semantic-c) * var(--c-11)) var(--h-success));
 
-  --warning-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-warning));
-  --warning-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-warning));
-  --warning-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-warning));
-  --warning-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-warning));
+  --warning-surface: oklch(
+    from var(--step-5) l calc(var(--semantic-c) * var(--c-5)) var(--h-warning)
+  );
+  --warning-border: oklch(
+    from var(--step-8) l calc(var(--semantic-c) * var(--c-8)) var(--h-warning)
+  );
+  --warning-fill: oklch(from var(--step-9) l calc(var(--semantic-c) * var(--c-9)) var(--h-warning));
+  --warning-fg: oklch(from var(--step-11) l calc(var(--semantic-c) * var(--c-11)) var(--h-warning));
 
-  --danger-surface: oklch(var(--l-5) calc(var(--semantic-c) * var(--c-5)) var(--h-danger));
-  --danger-border: oklch(var(--l-8) calc(var(--semantic-c) * var(--c-8)) var(--h-danger));
-  --danger-fill: oklch(var(--l-9) calc(var(--semantic-c) * var(--c-9)) var(--h-danger));
-  --danger-fg: oklch(var(--l-11) calc(var(--semantic-c) * var(--c-11)) var(--h-danger));
+  --danger-surface: oklch(
+    from var(--step-5) l calc(var(--semantic-c) * var(--c-5)) var(--h-danger)
+  );
+  --danger-border: oklch(from var(--step-8) l calc(var(--semantic-c) * var(--c-8)) var(--h-danger));
+  --danger-fill: oklch(from var(--step-9) l calc(var(--semantic-c) * var(--c-9)) var(--h-danger));
+  --danger-fg: oklch(from var(--step-11) l calc(var(--semantic-c) * var(--c-11)) var(--h-danger));
 
-  --tag-0: oklch(var(--tag-l) var(--tag-c) var(--tag-h0));
-  --tag-1: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 1 * var(--tag-step)));
-  --tag-2: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 2 * var(--tag-step)));
-  --tag-3: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 3 * var(--tag-step)));
-  --tag-4: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 4 * var(--tag-step)));
-  --tag-5: oklch(var(--tag-l) var(--tag-c) calc(var(--tag-h0) + 5 * var(--tag-step)));
+  /* 識別の族は段表に乗らない — 「見分けが付けばよい」色なので、目立ち方を 1 つ
+     決めて色相だけを動かす。face ごとの明るさはここも 1 行。 */
+  --tag-seed: light-dark(oklch(0.9 0.08 0), oklch(0.74 0.085 0));
+  --tag-0: oklch(from var(--tag-seed) l c var(--tag-h0));
+  --tag-1: oklch(from var(--tag-seed) l c calc(var(--tag-h0) + 1 * var(--tag-step)));
+  --tag-2: oklch(from var(--tag-seed) l c calc(var(--tag-h0) + 2 * var(--tag-step)));
+  --tag-3: oklch(from var(--tag-seed) l c calc(var(--tag-h0) + 3 * var(--tag-step)));
+  --tag-4: oklch(from var(--tag-seed) l c calc(var(--tag-h0) + 4 * var(--tag-step)));
+  --tag-5: oklch(from var(--tag-seed) l c calc(var(--tag-h0) + 5 * var(--tag-step)));
   /* 族の明るさは揃っているので、その上に乗る文字は 1 つで足りる。 */
-  --on-tag-l: 0.27;
-  --on-tag: oklch(var(--on-tag-l) 0 var(--neutral-h));
+  --on-tag: light-dark(oklch(0.27 0 0), oklch(0.178 0 0));
 
-  --shadow-l: 0.27;
-  --shadow-a: 18%;
-  --shadow: oklch(var(--shadow-l) 0 var(--neutral-h) / var(--shadow-a));
+  --shadow: light-dark(oklch(0.27 0 0 / 18%), oklch(0.05 0 0 / 45%));
 
   --radius: 6px;
   --gap: 12px;
 }
 
-/* dark で立つのは 2 つの場合 — **人が選んでいなければ OS に従い、選んでいれば
-   そちらが勝つ**。どちらも上の `--dark-*` を採るだけで、値は持たない。名前の
-   並びが揃っていることは `test/color-contrast.test.ts` が見る。 */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --brand: var(--dark-brand);
-
-    --l-1: var(--dark-l-1);
-    --l-2: var(--dark-l-2);
-    --l-3: var(--dark-l-3);
-    --l-4: var(--dark-l-4);
-    --l-5: var(--dark-l-5);
-    --l-6: var(--dark-l-6);
-    --l-7: var(--dark-l-7);
-    --l-8: var(--dark-l-8);
-    --l-9: var(--dark-l-9);
-    --l-10: var(--dark-l-10);
-    --l-11: var(--dark-l-11);
-    --l-12: var(--dark-l-12);
-
-    --tag-l: var(--dark-tag-l);
-    --tag-c: var(--dark-tag-c);
-    --on-tag-l: var(--dark-on-tag-l);
-
-    --shadow-l: var(--dark-shadow-l);
-    --shadow-a: var(--dark-shadow-a);
-  }
+/* 人が face を述べたら、述べた方で立つ。述べていなければ `color-scheme: light
+   dark` のまま OS が答える。**段を切り替える規則はこれ以外に無い** — 色の値は
+   どちらの規則も持たず、`light-dark()` が face ごとに解く。 */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-
-  --brand: var(--dark-brand);
-
-  --l-1: var(--dark-l-1);
-  --l-2: var(--dark-l-2);
-  --l-3: var(--dark-l-3);
-  --l-4: var(--dark-l-4);
-  --l-5: var(--dark-l-5);
-  --l-6: var(--dark-l-6);
-  --l-7: var(--dark-l-7);
-  --l-8: var(--dark-l-8);
-  --l-9: var(--dark-l-9);
-  --l-10: var(--dark-l-10);
-  --l-11: var(--dark-l-11);
-  --l-12: var(--dark-l-12);
-
-  --tag-l: var(--dark-tag-l);
-  --tag-c: var(--dark-tag-c);
-  --on-tag-l: var(--dark-on-tag-l);
-
-  --shadow-l: var(--dark-shadow-l);
-  --shadow-a: var(--dark-shadow-a);
-}
-
-/* light を選んだ人には、OS が dark でも light の面で立つ (上の `:not()` が
-   段を light のままにしている)。窓の側の色もそれに合わせる。 */
-:root[data-theme="light"] {
-  color-scheme: light;
 }
 
 * {
@@ -819,26 +766,26 @@ select {
 }
 
 /* Shiki tokenizes for both themes at once and hands each token the pair; which
- * half is used is decided here rather than by re-tokenizing per theme. */
+ * half is used is decided here rather than by re-tokenizing per theme.
+ *
+ * 色は `light-dark()` が face ごとに選ぶので、段表と同じく `color-scheme` 1 つに
+ * 乗る。**斜体と太さだけはここに乗らない** — `light-dark()` が受けるのは色だけ
+ * で、face を見分ける selector は CSS に無い。この 2 つのためだけに face の条件を
+ * 書き下す。 */
 .shiki-tok {
-  color: var(--shiki-light);
+  color: light-dark(var(--shiki-light), var(--shiki-dark));
   font-style: var(--shiki-light-font-style);
   font-weight: var(--shiki-light-font-weight);
 }
 
-/* 構文の色はこの体系の外 (github-light / github-dark がトークンごとに持って
-   いる) が、**どちらの face で立つかは同じ問い**なので、段表と同じ 2 つの条件
-   で選ぶ。 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .shiki-tok {
-    color: var(--shiki-dark);
     font-style: var(--shiki-dark-font-style);
     font-weight: var(--shiki-dark-font-weight);
   }
 }
 
 :root[data-theme="dark"] .shiki-tok {
-  color: var(--shiki-dark);
   font-style: var(--shiki-dark-font-style);
   font-weight: var(--shiki-dark-font-weight);
 }

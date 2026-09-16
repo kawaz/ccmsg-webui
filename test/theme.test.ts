@@ -14,7 +14,7 @@ describe("覚えていた theme", () => {
   });
 
   test("書いた通りに読み戻る", () => {
-    const held = { face: "dark" as const, brand: "#2563eb", inputs: { [spec.name]: 200 } };
+    const held = { face: "dark" as const, inputs: { [spec.name]: 200 } };
     expect(parseTheme(formatTheme(held))).toEqual(held);
   });
 
@@ -26,7 +26,6 @@ describe("覚えていた theme", () => {
   test("読めない項だけが落ちる", () => {
     const raw = JSON.stringify({
       face: "sepia",
-      brand: "red",
       [spec.name]: 200,
       "h-danger": "30",
       "not-an-input": 1,
@@ -48,7 +47,8 @@ describe("覚えていた theme", () => {
 });
 
 /** ここで色を計算しているわけではない — picker が扱えるのは sRGB の 16 進なので、
- * app.css が書いている oklch をそこまで連れて行くだけ。 */
+ * 画面に出ている oklch をそこまで連れて行くだけ。逆向き (picker が選んだ色から
+ * 色相と色味を取り出す) はブラウザにやらせるので、ここには無い。 */
 describe("picker に渡す初期値", () => {
   test("oklch を読む", () => {
     expect(parseOklch("oklch(0.545 0.13 253)")).toEqual({ l: 0.545, c: 0.13, h: 253 });

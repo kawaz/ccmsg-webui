@@ -1,6 +1,7 @@
 import { href } from "../base.ts";
 import { navigate } from "../state.ts";
 import {
+  brandChosen,
   clearBrand,
   clearInput,
   clearTheme,
@@ -9,9 +10,10 @@ import {
   type InputSpec,
   INPUTS,
   inputStep,
-  setBrand,
+  setBrandFromColor,
   setFace,
   setInput,
+  SLIDERS,
   standingBrand,
   standingNumber,
   theme,
@@ -45,7 +47,11 @@ const INPUT_LABELS: Readonly<Record<string, string>> = {
 /** その入力が今どう効いているかの見本。**算出済みの色を見せる** — 数字の 253 が
  * どの青かは、その青を出す以外に言いようが無い。 */
 function Swatch({ name }: { name: string }) {
-  const family = name.startsWith("h-") ? name.slice(2) : name === "brand" ? "brand" : undefined;
+  const family = name.startsWith("h-")
+    ? name.slice(2)
+    : name.startsWith("brand")
+      ? "brand"
+      : undefined;
   const roles =
     family !== undefined
       ? [`--${family}-surface`, `--${family}-border`, `--${family}-fill`]
@@ -101,9 +107,7 @@ function InputRow({ spec }: { spec: InputSpec }) {
 export function Settings() {
   const chosen = theme.value;
   const touched =
-    chosen.face !== undefined ||
-    chosen.brand !== undefined ||
-    INPUTS.some((spec) => chosen.inputs[spec.name] !== undefined);
+    chosen.face !== undefined || INPUTS.some((spec) => chosen.inputs[spec.name] !== undefined);
   return (
     <div class="app">
       <div class="bar app-bar">
@@ -153,13 +157,13 @@ export function Settings() {
             type="color"
             value={standingBrand()}
             onInput={(event) => {
-              setBrand((event.currentTarget as HTMLInputElement).value);
+              setBrandFromColor((event.currentTarget as HTMLInputElement).value);
             }}
           />
           <output class="mono theme-value" for="theme-brand">
             {standingBrand()}
           </output>
-          <button type="button" disabled={chosen.brand === undefined} onClick={clearBrand}>
+          <button type="button" disabled={!brandChosen(chosen)} onClick={clearBrand}>
             戻す
           </button>
         </p>
@@ -167,7 +171,7 @@ export function Settings() {
           効くのはその色相と色味で、明るさは段が決める — 暗い色を選んでも文字が
           読めなくなることはない。
         </p>
-        {INPUTS.map((spec) => (
+        {SLIDERS.map((spec) => (
           <InputRow key={spec.name} spec={spec} />
         ))}
 

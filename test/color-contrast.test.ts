@@ -19,8 +19,6 @@ function block(from: string): string {
   return CSS.slice(at, CSS.indexOf("\n}", at));
 }
 
-/** 値は light も dark も `:root` にある — dark は `--dark-*` という別の名前で
- * 同じ所に書いてあり、face の規則はそれを採るだけ (DR-0001 §2.4)。 */
 const ROOT = block(":root {");
 
 function value(name: string): number {
@@ -29,36 +27,35 @@ function value(name: string): number {
   return Number(said[1]);
 }
 
-/** face ごとの名前。dark は `--dark-` を冠した方を読む。 */
-function faced(dark: boolean, name: string): number {
-  return value(dark ? `dark-${name}` : name);
+/** `light-dark(oklch(…), oklch(…))` の、その face の側。
+ *
+ * face で値が変わるものはすべてこの形で書いてあるので (DR-0001 §2.4)、読む側も
+ * 1 つの読み方で足りる。 */
+function faced(name: string, dark: boolean): Oklch {
+  const said = new RegExp(
+    `--${name}:\\s*light-dark\\(\\s*oklch\\(([^)]*)\\)\\s*,\\s*oklch\\(([^)]*)\\)`,
+  ).exec(ROOT);
+  if (said === null) throw new Error(`${name} が読めません`);
+  const parts = (said[dark ? 2 : 1] as string).split("/")[0] as string;
+  const [l, c, h] = parts.trim().split(/\s+/).map(Number) as [number, number, number];
+  return { l, c, h };
 }
 
-/** 段表。face で違うのは L の行だけで、C 係数は共通。 */
-function steps(dark: boolean): { l: (step: number) => number; c: (step: number) => number } {
-  return {
-    l: (step) => faced(dark, `l-${String(step)}`),
-    c: (step) => value(`c-${String(step)}`),
-  };
+/** 段は明るさだけを持つ。色味は層 2 で載るので、ここで読むのは L。 */
+function stepL(step: number, dark: boolean): number {
+  return faced(`step-${String(step)}`, dark).l;
 }
 
 const hue = value;
 
-/** 入力の C と h。brand だけは色として書いてあるので、その中から読む。 */
-function brand(dark: boolean): { c: number; h: number } {
-  const name = dark ? "dark-brand" : "brand";
-  const said = new RegExp(`--${name}:\\s*oklch\\([0-9.]+\\s+([0-9.]+)\\s+([0-9.]+)\\)`).exec(ROOT);
-  if (said === null) throw new Error(`${name} が読めません`);
-  return { c: Number(said[1]), h: Number(said[2]) };
-}
-
-/** ある面の、ある段の色。 */
+/** ある面の、ある段の色。段から明るさを取り、入力の色味を係数で載せる — CSS の
+ * 層 2 と同じ組み立て。 */
 function step(dark: boolean, n: number, chroma: number, h: number): Oklch {
-  const table = steps(dark);
-  return { l: table.l(n), c: chroma * table.c(n), h };
+  return { l: stepL(n, dark), c: chroma * value(`c-${String(n)}`), h };
 }
 
 const NEUTRAL = { c: () => value("neutral-c"), h: () => hue("neutral-h") };
+const BRAND = { c: () => value("brand-c"), h: () => hue("brand-h") };
 const SEMANTIC = ["info", "success", "warning", "danger"] as const;
 
 /** 文字と罫が乗る面 = 段 1〜3。いちばん厳しい組を測る。 */
@@ -77,7 +74,7 @@ for (const dark of [false, true]) {
     test("弱い文字 (段 11) は中立でも意味色でも 4.5 以上", () => {
       const families: Oklch[] = [
         step(dark, 11, NEUTRAL.c(), NEUTRAL.h()),
-        step(dark, 11, brand(dark).c, brand(dark).h),
+        step(dark, 11, BRAND.c(), BRAND.h()),
         ...SEMANTIC.map((name) => step(dark, 11, value("semantic-c"), hue(`h-${name}`))),
       ];
       for (const color of families) {
@@ -96,45 +93,39 @@ for (const dark of [false, true]) {
       const onFill = step(dark, 1, 0, NEUTRAL.h());
       const fills: Oklch[] = [
         step(dark, 9, NEUTRAL.c(), NEUTRAL.h()),
-        step(dark, 9, brand(dark).c, brand(dark).h),
+        step(dark, 9, BRAND.c(), BRAND.h()),
         ...SEMANTIC.map((name) => step(dark, 9, value("semantic-c"), hue(`h-${name}`))),
       ];
       for (const fill of fills) expect(contrast(onFill, fill)).toBeGreaterThanOrEqual(4.5);
     });
 
     test("識別の族の上に乗る文字は 4.5 以上", () => {
-      const l = faced(dark, "tag-l");
-      const c = faced(dark, "tag-c");
+      const seed = faced("tag-seed", dark);
       const h0 = hue("tag-h0");
       const stepH = hue("tag-step");
-      const onTag: Oklch = { l: faced(dark, "on-tag-l"), c: 0, h: NEUTRAL.h() };
+      const onTag = faced("on-tag", dark);
       for (let n = 0; n < 6; n += 1) {
-        expect(contrast(onTag, { l, c, h: h0 + n * stepH })).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(onTag, { ...seed, h: h0 + n * stepH })).toBeGreaterThanOrEqual(4.5);
       }
     });
   });
 }
 
-/** dark を採る規則は 2 つある (OS が dark で人が light を選んでいない / 人が
- * dark を選んだ)。**値はどちらも持たず** `--dark-*` を採るだけなので、揃って
- * いないことがあるとすれば「片方に足し忘れた」時 — それをここで見る。 */
-describe("dark を採る 2 つの規則", () => {
-  const names = (rule: string): string[] =>
-    [...block(rule).matchAll(/(--[a-z0-9-]+):/g)].map((found) => found[1] as string).sort();
-
-  test("同じ名前を並べている", () => {
-    expect(names(':root[data-theme="dark"] {')).toEqual(names(':root:not([data-theme="light"]) {'));
+/** face で値が変わるものは、**すべて `light-dark()` の 1 行**で書いてある
+ * (DR-0001 §2.4)。第 2 の表を作らないための取り決めなので、ここで見る。 */
+describe("face の切り替え", () => {
+  test("face を述べる規則は色の値を持たず、色の面だけを言う", () => {
+    for (const rule of [':root[data-theme="light"] {', ':root[data-theme="dark"] {']) {
+      expect(block(rule)).not.toMatch(/--[a-z0-9-]+:/);
+      expect(block(rule)).toMatch(/color-scheme:/);
+    }
   });
 
-  test("並んでいるのは段表と入力の全部で、値は持たない", () => {
-    const adopted = names(':root[data-theme="dark"] {');
-    for (const name of adopted) {
-      expect(block(':root[data-theme="dark"] {')).toContain(
-        `${name}: var(--dark-${name.slice(2)})`,
-      );
+  test("段の明るさは 12 段とも light と dark を 1 行に持つ", () => {
+    for (let n = 1; n <= 12; n += 1) {
+      expect(stepL(n, false)).toBeGreaterThan(0);
+      expect(stepL(n, true)).toBeGreaterThan(0);
+      expect(stepL(n, false)).not.toBe(stepL(n, true));
     }
-    // `--dark-*` の側に、どこからも採られていないものが残っていない。
-    const offered = [...ROOT.matchAll(/--dark-([a-z0-9-]+):/g)].map((found) => found[1] as string);
-    expect(offered.map((name) => `--${name}`).sort()).toEqual(adopted);
   });
 });
