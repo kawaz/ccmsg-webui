@@ -104,17 +104,28 @@ flex の中に置いた `<details>` には罠がある。開いた中身はブ�
 
 読めることは**段表に閉じ込める**。文字は 4.5、境界として読ませる罫は 3.0 を満たす L を段表が持っていて、その検査は `test/color-contrast.test.ts` が `app.css` を読んで機械的に行う (比は CSS の式では書けない)。
 
-どの face で立つかは**人が述べるもの**で、述べていない所だけ OS が答える —
-`:root[data-theme="light|dark"]` が `prefers-color-scheme` に勝つ。dark の L の行は
-1 か所だけ (`--dark-*`) に書いてあり、2 つの条件はどちらもそれを採るだけ。
+段が持つのは**明るさだけ**で、light と dark は同じ 1 行に並ぶ
+(`--step-9: light-dark(oklch(0.545 0 0), oklch(0.64 0 0))`)。色味は後から入力を載せる
+ので、中立も意味色も同じ 12 段に乗る。どの face で立つかを述べる場所は
+**`color-scheme` ただ 1 つ** — 述べていなければ `light dark` のまま OS が答え、
+述べれば `:root[data-theme="light|dark"]` がそちらに固定する。この 2 規則は色の値を
+1 つも持たない。
 
 選ぶのは**画面 1 つ** (`/settings`、`src/ui/Settings.tsx`)。出ているのは層 0 の入力と
 face だけで、段表は出てこない — 読めることはそちらに閉じ込めてあり、人が選ぶ側には
 置かない。この画面は **instance に何も聞かない**ので、繋がっていなくても立つ。書いた
 ものはこのブラウザだけのもの (`ccmsg.theme`)。
 
-なぜそう決めたか / 何を捨てたかは
-[DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md)、決め方の全体
+主語の色はカラーピッカーで選ばせ、**色相と色味の 2 つ**として覚える (明るさは段が
+決めるから)。選ばれた色からその 2 つを取り出すのは相対色構文でブラウザにやらせて
+いて、ここに変換の計算は無い。
+
+**今のブラウザにあるものを使う。昔からの書き方に回らない。** 対象は**最新の Chrome
+と最新の Safari の 2 つだけ** (Firefox も古い版も保証しない) なので、機能はその 2 つで
+使えることを実測した時点で採る — Baseline の Widely available までは待たない。色の
+体系が乗っているのは `light-dark()`・相対色構文・`oklch()`・`color-scheme` で、何を
+採り何を採らなかったか、何を実測したかは
+[DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md)。決め方の全体
 (入力・段・算出・検査・ブラウザ対応) は `docs/design/color-system.md`。
 
 ## 部品の階層と、それぞれが持つもの

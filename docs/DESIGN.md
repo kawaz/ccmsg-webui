@@ -115,16 +115,31 @@ to be read as a boundary meets 3.0, and the check for that is
 `test/color-contrast.test.ts`, which reads `app.css` and works it out (the ratio
 cannot be written as a CSS expression).
 
-Which face the page stands in is **the person's to state**, and the OS answers
-only where they have not: `:root[data-theme="light|dark"]` wins over
-`prefers-color-scheme`, and the dark row of lightnesses is written once
-(`--dark-*`) with both conditions doing nothing but adopt it.
+A step carries **only a lightness**, and both faces sit on the same line:
+`--step-9: light-dark(oklch(0.545 0 0), oklch(0.64 0 0))`. The colour is put on
+afterwards from the inputs, which is why neutral and meaning ride the same
+twelve steps. Which face the page stands in is then said in **one place only**
+— `color-scheme`, left as `light dark` for the OS to answer and pinned by
+`:root[data-theme="light|dark"]` where a person has stated one. Those two rules
+carry no colour at all.
 
 Choosing is a screen of its own (`/settings`, `src/ui/Settings.tsx`). What it
 offers is the layer-0 inputs and the face, and nothing of the step table — being
 readable is held there rather than in what a person picks. It is the one screen
 that **asks the instance nothing**, so it stands whether or not this page is
 connected, and what it writes is kept for this browser alone (`ccmsg.theme`).
+The brand is picked with a colour picker and kept as a hue and a chroma, since
+the lightness is the step's; turning the picked colour into those two is the
+browser's job through relative colour syntax, not arithmetic written here.
+
+**What the platform offers now is used, rather than worked around.** The
+browsers this is built for are **the latest Chrome and the latest Safari** —
+not Firefox, not older versions — so a feature is taken up once it works in
+those two and is measured doing so, rather than waited on until it is Widely
+available. `light-dark()`, relative colour syntax, `oklch()` and `color-scheme`
+are what the colour system stands on, and which features were taken up, which
+were turned down, and what was measured are in
+[DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md).
 
 Why it is decided this way, and what was turned down, is in
 [DR-0001](decisions/DR-0001-colour-is-computed-from-a-few-inputs.md); how the
