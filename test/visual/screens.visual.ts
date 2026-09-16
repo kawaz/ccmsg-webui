@@ -230,6 +230,8 @@ test("settings-changed", async ({ page, instance }) => {
   await page.getByRole("radio", { name: /暖色/ }).check();
   // 組を選んだ時点では、比べる先がその組なので差は無い。
   await expect(page.getByText("選んだ組のまま")).toBeVisible();
+  // 意味色の色相は基本に出ていない (基本は face と色相 3 つだけ) ので、詳細を開く。
+  await page.locator("details.theme-advanced > summary").click();
   const slider = page.getByRole("slider", { name: "危険 (danger) の色相" });
   await slider.fill("330");
   await expect(page.getByText("選んだ組と違うのは 1 項")).toBeVisible();
@@ -243,6 +245,10 @@ test("settings-changed", async ({ page, instance }) => {
  * 込み直した先に何が残っているか**で、それは画面の形には出ない。 */
 test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
+  const open = async () => {
+    await page.locator("details.theme-advanced > summary").click();
+  };
+  await open();
   const danger = page.getByRole("slider", { name: "危険 (danger) の色相" });
   const before = await danger.inputValue();
 
@@ -250,6 +256,7 @@ test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await danger.fill("300");
   await expect(danger).toHaveValue("300");
   await page.reload();
+  await open();
   await expect(danger).toHaveValue(before);
 
   // 保存してから離れる: 読み込み直しても残っている。
@@ -257,6 +264,7 @@ test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await page.getByRole("button", { name: "保存" }).click();
   await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
   await page.reload();
+  await open();
   await expect(danger).toHaveValue("300");
 
   // 覚えた値は**それ自体がベースになる**ので、項ごとの「戻す」では消せない
@@ -268,5 +276,6 @@ test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await page.getByRole("radio", { name: /標準/ }).check();
   await page.getByRole("button", { name: "保存" }).click();
   await page.reload();
+  await open();
   await expect(danger).toHaveValue(before);
 });

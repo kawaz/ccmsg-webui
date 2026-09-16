@@ -1050,7 +1050,7 @@ function ThinkingView({ item }: { item: TranscriptItem }) {
   const text = itemProse(item) ?? "";
   return (
     <Fold
-      class="tl-aside thinking"
+      class="tl-aside member"
       style={`--member-h:${memberHue(SELF)}`}
       folds={timelineFolds.value}
       foldKey={thinkFoldKey(item.id)}

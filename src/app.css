@@ -127,19 +127,6 @@
   --danger-fill: oklch(from var(--step-9) l calc(var(--semantic-c) * var(--c-9)) var(--h-danger));
   --danger-fg: oklch(from var(--step-11) l calc(var(--semantic-c) * var(--c-11)) var(--h-danger));
 
-  /* 誰が言ったかの面。色相は行ごとに `--member-h` で差し替わり、段はここで固定
-     する — 強弱 (emphasis) は同じ色相のまま段を変えて出す。 */
-  --member-h: var(--h-self);
-  --member-surface-subtle: oklch(
-    from var(--step-2) l calc(var(--member-c) * var(--c-2)) var(--member-h)
-  );
-  --member-surface: oklch(from var(--step-3) l calc(var(--member-c) * var(--c-3)) var(--member-h));
-  --member-border: oklch(from var(--step-8) l calc(var(--member-c) * var(--c-8)) var(--member-h));
-  /* 名乗りが段 12 (弱い文字の 11 ではない) なのは、色相が円のどこに配られても
-     4.5 を満たすのがこの段だから。色味を識別のために強く取る以上、弱い段では
-     色相によって足りなくなる — 弱く見せるのは大きさと字面の仕事にする。 */
-  --member-fg: oklch(from var(--step-12) l calc(var(--member-c) * var(--c-12)) var(--member-h));
-
   /* 識別の族は段表に乗らない — 「見分けが付けばよい」色なので、目立ち方を 1 つ
      決めて色相だけを動かす。face ごとの明るさはここも 1 行。 */
   --tag-seed: light-dark(oklch(0.9 0.08 0), oklch(0.74 0.085 0));
@@ -949,11 +936,28 @@ select {
   font-size: 12px;
 }
 
-/* 誰が言ったかは色相で言う。地も罫も名乗りも**同じ 1 つの色相**から段を変えて
- * 取るので、行の色が揃って 1 人分に見える。色相を配るのは `src/member.ts` で、
- * ここが決めるのはどの段を使うかだけ。
+/* 誰が言ったかの色。地も罫も名乗りも**同じ 1 つの色相**から段を変えて取るので、
+ * 行の色が揃って 1 人分に見える。色相を配るのは `src/member.ts` で、ここが決める
+ * のはどの段を使うかだけ。
  *
- * 型の違い (畳まれた答え・通知・まだ渡っていない 1 通) は罫の形が言っていて、
+ * この 4 つが `:root` でなく**色相を載せた要素の上**で組み立てられているのは、
+ * custom property の中の `var()` が**宣言した要素**で解決されるから — `:root` に
+ * 置くと `--member-h` も `:root` のものが読まれ、誰の行も同じ色になる。
+ *
+ * 名乗りが段 12 (弱い文字の 11 ではない) なのは、色相が円のどこに配られても 4.5 を
+ * 満たすのがこの段だから。識別のために色味を強く取る以上、弱い段では色相によって
+ * 足りなくなる — 弱く見せるのは大きさと字面の仕事にする。 */
+.member {
+  --member-h: var(--h-self);
+  --member-surface-subtle: oklch(
+    from var(--step-2) l calc(var(--member-c) * var(--c-2)) var(--member-h)
+  );
+  --member-surface: oklch(from var(--step-3) l calc(var(--member-c) * var(--c-3)) var(--member-h));
+  --member-border: oklch(from var(--step-8) l calc(var(--member-c) * var(--c-8)) var(--member-h));
+  --member-fg: oklch(from var(--step-12) l calc(var(--member-c) * var(--c-12)) var(--member-h));
+}
+
+/* 型の違い (畳まれた答え・通知・まだ渡っていない 1 通) は罫の形が言っていて、
  * 色相と混ざらない。 */
 .tl-bubble.member {
   background: var(--member-surface);
@@ -965,7 +969,7 @@ select {
 }
 
 /* 思考は同じ人の声のまま**弱める**ので、色相はそのままで段を 1 つ下げる。 */
-.tl-aside.thinking {
+.tl-aside.member {
   background: var(--member-surface-subtle);
   border-color: var(--member-border);
 }

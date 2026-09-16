@@ -1,4 +1,5 @@
 import {
+  ADVANCED,
   BRAND_C,
   BRAND_H,
   colour,
@@ -7,7 +8,6 @@ import {
   type Face,
   IDENTITY,
   type InputSpec,
-  INPUTS,
   inputStep,
   setBrandFromColor,
   setFace,
@@ -40,7 +40,7 @@ function Swatch({ name }: { name: string }) {
   // 誰かの色は段が 3 つとも同じ色相から出ているので、見本もその 3 段を並べる。
   if (name === "h-self" || name === "h-user") {
     return (
-      <span class="theme-swatch" aria-hidden="true" style={`--member-h:var(--${name})`}>
+      <span class="theme-swatch member" aria-hidden="true" style={`--member-h:var(--${name})`}>
         {["--member-surface-subtle", "--member-surface", "--member-border"].map((role) => (
           <span key={role} style={`background:var(${role})`} />
         ))}
@@ -67,12 +67,10 @@ function Swatch({ name }: { name: string }) {
   );
 }
 
-/** 1 つの入力。同じ入力が基本と詳細の両方に出るので、label が指す先が重ならない
- * よう `at` で綴りを分ける — 同じ値を動かす 2 つの操作は、別の操作子ではある。 */
-function SliderRow({ spec, at }: { spec: InputSpec; at: string }) {
+function SliderRow({ spec }: { spec: InputSpec }) {
   const chosen = theme.value.inputs[spec.name];
   const value = chosen ?? standingNumber(spec);
-  const id = `theme-${at}-${spec.name}`;
+  const id = `theme-${spec.name}`;
   return (
     <SettingRow store={colour} names={[spec.name]} label={wordFor(spec.name)} labelFor={id}>
       <Swatch name={spec.name} />
@@ -142,7 +140,7 @@ export function ColourInputs() {
       </p>
 
       {IDENTITY.map((spec) => (
-        <SliderRow key={spec.name} spec={spec} at="basic" />
+        <SliderRow key={spec.name} spec={spec} />
       ))}
       <p class="meta">
         誰が言ったかは色相で言う。この 2
@@ -151,12 +149,9 @@ export function ColourInputs() {
 
       <details class="theme-advanced">
         <summary>詳細</summary>
-        <p class="meta">
-          入力ぜんぶ。基本で選んだものもここに並ぶので、どちらから動かしても同じ 1
-          つの値が動く。触らなければ既定のまま導かれる。
-        </p>
-        {INPUTS.map((spec) => (
-          <SliderRow key={spec.name} spec={spec} at="all" />
+        <p class="meta">残りの入力。触らなければ、上で選んだ色相から既定のまま導かれる。</p>
+        {ADVANCED.map((spec) => (
+          <SliderRow key={spec.name} spec={spec} />
         ))}
       </details>
     </>

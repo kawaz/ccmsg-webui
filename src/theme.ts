@@ -66,6 +66,14 @@ export const BRAND_C = INPUTS.find((spec) => spec.name === "brand-c") as InputSp
  * 意味色の色相は、選ばなくても画面が成立する。 */
 export const IDENTITY = INPUTS.filter((spec) => spec.name === "h-self" || spec.name === "h-user");
 
+/** 詳細に出る入力。基本に出ているものはここに出ない — 同じ値を動かす操作子が
+ * 2 つあると、名乗りの同じ操作子が画面に 2 度並ぶ (読み上げる人には区別が付か
+ * ない)。基本と詳細は同じ 1 つの入力の組を**分けて**並べたもので、写したもの
+ * ではない。 */
+export const ADVANCED = INPUTS.filter(
+  (spec) => spec !== BRAND_H && spec !== BRAND_C && !IDENTITY.includes(spec),
+);
+
 export function inputStep(spec: InputSpec): number {
   return spec.kind === "hue" ? 1 : 0.001;
 }
