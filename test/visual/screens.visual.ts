@@ -215,12 +215,24 @@ test("settings", async ({ page, instance }) => {
   await page.goto(instance.endpoint);
   await page.getByRole("link", { name: "設定" }).click();
   await expect(page).toHaveURL(new RegExp("/settings$"));
-  await expect(page.getByRole("heading", { name: "色" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "色", exact: true })).toBeVisible();
   await expect(page.getByRole("radio", { name: /暖色/ })).toBeVisible();
   // 何も触っていない所。覚えてある色と同じなので、差は 0 項で保存も押せない。
   await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
   await expect(page.getByRole("button", { name: "保存" })).toBeDisabled();
+  // 選ぶ所の隣に、その色が効いている所が並んでいる (DR-0002 §2.7)。
+  await expect(page.getByRole("complementary", { name: "表示例" })).toBeVisible();
   await shot(page, "settings.png");
+});
+
+/** 詳細を開いた所。基本に出ていない入力がここに並ぶ。表示例は基本でも詳細でも
+ * 同じものが横に居る — 何を触っていても、効いている所が見えたままになる。 */
+test("settings-detail", async ({ page, instance }) => {
+  await page.goto(`${instance.endpoint}settings`);
+  await page.locator("details.theme-advanced > summary").click();
+  await expect(page.getByRole("slider", { name: "危険 (danger) の色相" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "表示例" })).toBeVisible();
+  await shot(page, "settings-detail.png");
 });
 
 /** 組を選んで、そこから 1 つ動かした所。ベースと違う項に印が付き、その行の

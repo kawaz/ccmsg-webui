@@ -5,6 +5,7 @@ import type { SectionFace } from "../settings-section.ts";
 import { navigate } from "../state.ts";
 import { colour } from "../theme.ts";
 import { ColourInputs } from "./ColourInputs.tsx";
+import { ColourPreview } from "./ColourPreview.tsx";
 import { SettingDecide, SettingPresets } from "./setting-parts.tsx";
 
 /** 設定の画面。
@@ -23,6 +24,10 @@ interface Listed {
   readonly store: SectionFace;
   readonly note: string;
   readonly Inputs: ComponentType;
+  /** 選んだものが効いている所。**選ぶことと見ることは同じ 1 つの操作**なので、
+   * section が持つのは入力だけではない (DR-0002 §2.7)。持たない section も
+   * ありうる — 効き先が画面に出ないもの (既定の起動先など) がそれ。 */
+  readonly Preview?: ComponentType;
 }
 
 /** 今ある section。足す時に触るのはこの並びと、その section の定義と入力。 */
@@ -31,19 +36,27 @@ const SECTIONS: readonly Listed[] = [
     store: colour,
     note: "ここにあるのが選べるもののぜんぶ。段の明るさは出てこない — 文字が読めることは段の側で保証してあり、ここから崩せないようにしてある。",
     Inputs: ColourInputs,
+    Preview: ColourPreview,
   },
 ];
 
-function SectionPanel({ store, note, Inputs }: Listed) {
+function SectionPanel({ store, note, Inputs, Preview }: Listed) {
   return (
     <section class="section theme">
       <h2>{store.title}</h2>
       <p class="meta">{note}</p>
-      <SettingPresets store={store} />
-      <Inputs />
-      <p class="meta">
-        保存するまでは試しているだけ — この画面を離れるか読み込み直すと、覚えてあるものに戻る。
-      </p>
+      {/* 入力と表示例は横に並ぶ。狭い所では縦に積み、表示例が先に来ることは
+          ない — 触る所が画面の下に落ちると、見ながら動かすことができない。 */}
+      <div class="theme-panes">
+        <div class="theme-inputs">
+          <SettingPresets store={store} />
+          <Inputs />
+          <p class="meta">
+            保存するまでは試しているだけ — この画面を離れるか読み込み直すと、覚えてあるものに戻る。
+          </p>
+        </div>
+        {Preview !== undefined && <Preview />}
+      </div>
       <SettingDecide store={store} />
     </section>
   );
