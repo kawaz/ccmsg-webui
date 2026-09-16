@@ -1,6 +1,6 @@
 ---
 title: 接続前の接続バーに要らないものが出ている (「未接続」の表記、セッション一覧の「一覧」ボタン)
-status: open
+status: resolved
 category: bug
 created: 2026-09-16T08:58:20+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-16T09:59:53+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: commit 9cd9ad70 で接続前は endpoint+接続のみに変更、「未接続」表記を削除、SessionsToggle は listed が立つまで非表示。darwin 基準で first-connect/sign-in の visual を撮り直し"]
 blocked_by:
 origin: kawaz
 ---
