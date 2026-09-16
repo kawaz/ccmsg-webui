@@ -11,16 +11,29 @@
  * 配る先は webui 全体で 1 つ。開いているセッションによって同じ相手の色が変わる
  * と、並べて読んでいる人が同じ相手を 2 人だと思う。 */
 
-/** 固定の 2 人。CSS の入力をそのまま指すので、数ではなく綴りで答える。 */
-export const SELF = "self";
+/** 固定の 2 人。CSS の入力をそのまま指すので、数ではなく綴りで答える。
+ *
+ * 名前は契約の語彙に合わせる — 固定スロットの片方は「選択中セッションの main」で、
+ * `self` と呼ぶと `this` と紛れる上に、契約にはその語が無い。 */
+export const MAIN = "main";
 export const USER = "user";
 
 /** 意味色と固定の 2 人から、どれだけ離れていれば別の色に見えるか。 */
 const APART = 15;
 
+/** 配ってよい空きの狭さの下限。
+ *
+ * 帯と帯の間に残る**狭い隙間**に配らないための線。危険 (30) と注意 (76) の間は
+ * 帯を除くと 16 度しか残らず、そこに落ちた相手は琥珀色になって「注意」の色と
+ * 見分けが付かない。帯から 15 度離れていることと、**その色が意味色の仲間に
+ * 見えないこと**は別の条件なので、幅そのものにも下限を置く。
+ *
+ * どの空きも狭い時は、いちばん広い所に配る — 色が無いよりはいい。 */
+const ROOMY = 30;
+
 /** 避ける色相を名乗っている入力。ここに挙がっている色相の周り (±`APART`) には
  * 配らない — 危険の赤に見える相手や、自分と同じ紫の相手を作らないため。 */
-const RESERVED = ["h-info", "h-success", "h-warning", "h-danger", "h-self", "h-user"];
+const RESERVED = ["h-info", "h-success", "h-warning", "h-danger", "h-main", "h-user"];
 
 /** `:root` に立っている色相を読む。CSS が正本なので、既定値をここにも書かない。 */
 function standingHues(root: HTMLElement): readonly number[] {
@@ -51,14 +64,15 @@ function wrap(hue: number): number {
 /** 埋まっている色相を避けた残り。それぞれの色相は前後 `APART` を連れている。 */
 function gaps(taken: readonly number[]): readonly Gap[] {
   const sorted = [...taken].map(wrap).sort((a, b) => a - b);
+  if (sorted.length === 0) return [{ from: 0, width: 360 }];
+  // 円が 1 人で埋まっている時は、反対側が丸ごと空いている。
+  if (sorted.length === 1)
+    return [{ from: wrap((sorted[0] as number) + APART), width: 360 - 2 * APART }];
   const found: Gap[] = [];
   for (const [at, hue] of sorted.entries()) {
     const next = sorted[(at + 1) % sorted.length] as number;
-    const from = hue + APART;
     const width = wrap(next - hue) - 2 * APART;
-    // 円が 1 人で埋まっている時は、反対側が丸ごと空いている。
-    if (sorted.length === 1) found.push({ from, width: 360 - 2 * APART });
-    else if (width > 0) found.push({ from: wrap(from), width });
+    if (width > 0) found.push({ from: wrap(hue + APART), width });
   }
   return found;
 }
@@ -67,17 +81,61 @@ function inside(gap: Gap, hue: number): boolean {
   return wrap(hue - gap.from) <= gap.width;
 }
 
-/** 埋まっている色相を避けて 1 つ選ぶ。希望が空いていればそこ、埋まっていれば
- * **いちばん広い空きの真ん中** — 次に来る相手のために、両側を等しく残す。 */
-export function pickHue(taken: readonly number[], wish: number): number {
-  if (taken.length === 0) return wrap(wish);
-  const free = gaps(taken);
-  // 円が埋まりきったら、いちばん近い相手から遠い所を選ぶしかない。
-  if (free.length === 0) return wrap(wish + 180);
-  const held = free.find((gap) => inside(gap, wish));
-  if (held !== undefined) return wrap(wish);
-  const widest = free.reduce((a, b) => (b.width > a.width ? b : a));
-  return wrap(widest.from + widest.width / 2);
+function widest(among: readonly Gap[]): Gap {
+  return among.reduce((a, b) => (b.width > a.width ? b : a));
+}
+
+/** 相手を置いてよい所。**意味色の隣に残る狭い隙間は、はじめから無いものとして
+ * 扱う** — 帯から 15 度離れていることと、その色が意味色の仲間に見えないことは
+ * 別の条件なので、幅にも下限を置く。
+ *
+ * 狭い隙間を「空いていないこと」にするので、相手が増えて詰まってきても、そこへ
+ * 落ちてくることが無い。危険と注意の間が琥珀に見えるのは混み具合とは関係が
+ * 無いから、混んだ時だけ許す、にはしない。 */
+function regions(reserved: readonly number[]): readonly Gap[] {
+  const free = gaps(reserved);
+  const roomy = free.filter((gap) => gap.width >= ROOMY);
+  // どの隙間も狭い入力を選ばれた時は、いちばん広い所だけを使う。
+  return roomy.length > 0 ? roomy : free.length > 0 ? [widest(free)] : [];
+}
+
+/** 置いてよい所を、既に居る相手で切り分けた残り。 */
+function carve(among: readonly Gap[], peers: readonly number[]): readonly Gap[] {
+  const found: Gap[] = [];
+  for (const region of among) {
+    const within = peers
+      .map(wrap)
+      .filter((hue) => inside(region, hue))
+      .sort((a, b) => wrap(a - region.from) - wrap(b - region.from));
+    let at = region.from;
+    for (const hue of within) {
+      const width = wrap(hue - at) - APART;
+      if (width > 0) found.push({ from: at, width });
+      at = wrap(hue + APART);
+    }
+    const rest = region.width - wrap(at - region.from);
+    if (rest > 0) found.push({ from: at, width: rest });
+  }
+  return found;
+}
+
+/** 1 つ選ぶ。希望が空いていればそこ、埋まっていれば**いちばん広い空きの真ん中**
+ * — 次に来る相手のために、両側を等しく残す。
+ *
+ * 置いてよい所が相手で埋まりきったら、切り分ける前の所へ戻って同じ選び方をする
+ * (= 相手同士は近くなるが、意味色の隣には出ない)。 */
+export function pickHue(
+  reserved: readonly number[],
+  peers: readonly number[],
+  wish: number,
+): number {
+  const among = regions(reserved);
+  if (among.length === 0) return wrap(wish);
+  const carved = carve(among, peers);
+  const usable = carved.length > 0 ? carved : among;
+  if (usable.some((gap) => inside(gap, wish))) return wrap(wish);
+  const room = widest(usable);
+  return wrap(room.from + room.width / 2);
 }
 
 const held = new Map<string, number>();
@@ -87,11 +145,11 @@ const held = new Map<string, number>();
  * 返すのが CSS の値の綴りなのは、固定の 2 人が**入力を指したまま**でいるため —
  * 設定で自分の色相を動かした時に、既に描かれている行もそのまま追う。 */
 export function memberHue(key: string, root: HTMLElement = document.documentElement): string {
-  if (key === SELF) return "var(--h-self)";
+  if (key === MAIN) return "var(--h-main)";
   if (key === USER) return "var(--h-user)";
   const known = held.get(key);
   if (known !== undefined) return String(known);
-  const hue = pickHue([...standingHues(root), ...held.values()], wishedHue(key));
+  const hue = pickHue(standingHues(root), [...held.values()], wishedHue(key));
   held.set(key, hue);
   return String(hue);
 }

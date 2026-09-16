@@ -38,7 +38,7 @@ const FACE_LABELS: Readonly<Record<Face, string>> = {
  * どの青かは、その青を出す以外に言いようが無い。 */
 function Swatch({ name }: { name: string }) {
   // 誰かの色は段が 3 つとも同じ色相から出ているので、見本もその 3 段を並べる。
-  if (name === "h-self" || name === "h-user") {
+  if (name === "h-main" || name === "h-user") {
     return (
       <span class="theme-swatch member" aria-hidden="true" style={`--member-h:var(--${name})`}>
         {["--member-surface-subtle", "--member-surface", "--member-border"].map((role) => (

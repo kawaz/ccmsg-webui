@@ -22,7 +22,7 @@ import {
   itemProse,
   memberOf,
 } from "../timeline/item-view.ts";
-import { memberHue, SELF } from "../member.ts";
+import { MAIN, memberHue } from "../member.ts";
 import {
   foldShouldOpen,
   type ItemRow,
@@ -1051,7 +1051,7 @@ function ThinkingView({ item }: { item: TranscriptItem }) {
   return (
     <Fold
       class="tl-aside member"
-      style={`--member-h:${memberHue(SELF)}`}
+      style={`--member-h:${memberHue(MAIN)}`}
       folds={timelineFolds.value}
       foldKey={thinkFoldKey(item.id)}
       fallback={resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open}

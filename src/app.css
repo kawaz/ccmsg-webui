@@ -23,10 +23,14 @@
   --h-danger: 30;
   --semantic-c: 0.12;
   /* 誰が言ったかの色。**identity は色相だけ**で、明るさも色味も他と同じ段表から
-     取る。選べるのは固定の 2 人分 — 自分 (このセッション) とユーザで、それ以外の
-     相手の色相はこの 2 つと意味色を避けて `src/member.ts` が配る。 */
-  --h-self: 300;
-  --h-user: 152;
+     取る。選べるのは固定の 2 人分 — 選択中セッションの main とユーザで、それ以外の
+     相手の色相はこの 2 つと意味色を避けて `src/member.ts` が配る。
+
+     この 2 つの既定は、配る時と**同じ規則**で決めてある: 意味色 4 つの前後 15 度を
+     避けた空きのうち、いちばん広い所の真ん中が main (313)、次に広い所の真ん中が
+     ユーザ (194)。見分けが目的の色なので、既定も見分けから決まる。 */
+  --h-main: 313;
+  --h-user: 194;
   /* 見分けるのが目的なので、意味色より色味を強く取る。 */
   --member-c: 0.16;
   /* 識別の族: 目立ち方 (L と C) を先に決め、色相だけを動かして増やす。 */
@@ -948,7 +952,7 @@ select {
  * 満たすのがこの段だから。識別のために色味を強く取る以上、弱い段では色相によって
  * 足りなくなる — 弱く見せるのは大きさと字面の仕事にする。 */
 .member {
-  --member-h: var(--h-self);
+  --member-h: var(--h-main);
   --member-surface-subtle: oklch(
     from var(--step-2) l calc(var(--member-c) * var(--c-2)) var(--member-h)
   );
@@ -2575,10 +2579,10 @@ select {
   font-size: 12px;
 }
 
-/* 色を選ぶ画面。**見本は別に用意しない** — この画面自身が選んだ色で立っている
-   ので、触った結果はその場の地と罫と塗りに出る。 */
+/* 色を選ぶ画面。触る所と、その色が効いている所が横に並ぶ分の幅を取る — 片方
+   ずつしか見えないなら、見ながら選ぶことにならない。 */
 .theme {
-  max-width: 720px;
+  max-width: 1100px;
 }
 
 /* つまみと radio も主語の色で立つ。ブラウザが自分で描く部品なので、色を渡す
@@ -2730,6 +2734,99 @@ select {
 .theme-swatch > span {
   width: 16px;
   height: 16px;
+}
+
+/* 触る所と、効いている所。**見ながら選ぶ**ためのものなので横に並べ、狭い所では
+   縦に積む。積む時に触る所が先に来るのは、下に落ちると見ながら動かせないから。 */
+.theme-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 8fr) minmax(0, 7fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+@media (width <= 900px) {
+  .theme-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.theme-inputs {
+  min-width: 0;
+}
+
+/* 効いている所は、入力を追って動かず見えたままにする — 下の方の入力を触って
+   いる間に画面の外へ出ると、見ながら選ぶことにならない。 */
+.theme-preview {
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+  max-height: 100vh;
+  overflow: auto;
+}
+
+.theme-preview h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.theme-preview h4 {
+  margin: var(--gap) 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+.preview-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.preview-rows {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.preview-statuses {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-status {
+  display: flex;
+  gap: 6px;
+}
+
+/* 意味の色は**文字と地の両方**で出す。地だけを並べると、その色の上で文字が
+   読めるかどうかが見えない。 */
+.preview-band {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: 12px;
+  text-align: center;
 }
 
 /* 入力ぜんぶ。畳んであるのは既定で導かれるものだからで、隠してあるからではない

@@ -14,7 +14,7 @@ import { holdSection, type Preset, type Section } from "./settings-section.ts";
  * 触ることと決めることは別に持つ: 触った値は下書き (`theme`) として画面に出る
  * だけで、覚えるのは `save()` を通った時だけ (`saved`)。色は見てみないと決め
  * られないので、見るために選ぶことと、選び終えることを同じ操作にしない
- * (DR-0001 §2.7)。
+ * (DR-0001 §2.8)。
  *
  * 既定を持たないのも同じ理由による: 何も選んでいない時に出るのは `app.css` が
  * 書いてある値で、この module はそれを読んで見せる。数をこちらにも書けば、
@@ -48,7 +48,7 @@ export const INPUTS: readonly InputSpec[] = [
   { name: "h-success", kind: "hue", max: 360 },
   { name: "h-warning", kind: "hue", max: 360 },
   { name: "h-danger", kind: "hue", max: 360 },
-  { name: "h-self", kind: "hue", max: 360 },
+  { name: "h-main", kind: "hue", max: 360 },
   { name: "h-user", kind: "hue", max: 360 },
   { name: "tag-h0", kind: "hue", max: 360 },
   { name: "tag-step", kind: "hue", max: 120 },
@@ -64,7 +64,7 @@ export const BRAND_C = INPUTS.find((spec) => spec.name === "brand-c") as InputSp
  *
  * この 2 つが基本に居るのは、誰が言ったかが読む速さに直に効くから。中立の温度や
  * 意味色の色相は、選ばなくても画面が成立する。 */
-export const IDENTITY = INPUTS.filter((spec) => spec.name === "h-self" || spec.name === "h-user");
+export const IDENTITY = INPUTS.filter((spec) => spec.name === "h-main" || spec.name === "h-user");
 
 /** 詳細に出る入力。基本に出ているものはここに出ない — 同じ値を動かす操作子が
  * 2 つあると、名乗りの同じ操作子が画面に 2 度並ぶ (読み上げる人には区別が付か
@@ -171,7 +171,7 @@ const LABELS: Readonly<Record<string, string>> = {
   "h-success": "うまくいっている (success) の色相",
   "h-warning": "注意 (warning) の色相",
   "h-danger": "危険 (danger) の色相",
-  "h-self": "自分の色相 (このセッションの声)",
+  "h-main": "メインの色相 (このセッションが言ったこと)",
   "h-user": "ユーザの色相 (人が言ったこと)",
   "tag-h0": "識別の族の始まりの色相",
   "tag-step": "識別の族の色相の間隔",

@@ -1,7 +1,7 @@
 // 誰が言ったかの色相を配る規則。**色は 1 つも出てこない** — ここが見るのは
 // 「どの色相に置くか」だけで、その色相が何色になるかは段表と CSS が決める。
 import { describe, expect, test } from "bun:test";
-import { pickHue, SELF, USER, wishedHue } from "../src/member.ts";
+import { MAIN, pickHue, USER, wishedHue } from "../src/member.ts";
 import { memberOf } from "../src/timeline/item-view.ts";
 import { item } from "./item.ts";
 
@@ -11,28 +11,51 @@ function apartFrom(hue: number, taken: readonly number[]): number {
 }
 
 describe("色相を配る", () => {
+  /** 意味色 4 つと固定の 2 人。既定の入力と同じ並び。 */
+  const RESERVED = [30, 76, 152, 194, 236, 313];
+
   test("誰も居なければ希望どおり", () => {
-    expect(pickHue([], 200)).toBe(200);
+    expect(pickHue([], [], 200)).toBe(200);
   });
 
   test("希望が空いていればそこに置く", () => {
-    // 30 からも 300 からも十分離れている希望は、動かす理由が無い。
-    expect(pickHue([30, 300], 180)).toBe(180);
+    expect(pickHue([30, 300], [], 180)).toBe(180);
   });
 
-  test("希望が誰かの近くなら、いちばん広い空きの真ん中へ寄せる", () => {
-    const taken = [0, 20];
-    const hue = pickHue(taken, 10);
-    expect(hue).not.toBe(10);
-    expect(apartFrom(hue, taken)).toBeGreaterThan(15);
+  test("希望が誰かの近くなら、空いている所へ寄せる", () => {
+    const peers = [120];
+    const hue = pickHue([], peers, 125);
+    expect(hue).not.toBe(125);
+    expect(apartFrom(hue, peers)).toBeGreaterThanOrEqual(15);
   });
 
-  test("増えても既に居る誰かから 15 度以上離れる", () => {
-    const taken: number[] = [];
-    for (let nth = 0; nth < 8; nth += 1) {
-      const hue = pickHue(taken, wishedHue(`peer-${String(nth)}`));
-      if (taken.length > 0) expect(apartFrom(hue, taken)).toBeGreaterThanOrEqual(15);
-      taken.push(hue);
+  test("増えても既に居る相手から 15 度以上離れる", () => {
+    const peers: number[] = [];
+    for (let nth = 0; nth < 5; nth += 1) {
+      const hue = pickHue(RESERVED, peers, wishedHue(`peer-${String(nth)}`));
+      if (peers.length > 0) expect(apartFrom(hue, peers)).toBeGreaterThanOrEqual(15);
+      peers.push(hue);
+    }
+  });
+
+  // 意味色の帯と帯の間に残る狭い隙間は使わない。危険 (30) と注意 (76) の間は
+  // 15 度ずつ除くと 16 度しか残らず、そこに落ちた相手は「注意」の琥珀と見分けが
+  // 付かない。**混んできても**そこへは落ちない。
+  test("危険と注意の間には落ちない", () => {
+    const peers: number[] = [];
+    for (let nth = 0; nth < 24; nth += 1) {
+      const hue = pickHue(RESERVED, peers, wishedHue(`peer-${String(nth)}`));
+      expect(hue > 45 && hue < 61).toBe(false);
+      peers.push(hue);
+    }
+  });
+
+  test("意味色からはどれも 15 度以上離れる", () => {
+    const peers: number[] = [];
+    for (let nth = 0; nth < 12; nth += 1) {
+      const hue = pickHue(RESERVED, peers, wishedHue(`name-${String(nth)}`));
+      expect(apartFrom(hue, RESERVED)).toBeGreaterThanOrEqual(15);
+      peers.push(hue);
     }
   });
 
@@ -49,13 +72,13 @@ describe("色相を配る", () => {
 describe("誰が言ったか", () => {
   test("人とこのセッションは固定の 2 人", () => {
     expect(memberOf(item("message.user.in"))).toBe(USER);
-    expect(memberOf(item("message.user.out"))).toBe(SELF);
-    expect(memberOf(item("thinking"))).toBe(SELF);
+    expect(memberOf(item("message.user.out"))).toBe(MAIN);
+    expect(memberOf(item("thinking"))).toBe(MAIN);
   });
 
   test("相手の出てこない型はこのセッションがしたこと", () => {
-    expect(memberOf(item("tool.Bash", { role: "use" }))).toBe(SELF);
-    expect(memberOf(item("system.compact"))).toBe(SELF);
+    expect(memberOf(item("tool.Bash", { role: "use" }))).toBe(MAIN);
+    expect(memberOf(item("system.compact"))).toBe(MAIN);
   });
 
   test("行き先と来し方が同じ相手なら同じ鍵", () => {

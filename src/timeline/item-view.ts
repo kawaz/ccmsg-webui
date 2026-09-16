@@ -1,5 +1,5 @@
 import { TRANSCRIPT_ITEM_TYPES, type TranscriptItem } from "@ccmsg/protocol";
-import { SELF, USER } from "../member.ts";
+import { MAIN, USER } from "../member.ts";
 import { field, type ItemRow, ownFields, textField, typeTail } from "./items.ts";
 
 /** 型 1 つ 1 つが画面で何と名乗り、何を出すか。
@@ -99,7 +99,7 @@ export function itemLabel(item: TranscriptItem): string {
  * 相手は同じ 1 人なので、同じ鍵に落とす。
  *
  * 相手が出てこない型 (道具・hook・system) は、このセッション自身がしたこと
- * なので自分に落ちる。 */
+ * なので main に落ちる。 */
 export function memberOf(item: TranscriptItem): string {
   const type = item.type;
   if (type === "message.user.in") return USER;
@@ -120,7 +120,7 @@ export function memberOf(item: TranscriptItem): string {
   if (type === "message.team.in" || type === "message.team.out") {
     return `team:${textField(item, "harness_name") ?? textField(item, "agent_id") ?? ""}`;
   }
-  return SELF;
+  return MAIN;
 }
 
 /** 専用の見た目を持っている道具。ここに無い道具も出るが、出るのは呼ばれた時の
