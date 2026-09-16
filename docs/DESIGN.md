@@ -112,7 +112,10 @@ name, and **never moves a hue once it is placed** — a colour that shifts as
 people arrive is not a colour anyone can learn. The naming sits at step 12 and
 the rule at step 8 because a machine places the hue: only those steps meet 4.5
 and 3.0 **all the way around the circle**, which `test/color-contrast.test.ts`
-checks degree by degree.
+checks degree by degree. Those four names are the one part of layer 2 written
+outside `:root`, in a `.member` rule: a `var()` inside a custom property is
+solved on the element that declares it, so written at the root they would all
+read the root's hue and every line would come out the same colour.
 
 Colours that exist only to be told apart (search bands, spend series) come from
 an independent family (`--tag-*`) rather than borrowed from the meanings —
