@@ -46,7 +46,7 @@ import type {
 import { assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
 import { endpointFromLocation, isEndpoint, socketUrl } from "./auth/endpoint.ts";
-import type { Registration } from "./auth/register-link.ts";
+import { isRefused, type RegisterLink, type Registration } from "./auth/register-link.ts";
 import {
   access,
   authProblem,
@@ -210,10 +210,18 @@ export const registration = signal<Registration | undefined>(undefined);
  * an endpoint — and the field takes that value here rather than after the
  * ceremony, so that nobody types it back in. Dismissing the screen leaves them
  * pointed at the instance they were sent to, which is the one they were given a
- * link for. */
-export function holdRegistration(held: Registration): void {
-  setEndpoint(held.claims.endpoint);
-  registration.value = held;
+ * link for.
+ *
+ * A link that cannot be registered by says so instead. Somebody opened a URL
+ * they were handed, and a page that quietly carried on would leave them
+ * pressing it again. */
+export function holdRegistration(link: RegisterLink): void {
+  if (isRefused(link)) {
+    authProblem.value = link.refused;
+    return;
+  }
+  setEndpoint(link.claims.endpoint);
+  registration.value = link;
 }
 export const status = signal<ConnectionStatus>("idle");
 

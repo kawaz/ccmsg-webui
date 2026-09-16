@@ -1,4 +1,4 @@
-import { isValid, RegisterClaims } from "@ccmsg/protocol";
+import { isValid, RegisterClaims, WebUi } from "@ccmsg/protocol";
 import { fromBase64Url } from "./base64url.ts";
 
 /** What `ccmsg daemon passkey add` hands a person: a link, and six digits it
@@ -20,13 +20,47 @@ export interface Registration {
   readonly claims: RegisterClaims;
 }
 
+/** A link that names a registration this page cannot carry out, and the words
+ * to say so with.
+ *
+ * Told apart from "no link at all" because the two call for different things:
+ * one is an ordinary page load, and the other is a person who was handed a URL,
+ * opened it, and would otherwise watch nothing happen. */
+export interface RefusedLink {
+  readonly refused: string;
+}
+
+export type RegisterLink = Registration | RefusedLink;
+
+export function isRefused(link: RegisterLink): link is RefusedLink {
+  return "refused" in link;
+}
+
 /** Read `#register=<token>` out of a location fragment. */
-export function parseRegisterFragment(hash: string): Registration | undefined {
+export function parseRegisterFragment(hash: string): RegisterLink | undefined {
   const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
   const token = params.get("register");
   if (token === null || token === "") return undefined;
   const claims = readClaims(token);
-  return claims === undefined ? undefined : { token, claims };
+  return claims === undefined ? { refused: refusalOf(token) } : { token, claims };
+}
+
+/** Why a token's claims are not something to register by, for the person
+ * holding the link.
+ *
+ * The web UI is singled out because it is the one field whose values a person
+ * can be handed in good faith and which still cannot work: a ceremony needs a
+ * secure context and a relying party that is a domain, so the contract admits
+ * `https`, `http` on the loopback names a browser trusts, and no address
+ * literal (contract `WebUi`). Nothing here can be worked around at this page —
+ * the link has to be issued again for a UI that meets it. */
+function refusalOf(token: string): string {
+  const parsed = claimsBody(token);
+  const webui = (parsed as { webui?: unknown } | undefined)?.webui;
+  if (typeof webui === "string" && !isValid(WebUi, webui)) {
+    return `この登録 URL は使えません: passkey を作れる画面の住所は https のみで (開発中の localhost だけ http)、IP アドレスは使えません。渡された住所は ${webui} です。`;
+  }
+  return "この登録 URL は読めません。CLI で発行し直してください。";
 }
 
 /** The address bar, as far as a registration link needs it. */
@@ -47,7 +81,7 @@ export interface RegisterLinkPage {
  * `hashchange` as on arrival, or the link would look like it did nothing. */
 export function watchRegisterLinks(
   page: RegisterLinkPage,
-  hold: (held: Registration) => void,
+  hold: (held: RegisterLink) => void,
 ): void {
   const take = (): void => {
     const hash = page.hash();
@@ -67,13 +101,19 @@ export function watchRegisterLinks(
  * left it; a page that checked what it can read here would be checking a
  * caller's own claim about a caller's own token. */
 export function readClaims(token: string): RegisterClaims | undefined {
+  const parsed = claimsBody(token);
+  return isValid(RegisterClaims, parsed) ? (parsed as RegisterClaims) : undefined;
+}
+
+/** The token's middle segment as whatever JSON it holds, checked against
+ * nothing. Only `readClaims` and the refusal above read it, and neither trusts
+ * what it finds. */
+function claimsBody(token: string): unknown {
   const segments = token.split(".");
   if (segments[1] === undefined) return undefined;
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(new TextDecoder().decode(fromBase64Url(segments[1])));
+    return JSON.parse(new TextDecoder().decode(fromBase64Url(segments[1])));
   } catch {
     return undefined;
   }
-  return isValid(RegisterClaims, parsed) ? (parsed as RegisterClaims) : undefined;
 }

@@ -1,3 +1,4 @@
+import { authProblem } from "../auth/session.ts";
 import { connect, generationWarning, status, statusDetail, wanted } from "../state.ts";
 
 /** まだ一度も一覧を受け取っていない画面の**本文**。
@@ -8,15 +9,19 @@ import { connect, generationWarning, status, statusDetail, wanted } from "../sta
  * 要らない — 繋がっていないことも、繋ぐ手も、接続バーが既に持っている。押す所を
  * 2 つに増やすと、どちらが本物かを読む人が考えることになる。
  *
- * 例外は契約の世代が食い違った時だけ。これは繋ぎ直しても直らない唯一のことで、
- * 接続バーには「読み込み直せ」と言う場所が無い。 */
+ * 例外は**繋ぎ直しても直らないこと**だけ。接続バーには理由を言う場所が無い。
+ * 契約の世代の食い違いと、この画面では登録できない登録 URL を開いた時がこれ
+ * (後者は、そのまま黙っていると「押したのに何も起きなかった」になる)。 */
 export function Disconnected() {
-  if (generationWarning.value === undefined) return null;
-  return (
-    <p class="banner">
-      {generationWarning.value} — この画面を再読み込みしてください (互換経路はありません)。
-    </p>
-  );
+  if (generationWarning.value !== undefined) {
+    return (
+      <p class="banner">
+        {generationWarning.value} — この画面を再読み込みしてください (互換経路はありません)。
+      </p>
+    );
+  }
+  if (authProblem.value !== undefined) return <p class="banner">{authProblem.value}</p>;
+  return null;
 }
 
 /** 聞いたものは出ているが、今は話し相手が居ない、と言う帯。
