@@ -48,6 +48,8 @@ export const INPUTS: readonly InputSpec[] = [
   { name: "h-success", kind: "hue", max: 360 },
   { name: "h-warning", kind: "hue", max: 360 },
   { name: "h-danger", kind: "hue", max: 360 },
+  { name: "h-self", kind: "hue", max: 360 },
+  { name: "h-user", kind: "hue", max: 360 },
   { name: "tag-h0", kind: "hue", max: 360 },
   { name: "tag-step", kind: "hue", max: 120 },
 ];
@@ -57,8 +59,12 @@ export const INPUTS: readonly InputSpec[] = [
 export const BRAND_H = INPUTS.find((spec) => spec.name === "brand-h") as InputSpec;
 export const BRAND_C = INPUTS.find((spec) => spec.name === "brand-c") as InputSpec;
 
-/** スライダで動かす入力 (= 主語の色以外)。 */
-export const SLIDERS = INPUTS.filter((spec) => spec !== BRAND_H && spec !== BRAND_C);
+/** 基本で選ぶ色相。主語の色と合わせて、**人が選ぶのはこの 3 つの色相と face
+ * だけ**で足りるようにしてある — 残りは既定のまま導かれる。
+ *
+ * この 2 つが基本に居るのは、誰が言ったかが読む速さに直に効くから。中立の温度や
+ * 意味色の色相は、選ばなくても画面が成立する。 */
+export const IDENTITY = INPUTS.filter((spec) => spec.name === "h-self" || spec.name === "h-user");
 
 export function inputStep(spec: InputSpec): number {
   return spec.kind === "hue" ? 1 : 0.001;
@@ -157,6 +163,8 @@ const LABELS: Readonly<Record<string, string>> = {
   "h-success": "うまくいっている (success) の色相",
   "h-warning": "注意 (warning) の色相",
   "h-danger": "危険 (danger) の色相",
+  "h-self": "自分の色相 (このセッションの声)",
+  "h-user": "ユーザの色相 (人が言ったこと)",
   "tag-h0": "識別の族の始まりの色相",
   "tag-step": "識別の族の色相の間隔",
 };

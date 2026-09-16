@@ -9,7 +9,7 @@ import {
   parseOklch,
   parseTheme,
   PRESETS,
-  SLIDERS,
+  IDENTITY,
   type Theme,
 } from "../src/theme.ts";
 
@@ -94,7 +94,7 @@ describe("色の組", () => {
 describe("ベースとの差", () => {
   // 主語の色以外から 1 つ。主語の色は 2 入力で 1 つの選択なので、単独の項の
   // 振る舞いを見るこの節では使わない。
-  const spec = SLIDERS[0] as (typeof SLIDERS)[number];
+  const spec = IDENTITY[0] as (typeof IDENTITY)[number];
 
   test("同じものは差が無い", () => {
     const held: Theme = { face: "dark", inputs: { [spec.name]: 200, "brand-c": 0.13 } };
