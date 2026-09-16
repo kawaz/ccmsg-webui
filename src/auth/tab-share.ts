@@ -49,7 +49,10 @@ const EXPIRY_MARGIN_MS = 5_000;
 /** The web APIs this leans on, so a test can stand in for them and a browser
  * without the Web Locks API is simply one where `locks` is absent. */
 export interface TabShareDeps {
-  readonly endpoint: string;
+  /** Read rather than held: the person states which instance they are reaching
+   * and can state another one, and tabs of two instances are not tabs of one
+   * session. */
+  readonly endpoint: () => string | undefined;
   readonly subject: () => Subject | undefined;
   /** What this tab holds right now, so it can answer another tab's ask. */
   readonly session: () => AuthSession | undefined;
@@ -164,10 +167,15 @@ export class TabShare {
 
   /** The endpoint alone until the subject is known, and both once it is: a tab
    * that has not authenticated yet has no session to be part of, and a tab that
-   * has must not share one person's token with another's. */
+   * has must not share one person's token with another's.
+   *
+   * A tab that has stated no endpoint names none. It has nothing to coordinate
+   * either, so what it would listen on is never used — and the moment it states
+   * one, the name it takes is that endpoint's. */
   #scope(): string {
+    const at = this.#deps.endpoint() ?? "";
     const sub = this.#deps.subject();
-    return sub === undefined ? this.#deps.endpoint : `${this.#deps.endpoint}:${sub}`;
+    return sub === undefined ? at : `${at}:${sub}`;
   }
 
   #reopen(): void {

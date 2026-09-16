@@ -75,7 +75,7 @@ function tab(
   } = {},
 ): TabShare {
   const share = new TabShare({
-    endpoint,
+    endpoint: () => endpoint,
     subject: options.sub ?? ((): Subject | undefined => "someone" as Subject),
     session: options.session ?? ((): AuthSession | undefined => undefined),
     ...(options.locks === undefined ? {} : { locks: options.locks }),
@@ -114,7 +114,7 @@ describe("one refresh between the person's tabs", () => {
     const heard: string[] = [];
     const one = tab("http://h/", { locks });
     const two = new TabShare({
-      endpoint: "http://h/",
+      endpoint: () => "http://h/",
       subject: (): Subject => "someone" as Subject,
       session: (): AuthSession | undefined => undefined,
       locks,
@@ -209,7 +209,7 @@ describe("who a tab is coordinating with", () => {
   test("a tab with no session yet listens on the endpoint alone", () => {
     let sub: Subject | undefined;
     const share = new TabShare({
-      endpoint: "http://h/",
+      endpoint: () => "http://h/",
       subject: () => sub,
       session: (): AuthSession | undefined => undefined,
       channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
@@ -221,5 +221,26 @@ describe("who a tab is coordinating with", () => {
     sub = "someone" as Subject;
     share.share(session("standing"));
     expect([...FakeChannel.open.keys()]).toContain("ccmsg.auth:http://h/:someone");
+  });
+
+  test("a tab that dials another instance coordinates under that one's name", () => {
+    // The endpoint is the person's to state and to restate (contract DR-0029),
+    // and two instances are not one session: a token of the first is nothing to
+    // the second, so the name a tab listens on moves with what it is dialing.
+    let at = "http://h/";
+    const share = new TabShare({
+      endpoint: () => at,
+      subject: (): Subject => "someone" as Subject,
+      session: (): AuthSession | undefined => undefined,
+      channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
+    });
+    share.listen(() => {});
+    expect([...FakeChannel.open.keys()]).toContain("ccmsg.auth:http://h/:someone");
+
+    at = "https://other.example/personal/";
+    share.share(session("standing"));
+    expect([...FakeChannel.open.keys()]).toContain(
+      "ccmsg.auth:https://other.example/personal/:someone",
+    );
   });
 });

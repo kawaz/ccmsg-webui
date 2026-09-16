@@ -20,8 +20,8 @@ export function SignIn() {
       {needsRegistration.value && (
         <>
           <p class="empty">
-            この端末には <code>{endpoint}</code> の passkey がありません (別のホストやパスで登録した
-            passkey は、ここでは使えません)。
+            この端末には <code>{endpoint.value}</code> の passkey がありません (別の画面で登録した
+            passkey や、別の instance に登録した passkey は、ここでは使えません)。
           </p>
           <p class="meta">
             登録するには、この instance の管理者から <b>登録 URL と 6 桁のコード</b> を受け取って

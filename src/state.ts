@@ -45,7 +45,7 @@ import type {
 } from "@ccmsg/protocol";
 import { assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
-import { endpointFromLocation, socketUrl } from "./auth/endpoint.ts";
+import { endpointFromLocation, isEndpoint, socketUrl } from "./auth/endpoint.ts";
 import type { Registration } from "./auth/register-link.ts";
 import {
   access,
@@ -161,13 +161,41 @@ const CAPABILITY_TOPICS: readonly (readonly [Capability, TopicName])[] = [
   ["llm_events", "llm.requests"],
 ];
 
-/** The instance this page belongs to: the base URL it was served from.
+/** The instance this page is dialing: a base URL the person states.
  *
- * Read once and never set. It is not a preference — a passkey answers only for
- * the domain this page came from and the refresh cookie only travels to the
- * prefix it was set for, so an endpoint other than this one is an instance this
- * browser cannot authenticate to (DR-0001 §2.3). */
-export const endpoint: string | undefined = endpointFromLocation(location.origin, BASE);
+ * Not where this page came from. A web UI is published at a URL of its own and
+ * the instance it reaches is named separately — a credential is made against
+ * both, and a person may open one UI at several instances (contract DR-0029).
+ * What is offered first is this page's own address, which is right where an
+ * instance serves the UI under its own endpoint and is only a starting value
+ * anywhere else.
+ *
+ * Kept between visits, because stating it again on every load is work the
+ * person already did (`src/settings.ts`). */
+const ENDPOINT_KEY = "ccmsg.endpoint";
+
+function firstEndpoint(): string | undefined {
+  const kept = localStore.get(ENDPOINT_KEY);
+  if (kept !== undefined && isEndpoint(kept)) return kept;
+  return endpointFromLocation(location.origin, BASE);
+}
+
+export const endpoint = signal<string | undefined>(firstEndpoint());
+
+/** Dial another instance.
+ *
+ * Refused unless it is an endpoint at all (contract `Endpoint`): a value this
+ * page cannot write routes after is not one to keep. Everything held belongs to
+ * the instance it came from, so moving is a disconnection — the session, the
+ * lists and what was being read are another instance's and mean nothing here. */
+export function setEndpoint(next: string): boolean {
+  if (!isEndpoint(next)) return false;
+  if (next === endpoint.peek()) return true;
+  disconnect();
+  endpoint.value = next;
+  localStore.set(ENDPOINT_KEY, next);
+  return true;
+}
 
 /** The registration a link carried, while it is being completed.
  *
@@ -713,26 +741,24 @@ export function sessionPaths(sid: Sid): { cwd?: string; root?: string } {
   return { cwd: peer.cwd, ...(peer.repo_root === undefined ? {} : { root: peer.repo_root }) };
 }
 
-/** The person's other tabs at this endpoint: who refreshes, and what they all
- * hold once one of them has (DR-0001 §2.4). Absent when there is no endpoint to
- * be a tab of. */
-const tabs =
-  endpoint === undefined
-    ? undefined
-    : new TabShare({
-        endpoint,
-        subject: () => subject.peek(),
-        session: () => {
-          const held = access.peek();
-          const sub = subject.peek();
-          return held === undefined || sub === undefined || !tokenIsLive()
-            ? undefined
-            : { sub, access: held };
-        },
-        locks: navigator.locks as LockManager | undefined,
-      });
+/** The person's other tabs at the instance being dialed: who refreshes, and
+ * what they all hold once one of them has (DR-0001 §2.4). The endpoint is read
+ * each time it is needed, so tabs that move to another instance move the name
+ * they coordinate under with them. */
+const tabs = new TabShare({
+  endpoint: () => endpoint.peek(),
+  subject: () => subject.peek(),
+  session: () => {
+    const held = access.peek();
+    const sub = subject.peek();
+    return held === undefined || sub === undefined || !tokenIsLive()
+      ? undefined
+      : { sub, access: held };
+  },
+  locks: navigator.locks as LockManager | undefined,
+});
 
-tabs?.listen((shared) => {
+tabs.listen((shared) => {
   if (shared.access.value !== access.peek()?.value) holdSession(shared);
 });
 
@@ -740,7 +766,7 @@ tabs?.listen((shared) => {
  * rotation happens once and its answer reaches the others. */
 async function renewSession(at: string, reason: AuthRefreshReason): Promise<AuthSession> {
   const run = (): Promise<AuthSession> => refreshSession(at, reason);
-  return tabs === undefined ? await run() : await tabs.renew(run);
+  return await tabs.renew(run);
 }
 
 /** The access token to open the next socket with.
@@ -755,17 +781,18 @@ async function renewSession(at: string, reason: AuthRefreshReason): Promise<Auth
  * this page, and asking the cookie is the only way to learn what stands. */
 async function accessToken(renew = false): Promise<string | undefined> {
   if (!renew && tokenIsLive()) return access.peek()?.value;
-  if (endpoint === undefined) return undefined;
+  const at = endpoint.peek();
+  if (at === undefined) return undefined;
   // What another tab has already settled on, before asking for a rotation of
   // this page's own: the token is the family's, so one tab's answer is every
   // tab's answer.
-  const shared = tabs?.fresh();
+  const shared = tabs.fresh();
   if (shared !== undefined && shared.access.value !== access.peek()?.value) {
     holdSession(shared);
     return shared.access.value;
   }
   try {
-    holdSession(await renewSession(endpoint, connectRefreshReason()));
+    holdSession(await renewSession(at, connectRefreshReason()));
     return access.peek()?.value;
   } catch (cause) {
     // The endpoint being unreachable is not the session being over. Keeping
@@ -797,9 +824,10 @@ export const wanted = signal(false);
  * needs. Called with a session in hand: what to do when there is none is
  * decided before this, where the person's press is still live. */
 function openSocket(): void {
-  if (endpoint === undefined) return;
+  const at = endpoint.peek();
+  if (at === undefined) return;
   generationWarning.value = undefined;
-  connection.connect(socketUrl(endpoint), accessToken);
+  connection.connect(socketUrl(at), accessToken);
   for (const topic of TOPICS) connection.subscribe(topic);
 }
 
@@ -816,7 +844,7 @@ async function haveSession(): Promise<boolean> {
  * its passkey — in the same turn as the press, because asking for a passkey is
  * something a browser only allows while the person's gesture is still live. */
 export async function connect(): Promise<void> {
-  if (endpoint === undefined) return;
+  if (endpoint.peek() === undefined) return;
   wanted.value = true;
   needsSignIn.value = false;
   needsRegistration.value = false;
@@ -831,7 +859,7 @@ export async function connect(): Promise<void> {
  * to connect. Nothing about authenticating is said yet — there is nothing to
  * say until an attempt has been made. */
 export async function resume(): Promise<void> {
-  if (endpoint === undefined || !(await haveSession())) return;
+  if (endpoint.peek() === undefined || !(await haveSession())) return;
   wanted.value = true;
   openSocket();
 }
@@ -882,14 +910,16 @@ export function disconnect(): void {
 /** Prove a passkey and hold what it minted.
  *
  * No relying party is named: a passkey answers for the domain of the page
- * asking, which is the endpoint's own host — the one it was registered under
- * (DR-0001 §2.3). Answers whether there is a session now; what raises a screen
+ * asking, which is the web UI it was made at — the credential is held to that
+ * UI and to the instance being dialed alike (DR-0001 §2.3, contract DR-0029).
+ * Answers whether there is a session now; what raises a screen
  * is the refusal, which is where what the person can do next is known. */
 export async function signIn(): Promise<boolean> {
-  if (endpoint === undefined) return false;
+  const at = endpoint.peek();
+  if (at === undefined) return false;
   authProblem.value = undefined;
   try {
-    holdSession(await assertPasskey(endpoint));
+    holdSession(await assertPasskey(at));
     needsSignIn.value = false;
     needsRegistration.value = false;
     return true;
@@ -918,6 +948,10 @@ export async function completeRegistration(code: string, deviceLabel: string): P
       code,
       deviceLabel,
     });
+    // The link said which instance this passkey is for, and that is the one to
+    // dial: a person who opened a registration URL stated an endpoint by
+    // opening it, and it need not be the one this page was last pointed at.
+    setEndpoint(held.claims.endpoint);
     holdSession(session);
     registration.value = undefined;
     wanted.value = true;
@@ -950,9 +984,10 @@ let renewTimer: ReturnType<typeof setTimeout> | undefined;
  * deadline — a client that reconnected to use a fresh token would blink every
  * few hours for no reason (DR-0001 §2.5). */
 async function renewConnection(): Promise<void> {
-  if (endpoint === undefined || status.peek() !== "open") return;
+  const at = endpoint.peek();
+  if (at === undefined || status.peek() !== "open") return;
   try {
-    holdSession(await renewSession(endpoint, "expiring"));
+    holdSession(await renewSession(at, "expiring"));
     const token = access.peek()?.value;
     if (token === undefined) return;
     const reply = await connection.request("auth.extend", { access_token: token });

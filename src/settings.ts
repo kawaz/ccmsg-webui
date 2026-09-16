@@ -1,11 +1,12 @@
 /** What this browser keeps between visits.
  *
- * Not the endpoint: this page is served from under it (DR-0001 §2.2), so where
- * to reach an instance is read from where the page came from and a stored copy
- * could only disagree with it. Not a secret either — the access token is held
- * in memory and the refresh token is a cookie this page cannot read (§2.4).
- * What is left is per-screen memory, whose keys name the endpoint they belong
- * to so that two instances behind one origin do not read each other's. */
+ * The endpoint is one of them: a web UI is published at a URL of its own and
+ * reaches an instance that may be another site (contract DR-0029), so where to
+ * dial is something the person states and something they should not have to
+ * state twice. No secret is kept — the access token is held in memory and the
+ * refresh token is a cookie this page cannot read (DR-0001 §2.4). The rest is
+ * per-screen memory, whose keys name the instance they belong to so that two
+ * instances read through one page do not read each other's. */
 
 /** A storage that answers as empty rather than throwing, which is what a
  * private window and a browser with site data blocked both look like. */

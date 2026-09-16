@@ -210,11 +210,27 @@ code,
   border-color: var(--brand-fg);
 }
 
+/* 繋ぐ先。読むだけの住所ではなく人が述べる値なので、入力欄として置く。 */
 .bar .endpoint {
   flex: 1 1 220px;
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--fg-muted);
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.bar .endpoint:focus {
+  color: var(--fg);
+  outline: none;
+  border-color: var(--brand-fg);
+}
+
+/* 受け取れない綴り。何が要るかは title が言うので、ここは目印だけ。 */
+.bar .endpoint[aria-invalid="true"] {
+  border-color: var(--danger-fg);
 }
 
 button {

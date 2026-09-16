@@ -1,3 +1,4 @@
+import { useSignal } from "@preact/signals";
 import { connectionExpiresAt, subject } from "../auth/session.ts";
 import type { ConnectionStatus } from "../connection.ts";
 import { instanceLabel } from "../instance-label.ts";
@@ -14,6 +15,7 @@ import {
   navigate,
   route,
   sessionsOpen,
+  setEndpoint,
   toggleSessionsOpen,
   status,
   statusDetail,
@@ -101,13 +103,54 @@ function untilWords(at: number): string {
   return new Date(at).toLocaleTimeString();
 }
 
+/** どの instance に繋ぐか。
+ *
+ * この画面はどこに publish されていてもよく、繋ぐ先はそれとは別の site で
+ * ありうる (契約 DR-0029)。だから住所は**人が述べるもの**で、既定で入って
+ * いるのはこのページ自身の住所 — instance が UI ごと配っている置き方では
+ * それが正しく、それ以外では出発点にすぎない。
+ *
+ * 書き換えは離れた時 (or Enter) に確定する。1 文字ごとに確定すると、打って
+ * いる途中の URL に繋ぎ変えることになる。 */
+function EndpointField() {
+  const at = endpoint.value;
+  const draft = useSignal<string | undefined>(undefined);
+  const refused = useSignal(false);
+  const shown = draft.value ?? at ?? "";
+  const commit = (): void => {
+    const next = draft.value;
+    draft.value = undefined;
+    if (next === undefined || next === at) return;
+    refused.value = !setEndpoint(next.trim());
+  };
+  return (
+    <input
+      type="url"
+      class="endpoint mono"
+      value={shown}
+      aria-invalid={refused.value ? "true" : undefined}
+      aria-label="instance の endpoint"
+      placeholder="https://host/path/"
+      title={refused.value ? "末尾が / の http(s) の base URL を入れてください" : undefined}
+      onInput={(event) => {
+        draft.value = event.currentTarget.value;
+        refused.value = false;
+      }}
+      onBlur={commit}
+      onKeyDown={(event: KeyboardEvent) => {
+        if (event.key === "Enter") (event.currentTarget as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
+
 /** What this connection is, in one line.
  *
- * The instance is not chosen here: this page is served from under its endpoint,
- * so the address is shown rather than typed (DR-0001 §2.2). What is left to do
- * is stop and start it, which is one button: it says the thing pressing it
- * does, and what it is doing now is the word beside the dot. Who is connected
- * is answered by a passkey and shown beside it. */
+ * The instance is stated here, because a web UI is published at a URL of its
+ * own and dials an endpoint that may be another site (contract DR-0029). What
+ * is left to do is stop and start it, which is one button: it says the thing
+ * pressing it does, and what it is doing now is the word beside the dot. Who is
+ * connected is answered by a passkey and shown beside it. */
 export function ConnectionBar() {
   const state = status.value;
   const on = wanted.value;
@@ -116,10 +159,10 @@ export function ConnectionBar() {
     <div class="bar app-bar">
       <span class={`dot ${state === "open" ? "open" : state === "closed" ? "closed" : ""}`} />
       {WORDS[state] !== undefined && <span>{WORDS[state]}</span>}
-      <code class="endpoint">{endpoint}</code>
+      <EndpointField />
       <button
         type="button"
-        disabled={endpoint === undefined}
+        disabled={endpoint.value === undefined}
         onClick={() => {
           if (on) disconnect();
           else void connect();
