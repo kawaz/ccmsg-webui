@@ -165,7 +165,7 @@ export function apply(next: Theme, root: HTMLElement = document.documentElement)
 
 /** 今この画面に効いている値。選んでいれば選んだ値、選んでいなければ app.css の
  * 値 — 画面が実際に立っている色を出すために、**解決済みの値を読む**。 */
-export function standing(name: string, root: HTMLElement = document.documentElement): string {
+function standing(name: string, root: HTMLElement = document.documentElement): string {
   return getComputedStyle(root).getPropertyValue(`--${name}`).trim();
 }
 
