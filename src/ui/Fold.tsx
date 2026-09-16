@@ -10,6 +10,7 @@ import type { FoldOpen } from "../timeline/fold-open.ts";
  * throw away the work of having opened it. */
 export function Fold({
   class: className,
+  style,
   folds,
   foldKey,
   fallback,
@@ -17,6 +18,9 @@ export function Fold({
   children,
 }: {
   class: string;
+  /** 行ごとに変わる入力を載せる所。色そのものではなく、CSS が段を掛ける前の
+   * 色相が通る (`--member-h`)。 */
+  style?: string;
   folds: FoldOpen;
   foldKey: string;
   /** Open unless the reader has said otherwise for this fold. */
@@ -31,6 +35,7 @@ export function Fold({
   return (
     <details
       class={className}
+      style={style}
       open={open}
       onToggle={(event) => {
         folds.set(foldKey, (event.currentTarget as HTMLDetailsElement).open);

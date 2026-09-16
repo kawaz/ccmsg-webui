@@ -99,6 +99,25 @@ for (const dark of [false, true]) {
       for (const fill of fills) expect(contrast(onFill, fill)).toBeGreaterThanOrEqual(4.5);
     });
 
+    // 誰の色相になるかは配った先で決まるので (`src/member.ts`)、**円のどこでも**
+    // 満たしていなければ保証にならない。固定の 2 人だけ見ても、3 人目からが
+    // 見えていないことになる。
+    test("誰の色でも、名乗りは 4.5 以上・罫は 3.0 以上", () => {
+      const chroma = value("member-c");
+      for (let h = 0; h < 360; h += 5) {
+        // 誰かの行は自分の色の面の上に立つので、地は中立とその人の面の両方を見る。
+        const grounds = [
+          ...GROUNDS.map(ground),
+          step(dark, 2, chroma, h),
+          step(dark, 3, chroma, h),
+        ];
+        for (const on of grounds) {
+          expect(contrast(step(dark, 12, chroma, h), on)).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(step(dark, 8, chroma, h), on)).toBeGreaterThanOrEqual(3.0);
+        }
+      }
+    });
+
     test("識別の族の上に乗る文字は 4.5 以上", () => {
       const seed = faced("tag-seed", dark);
       const h0 = hue("tag-h0");

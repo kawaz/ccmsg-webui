@@ -1,4 +1,5 @@
 import { TRANSCRIPT_ITEM_TYPES, type TranscriptItem } from "@ccmsg/protocol";
+import { SELF, USER } from "../member.ts";
 import { field, type ItemRow, ownFields, textField, typeTail } from "./items.ts";
 
 /** 型 1 つ 1 つが画面で何と名乗り、何を出すか。
@@ -89,6 +90,37 @@ export function itemLabel(item: TranscriptItem): string {
     return isResult(item) ? `${name} の結果` : name;
   }
   return type;
+}
+
+/** その item を言った相手。色を配る鍵で、画面に出る語ではない。
+ *
+ * 名乗り (`itemLabel`) と分けるのは、名乗りが**主語から見た関係**を言うのに対し、
+ * ここが言うのは**相手そのもの**だから。`← foo` と `→ foo` は違う向きの 1 行だが
+ * 相手は同じ 1 人なので、同じ鍵に落とす。
+ *
+ * 相手が出てこない型 (道具・hook・system) は、このセッション自身がしたこと
+ * なので自分に落ちる。 */
+export function memberOf(item: TranscriptItem): string {
+  const type = item.type;
+  if (type === "message.user.in") return USER;
+  if (type === "message.session.in" || type === "message.session.out") {
+    return `session:${textField(item, "from") ?? textField(item, "to") ?? ""}`;
+  }
+  if (type === "message.sub.in" || type === "message.sub.out") {
+    const name =
+      textField(item, "agent_id") ??
+      textField(item, "name") ??
+      textField(item, "subagent_type") ??
+      "";
+    return `sub:${name}`;
+  }
+  if (type === "message.parent.in" || type === "message.parent.out") {
+    return `parent:${textField(item, "harness_name") ?? ""}`;
+  }
+  if (type === "message.team.in" || type === "message.team.out") {
+    return `team:${textField(item, "harness_name") ?? textField(item, "agent_id") ?? ""}`;
+  }
+  return SELF;
 }
 
 /** 専用の見た目を持っている道具。ここに無い道具も出るが、出るのは呼ばれた時の

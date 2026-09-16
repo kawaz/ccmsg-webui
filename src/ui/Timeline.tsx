@@ -20,7 +20,9 @@ import {
   itemDetail,
   itemLabel,
   itemProse,
+  memberOf,
 } from "../timeline/item-view.ts";
+import { memberHue, SELF } from "../member.ts";
 import {
   foldShouldOpen,
   type ItemRow,
@@ -1015,7 +1017,8 @@ function MessageView({ item }: { item: TranscriptItem }) {
   );
   return (
     <Fold
-      class="tl-bubble"
+      class="tl-bubble member"
+      style={`--member-h:${memberHue(memberOf(item))}`}
       folds={timelineFolds.value}
       foldKey={key}
       fallback={resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open}
@@ -1047,7 +1050,8 @@ function ThinkingView({ item }: { item: TranscriptItem }) {
   const text = itemProse(item) ?? "";
   return (
     <Fold
-      class="tl-aside"
+      class="tl-aside thinking"
+      style={`--member-h:${memberHue(SELF)}`}
       folds={timelineFolds.value}
       foldKey={thinkFoldKey(item.id)}
       fallback={resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open}
