@@ -292,7 +292,7 @@ dropped.
 
 A session is the transcript and the folded state; a run is one process of it (contract DR-0001). The URL says which of the two is being looked at: `/s/<sid>` is the session and `/s/<sid>.<pid>` is one run of it.
 
-**Where a row stands is read off the row**, by the contract's own `liveness`, `reachable` and `waiting`. Nothing on the wire says which heading a session goes under: the words are this screen's and the arithmetic is the contract's, so this build and an instance never show one row two ways. A session two processes are writing heads the list, because that is the answer to a different question — how many processes — and nothing else about such a row is worth reading until a person picks one of them.
+**Where a row stands is read off the row**, by the contract's own `liveness`, `reachable` and `waiting`. Nothing on the wire says which heading a session goes under: the words are this screen's and the arithmetic is the contract's, so this build and an instance never show one row two ways. A session two processes are writing heads the list, because that is the answer to a different question — how many processes — and nothing else about such a row is worth reading until a person picks one of them. **A heading spells its section's own name** (`Duplicated`, `Waiting`, `Live`, `Unreachable`, `Paused`, `Disappeared`): those words are the vocabulary this screen shares with the contract, and translating them would give one thing two names, one on screen and one in conversation. The order descends from what needs a hand to what needs none, and **a harness that has not announced itself yet** (`起動中`) stands after all of them — the only thing to do with one is look into its terminal.
 
 **A session two processes are writing is not shown as a session at all.** Its fold is frozen and every send, dump and file read is refused (`session_duplicated`), so what a person lands on is the runs and what can be told of each: the pid, when it started, whether it is connected, the terminal it is in, what it is waiting on. Nothing that would be refused is drawn — a composer that exists to be turned down is worse than none. Choosing a run leads to `/s/<sid>.<pid>`, which carries the same material and the one thing there is to do: end that run, naming its pid, since the sid alone no longer resolves to one process.
 
@@ -395,7 +395,13 @@ The files screen answers three things: where things are (the tree), what is in o
 
 ## Searching what is on screen
 
-The search covers **what this page already holds** — the stretch of the transcript that has been read, and the file that is open. Nothing is asked of the instance (DR-0022). The browser's own Cmd+F cannot see inside a collapsed fold and does not open at all in a standalone PWA, so `/` and ⌘F are taken by this box.
+The search covers **what this page already holds** — the stretch of the transcript that has been read, and the file that is open. Nothing is asked of the instance (DR-0022). The box is opened by its 🔍 and by nothing typed (below).
+
+### The keystrokes belong to the browser
+
+**This page defines no keyboard shortcuts of its own.** Putting a box that can see inside a collapsed fold on ⌘F would open it in one keystroke, but that keystroke is already the browser's own way of searching a page, and taking it costs the reader the standard hand they came with. What a page may add is somewhere to press, not a new meaning for a key.
+
+Should shortcuts ever be added: **off by default**, and **never bound to a combination a browser already spells** (⌘F / ⌘K / ⌘L and their kin).
 
 Whitespace within a query line separates AND terms and newlines separate OR clauses. A double-quoted phrase is one term whose internal runs of whitespace match `\s+`. `[Aa]` and `[.*]` switch case sensitivity and regular expressions on. **That grammar belongs to the page, not to the contract**: the contract states what a daemon and a client say to each other, and how a string typed into a search box is read is not one of those things.
 
