@@ -85,7 +85,7 @@ function UsageLink() {
 /** 色の見え方へ行く道。
  *
  * バーは繋がっていない時も出ているので、この入口も常に居る — 向こうの画面が
- * instance に何も聞かないので、居てよい (DR-0001 §2.5)。 */
+ * instance に何も聞かないので、居てよい (DR-0001 §2.6)。 */
 function SettingsLink() {
   return (
     <a
