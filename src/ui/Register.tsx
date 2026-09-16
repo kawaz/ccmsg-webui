@@ -1,4 +1,5 @@
 import { useSignal } from "@preact/signals";
+import { originOf, rpIdOf } from "@ccmsg/protocol";
 import { defaultDeviceLabel } from "../auth/device-label.ts";
 import { authProblem } from "../auth/session.ts";
 import { completeRegistration, dismissRegistration, registration } from "../state.ts";
@@ -8,7 +9,12 @@ import { completeRegistration, dismissRegistration, registration } from "../stat
  * The link says what is being registered and for whom; the six digits say that
  * whoever is at this browser was also at the terminal that issued it. Both are
  * shown together so the person can compare what they were told with what this
- * is about to do, and refuse it. */
+ * is about to do, and refuse it.
+ *
+ * Two addresses are shown because a credential is made against two (contract
+ * DR-0029): the instance it admits its holder to, and the web UI it may be
+ * presented from — which is this page, and which decides the domain the
+ * passkey is stored under. */
 export function Register() {
   const held = registration.value;
   const code = useSignal("");
@@ -36,9 +42,13 @@ export function Register() {
         <dd>
           <code>{claims.endpoint}</code>
         </dd>
+        <dt>この画面 (passkey を作る所)</dt>
+        <dd>
+          <code>{claims.webui}</code>
+        </dd>
         <dt>passkey のドメイン</dt>
         <dd>
-          <code>{claims.rp_id}</code>
+          <code>{rpIdOf(claims.webui)}</code>
         </dd>
       </dl>
       <label>
@@ -65,6 +75,15 @@ export function Register() {
           }}
         />
       </label>
+      {originOf(claims.webui) !== location.origin && (
+        // 作れない登録。browser は別 origin の rpId で ceremony を走らせないし、
+        // instance も clientDataJSON.origin を claims.webui と突き合わせる。
+        // 押させてから browser の不透明なエラーに出会うより、先に言う。
+        <p class="banner">
+          この URL は <code>{claims.webui}</code> で開く前提で発行されています。そちらで開き直して
+          ください。
+        </p>
+      )}
       {authProblem.value !== undefined && <p class="banner">{authProblem.value}</p>}
       <p class="auth-actions">
         <button

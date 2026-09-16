@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AuthSession } from "@ccmsg/protocol";
+import { type AuthSession, originOf, rpIdOf } from "@ccmsg/protocol";
 import { fromBase64Url, toBase64Url } from "../src/auth/base64url.ts";
 import { AuthError, refreshSession } from "../src/auth/client.ts";
 import {
@@ -28,7 +28,7 @@ const CLAIMS = {
   sub: "main-1",
   unit: "main",
   endpoint: "http://localhost:5173/",
-  rp_id: "localhost",
+  webui: "https://ui.example/ccmsg/",
   expires_at: 1_800_000_000_000,
   jti: "one",
   user_id: "AAAABBBBCCCCDDDD",
@@ -68,7 +68,7 @@ describe("what hangs under an endpoint", () => {
     expect(isEndpoint("nonsense")).toBe(false);
   });
 
-  test("the page's own address is the endpoint, with the base it was built for", () => {
+  test("the page's own address is what an endpoint is first guessed from", () => {
     expect(endpointFromLocation("http://localhost:5173", "/")).toBe("http://localhost:5173/");
     expect(endpointFromLocation("https://h.example", "/personal/")).toBe(
       "https://h.example/personal/",
@@ -86,6 +86,21 @@ describe("the registration link", () => {
     expect(held?.claims.sub).toBe("main-1");
     expect(held?.claims.endpoint).toBe("http://localhost:5173/");
     expect(held?.token).toBe(token(CLAIMS));
+  });
+
+  test("the link names the web UI as well as the instance, and they are not one URL", () => {
+    // The two answer different questions: which instance the credential admits
+    // its holder to, and which page it may be presented from (contract
+    // DR-0029). The relying party and the origin are read off the second.
+    const held = parseRegisterFragment(`#register=${token(CLAIMS)}`);
+    expect(held?.claims.webui).toBe("https://ui.example/ccmsg/");
+    expect(rpIdOf(String(held?.claims.webui))).toBe("ui.example");
+    expect(originOf(String(held?.claims.webui))).toBe("https://ui.example");
+  });
+
+  test("claims that name no web UI are not the contract's shape", () => {
+    const { webui: _dropped, ...without } = CLAIMS;
+    expect(readClaims(token(without))).toBeUndefined();
   });
 
   test("a fragment naming no registration is not one", () => {

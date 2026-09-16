@@ -1,9 +1,10 @@
-import type {
-  AuthChallenge,
-  AuthRefreshReason,
-  AuthRegisterArgs,
-  AuthSession,
-  RegisterClaims,
+import {
+  type AuthChallenge,
+  type AuthRefreshReason,
+  type AuthRegisterArgs,
+  type AuthSession,
+  type RegisterClaims,
+  rpIdOf,
 } from "@ccmsg/protocol";
 import { bufferOf, toBase64Url } from "./base64url.ts";
 import { type AuthRoute, authUrl } from "./endpoint.ts";
@@ -40,8 +41,12 @@ async function post(
     answer = await fetch(authUrl(endpoint, route), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      // The instance is this page's own origin, and the refresh cookie is
-      // asked for by name so that a request this page makes carries it.
+      // The instance is a site of its own, which this page's may or may not be.
+      // Asking for credentials is what carries the refresh cookie either way:
+      // same-site it is an ordinary cookie, and across sites a partitioned one
+      // the browser keeps per top-level site (contract DR-0028). The headers
+      // the instance holds this exchange to — `Origin`, `Sec-Fetch-Site` — are
+      // the browser's to write and this page cannot state them.
       credentials: "include",
       body: JSON.stringify(body),
     });
@@ -86,6 +91,14 @@ function registrationCredential(credential: PublicKeyCredential): AuthRegisterAr
 
 /** Make a passkey for what a registration URL authorized, and spend the URL.
  *
+ * Two URLs are at work and they are not the same one: the credential is made
+ * at `claims.webui`, which is the page running this, and posted to
+ * `claims.endpoint`, which is the instance it is being registered for. The
+ * relying party is read off the first (`rpIdOf`) because that is the one the
+ * browser will hold the ceremony to — it refuses a relying party that is not
+ * this page's own domain or a suffix of it, and the instance checks the same
+ * value from the other side (contract DR-0029).
+ *
  * The challenge is fetched from the endpoint being registered for, and travels
  * back beside the credential with the instance that can spend it: behind a load
  * balancer the one that issued it, the one that made the URL and the one
@@ -101,7 +114,7 @@ export async function registerPasskey(options: {
   const created = await navigator.credentials.create({
     publicKey: {
       challenge: bufferOf(challenge.challenge),
-      rp: { id: claims.rp_id, name: claims.unit },
+      rp: { id: rpIdOf(claims.webui), name: claims.unit },
       user: {
         // The handle the issuing instance settled on for this subject: a second
         // value for one person would be a second account on their device.
@@ -139,8 +152,9 @@ export async function registerPasskey(options: {
  *
  * No credential is named: a resident passkey answers with the handle it was
  * made against, and which subject that is is the instance's to look up. No
- * relying party is named either: it is the endpoint's host, which is this
- * page's own domain and what the browser assumes (DR-0001 §2.3). */
+ * relying party is named either: a credential was made at a web UI and its
+ * relying party is that UI's host (contract `rpIdOf`), which is this page's own
+ * domain and what the browser assumes when none is stated. */
 export async function assertPasskey(endpoint: string): Promise<AuthSession> {
   const challenge = await fetchChallenge(endpoint);
   const got = await navigator.credentials.get({
