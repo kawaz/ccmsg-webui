@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  changed,
   clamp,
+  colourSection,
   EMPTY,
   formatTheme,
   hex,
@@ -20,9 +20,9 @@ describe("覚えていた theme", () => {
 
   test("何も無ければ app.css のままで立つ", () => {
     expect(parseTheme(undefined)).toEqual(EMPTY);
-    expect(parseTheme("")).toEqual(EMPTY);
-    expect(parseTheme("{")).toEqual(EMPTY);
-    expect(parseTheme("[1,2]")).toEqual(EMPTY);
+    expect(parseTheme("色")).toEqual(EMPTY);
+    expect(parseTheme(null)).toEqual(EMPTY);
+    expect(parseTheme([1, 2])).toEqual(EMPTY);
   });
 
   test("書いた通りに読み戻る", () => {
@@ -32,22 +32,16 @@ describe("覚えていた theme", () => {
 
   test("選んでいない項は入らない", () => {
     expect(parseTheme(formatTheme(EMPTY))).toEqual(EMPTY);
-    expect(formatTheme(EMPTY)).toBe("{}");
+    expect(formatTheme(EMPTY)).toEqual({});
   });
 
   test("読めない項だけが落ちる", () => {
-    const raw = JSON.stringify({
-      face: "sepia",
-      [spec.name]: 200,
-      "h-danger": "30",
-      "not-an-input": 1,
-    });
-    expect(parseTheme(raw)).toEqual({ inputs: { [spec.name]: 200 } });
+    const held = { face: "sepia", [spec.name]: 200, "h-danger": "30", "not-an-input": 1 };
+    expect(parseTheme(held)).toEqual({ inputs: { [spec.name]: 200 } });
   });
 
   test("範囲の外は範囲に収まる", () => {
-    const raw = JSON.stringify({ [spec.name]: 9999, "neutral-c": -1 });
-    const read = parseTheme(raw);
+    const read = parseTheme({ [spec.name]: 9999, "neutral-c": -1 });
     expect(read.inputs[spec.name]).toBe(spec.max);
     expect(read.inputs["neutral-c"]).toBe(0);
   });
@@ -64,14 +58,14 @@ describe("色の組", () => {
   test("持っているのは入力の名前だけ", () => {
     const known = new Set(INPUTS.map((spec) => spec.name));
     for (const one of PRESETS) {
-      for (const name of Object.keys(one.theme.inputs)) expect(known).toContain(name);
+      for (const name of Object.keys(one.value.inputs)) expect(known).toContain(name);
     }
   });
 
   test("値は入力の範囲に収まっている", () => {
     for (const one of PRESETS) {
       for (const spec of INPUTS) {
-        const value = one.theme.inputs[spec.name];
+        const value = one.value.inputs[spec.name];
         if (value === undefined) continue;
         expect(clamp(spec, value)).toBe(value);
       }
@@ -79,15 +73,15 @@ describe("色の組", () => {
   });
 
   test("face は持たない (light と dark は同じ入力の別の L 行)", () => {
-    for (const one of PRESETS) expect(one.theme.face).toBeUndefined();
+    for (const one of PRESETS) expect(one.value.face).toBeUndefined();
   });
 
   test("覚えた値としてそのまま読み戻る", () => {
-    for (const one of PRESETS) expect(parseTheme(formatTheme(one.theme))).toEqual(one.theme);
+    for (const one of PRESETS) expect(parseTheme(formatTheme(one.value))).toEqual(one.value);
   });
 
   test("標準は何も選んでいないこと", () => {
-    expect(PRESETS[0]?.theme).toEqual(EMPTY);
+    expect(PRESETS[0]?.value).toEqual(EMPTY);
   });
 
   test("名前は重ならない", () => {
@@ -104,23 +98,23 @@ describe("ベースとの差", () => {
 
   test("同じものは差が無い", () => {
     const held: Theme = { face: "dark", inputs: { [spec.name]: 200, "brand-c": 0.13 } };
-    expect([...changed(held, held)]).toEqual([]);
+    expect([...colourSection.changed(held, held)]).toEqual([]);
   });
 
   test("face を選んでいないことと system を選ぶことは同じ", () => {
-    expect([...changed({ inputs: {} }, { face: "system", inputs: {} })]).toEqual([]);
-    expect([...changed({ face: "dark", inputs: {} }, EMPTY)]).toEqual(["face"]);
+    expect([...colourSection.changed({ inputs: {} }, { face: "system", inputs: {} })]).toEqual([]);
+    expect([...colourSection.changed({ face: "dark", inputs: {} }, EMPTY)]).toEqual(["face"]);
   });
 
   test("項を消したことも差として出る", () => {
     const from: Theme = { inputs: { [spec.name]: 200, "brand-h": 253 } };
-    expect([...changed(EMPTY, from)].sort()).toEqual([spec.name, "brand-h"].sort());
+    expect([...colourSection.changed(EMPTY, from)].sort()).toEqual([spec.name, "brand-h"].sort());
   });
 
   test("違う項だけが並ぶ", () => {
     const from: Theme = { inputs: { [spec.name]: 200, "h-danger": 30 } };
     const draft: Theme = { inputs: { [spec.name]: 200, "h-danger": 40 } };
-    expect([...changed(draft, from)]).toEqual(["h-danger"]);
+    expect([...colourSection.changed(draft, from)]).toEqual(["h-danger"]);
   });
 });
 

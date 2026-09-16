@@ -2,12 +2,13 @@ import { render } from "preact";
 import "./app.css";
 import { watchRegisterLinks } from "./auth/register-link.ts";
 import { adoptLocation, holdRegistration, registration, resume } from "./state.ts";
-import { apply, theme } from "./theme.ts";
+import { applySaved } from "./settings-section.ts";
+import "./theme.ts";
 import { App } from "./ui/App.tsx";
 
-// 選ばれている色を `:root` に書いてから描く。選んでいない分は app.css のままで
-// 立つので、ここが書くのは人が動かした項だけ。
-apply(theme.peek());
+// 覚えてあるものを `:root` に書いてから描く。選んでいない分は app.css のままで
+// 立つので、ここが書くのは人が決めた項だけ。section が増えてもここは増えない。
+applySaved();
 
 // A registration link may have brought a token in the fragment — on arrival, or
 // into a tab that is already open.

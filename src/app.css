@@ -2615,19 +2615,22 @@ select {
   color: var(--brand-fg);
 }
 
+/* 入力の行。**何がいくつ並ぶかは section が決める**ので、列を数で決め打ちしない
+   — 名前が余りを取り、スライダだけが伸び縮みし、残りは中身の幅で立つ。 */
 .theme-row {
-  display: grid;
-  grid-template-columns: 1fr auto minmax(120px, 200px) auto auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.theme-row-faces {
-  grid-template-columns: 1fr auto auto;
+.theme-label {
+  flex: 1 1 8em;
+  min-width: 0;
 }
 
-.theme-label {
-  min-width: 0;
+.theme-row input[type="range"] {
+  flex: 0 1 200px;
 }
 
 /* ベースと違う項。**印の根拠は「戻す」が押せること**で、差の判定は 1 か所
@@ -2699,11 +2702,8 @@ select {
 }
 
 @media (width <= 640px) {
-  .theme-row {
-    grid-template-columns: 1fr auto auto;
-  }
-
   .theme-row input[type="range"] {
-    grid-column: 1 / -1;
+    flex: 1 1 100%;
+    order: 1;
   }
 }

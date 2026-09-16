@@ -82,7 +82,7 @@ function UsageLink() {
   );
 }
 
-/** 色の見え方へ行く道。
+/** 設定へ行く道。
  *
  * バーは繋がっていない時も出ているので、この入口も常に居る — 向こうの画面が
  * instance に何も聞かないので、居てよい (DR-0001 §2.6)。 */
@@ -90,14 +90,14 @@ function SettingsLink() {
   return (
     <a
       href={href({ at: "settings" })}
-      title="色の見え方"
+      title="設定"
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
         navigate({ at: "settings" });
       }}
     >
-      色
+      設定
     </a>
   );
 }
