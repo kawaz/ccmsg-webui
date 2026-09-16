@@ -1,6 +1,6 @@
 # DR-0003: 操作はアクションとして名指し、部品も打鍵も同じものを起こす
 
-Status: Accepted (未実装)
+Status: Proposed (未決 §5 の裁定待ち。実装に着手しない)
 Date: 2026-09-17
 
 ここに書くのは**なぜそう決めたか / 何を捨てたか**。実装は別で、今の姿を述べる [DESIGN.md](../DESIGN.md) / [DESIGN-ja.md](../DESIGN-ja.md) にはまだ何も無い。設定の器は [DR-0002](DR-0002-settings-are-sections-tried-before-they-are-kept.md)、色は [DR-0001](DR-0001-colour-is-computed-from-a-few-inputs.md)。
