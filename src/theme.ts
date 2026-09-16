@@ -116,8 +116,12 @@ function keep(next: Theme): void {
   apply(next);
 }
 
+/** `system` を選ぶことは**選ばないこと**なので、その項は残さない — 残すと
+ * 「既定に戻す」が戻すものを持ったままになる。 */
 export function setFace(face: Face): void {
-  keep({ ...theme.value, face });
+  const { face: dropped, ...rest } = theme.value;
+  void dropped;
+  keep(face === "system" ? { ...rest } : { ...rest, face });
 }
 
 export function setBrand(hex: string): void {
