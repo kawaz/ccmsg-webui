@@ -1,15 +1,23 @@
+import { useEffect } from "preact/hooks";
 import { href } from "../base.ts";
 import { navigate } from "../state.ts";
 import {
-  brandChosen,
-  clearBrand,
-  clearInput,
-  clearTheme,
+  base,
+  BRAND_C,
+  BRAND_H,
+  changed,
+  choosePreset,
+  discard,
+  FACE_NAME,
   FACES,
   type Face,
   type InputSpec,
-  INPUTS,
   inputStep,
+  preset,
+  PRESETS,
+  resetToBase,
+  revert,
+  save,
   setBrandFromColor,
   setFace,
   setInput,
@@ -17,6 +25,7 @@ import {
   standingBrand,
   standingNumber,
   theme,
+  unsaved,
 } from "../theme.ts";
 
 /** 色の見え方を選ぶ所。
@@ -24,6 +33,9 @@ import {
  * 出ているのは**層 0 の入力と face** だけで、段表は出てこない (DR-0001 §2.6)。
  * 触った結果はその場の画面に出る — この画面自身も同じ色で立っているので、見本
  * を別に用意する必要が無い。
+ *
+ * 触ることは**試すこと**で、覚えるのは「保存」を押した時だけ (§2.7)。離れれば
+ * 試したものは消えるので、どこまで戻せるかを気にせず動かせる。
  *
  * instance には何も聞かない。だから繋がっていなくても立つ。 */
 
@@ -33,7 +45,10 @@ const FACE_LABELS: Readonly<Record<Face, string>> = {
   dark: "dark",
 };
 
-const INPUT_LABELS: Readonly<Record<string, string>> = {
+const BRAND_LABEL = "主語の色 (押せるもの・選ばれているもの)";
+
+const LABELS: Readonly<Record<string, string>> = {
+  [FACE_NAME]: "light か dark か",
   "neutral-h": "中立に混ぜる色味の色相",
   "neutral-c": "中立に混ぜる色味の強さ",
   "h-info": "知らせ (info) の色相",
@@ -67,14 +82,38 @@ function Swatch({ name }: { name: string }) {
   );
 }
 
-function InputRow({ spec }: { spec: InputSpec }) {
+/** ベースと違う項に付く「戻す」。**押せること自体が差の印**で、行にどの印を
+ * 出すかは CSS が `:has()` でこのボタンから読む — 同じことを 2 か所で判定
+ * すると、片方だけ古くなる。
+ *
+ * 受けるのが名前の並びなのは、主語の色が 2 入力で 1 つの選択だから。 */
+function Revert({ names, label, diff }: { names: readonly string[]; label: string; diff: Diff }) {
+  return (
+    <button
+      type="button"
+      class="theme-revert"
+      disabled={!names.some((name) => diff.has(name))}
+      aria-label={`${label}をベースに戻す`}
+      onClick={() => {
+        revert(names);
+      }}
+    >
+      戻す
+    </button>
+  );
+}
+
+type Diff = ReadonlySet<string>;
+
+function InputRow({ spec, diff }: { spec: InputSpec; diff: Diff }) {
   const chosen = theme.value.inputs[spec.name];
   const value = chosen ?? standingNumber(spec);
   const step = inputStep(spec);
+  const label = LABELS[spec.name] ?? spec.name;
   return (
     <p class="theme-row">
       <label class="theme-label" for={`theme-${spec.name}`}>
-        {INPUT_LABELS[spec.name] ?? spec.name}
+        {label}
       </label>
       <Swatch name={spec.name} />
       <input
@@ -91,23 +130,20 @@ function InputRow({ spec }: { spec: InputSpec }) {
       <output class="mono theme-value" for={`theme-${spec.name}`}>
         {spec.kind === "hue" ? `${String(value)}°` : value.toFixed(3)}
       </output>
-      <button
-        type="button"
-        disabled={chosen === undefined}
-        onClick={() => {
-          clearInput(spec);
-        }}
-      >
-        戻す
-      </button>
+      <Revert names={[spec.name]} label={label} diff={diff} />
     </p>
   );
 }
 
 export function Settings() {
+  // 離れたら試したものは消える。覚えたものは残るので、戻る先は常に 1 つ。
+  useEffect(() => discard, []);
+
   const chosen = theme.value;
-  const touched =
-    chosen.face !== undefined || INPUTS.some((spec) => chosen.inputs[spec.name] !== undefined);
+  const diff = changed(chosen, base.value);
+  const from = preset.value;
+  const standing: Face = chosen.face ?? "system";
+  const ground = from === undefined ? "覚えてある色" : "選んだ組";
   return (
     <div class="app">
       <div class="bar app-bar">
@@ -124,32 +160,60 @@ export function Settings() {
         <span>色</span>
       </div>
       <section class="section theme">
-        <h2>どの face で立つか</h2>
-        <p class="theme-faces">
-          {FACES.map((face) => (
-            <button
-              key={face}
-              type="button"
-              class={(chosen.face ?? "system") === face ? "on" : undefined}
-              aria-pressed={(chosen.face ?? "system") === face}
-              onClick={() => {
-                setFace(face);
-              }}
-            >
-              {FACE_LABELS[face]}
-            </button>
+        <h2>組から始める</h2>
+        <p class="meta">
+          選ぶとその場で画面が変わる。ここから下を触って好きに動かせる — 選んだ組が、変えた所を
+          数える基準になる。
+        </p>
+        <fieldset class="theme-presets">
+          <legend>色の組</legend>
+          {PRESETS.map((one) => (
+            <label key={one.id} class="theme-preset">
+              <input
+                type="radio"
+                name="theme-preset"
+                value={one.id}
+                checked={from === one.id}
+                onChange={() => {
+                  choosePreset(one.id);
+                }}
+              />
+              <span class="theme-preset-name">{one.label}</span>
+              <span class="theme-preset-note meta">{one.note}</span>
+            </label>
           ))}
+        </fieldset>
+
+        <h2>どの face で立つか</h2>
+        <p class="theme-row theme-row-faces">
+          <span class="theme-label">{LABELS[FACE_NAME]}</span>
+          <span class="theme-faces">
+            {FACES.map((face) => (
+              <button
+                key={face}
+                type="button"
+                class={standing === face ? "on" : undefined}
+                aria-pressed={standing === face}
+                onClick={() => {
+                  setFace(face);
+                }}
+              >
+                {FACE_LABELS[face]}
+              </button>
+            ))}
+          </span>
+          <Revert names={[FACE_NAME]} label={LABELS[FACE_NAME] ?? FACE_NAME} diff={diff} />
         </p>
         <p class="meta">選ばなければ OS の設定に従う。選ぶと、この端末ではそちらが勝つ。</p>
 
         <h2>色</h2>
         <p class="meta">
-          ここにあるのが選べるもののぜんぶ。段の明るさは出てこない — 文字が読める
-          ことは段の側で保証してあり、ここから崩せないようにしてある。
+          ここにあるのが選べるもののぜんぶ。段の明るさは出てこない — 文字が読める ことは段の側で
+          保証してあり、ここから崩せないようにしてある。
         </p>
         <p class="theme-row">
           <label class="theme-label" for="theme-brand">
-            主語の色 (押せるもの・選ばれているもの)
+            {BRAND_LABEL}
           </label>
           <Swatch name="brand" />
           <input
@@ -163,23 +227,32 @@ export function Settings() {
           <output class="mono theme-value" for="theme-brand">
             {standingBrand()}
           </output>
-          <button type="button" disabled={!brandChosen(chosen)} onClick={clearBrand}>
-            戻す
-          </button>
+          <Revert names={[BRAND_H.name, BRAND_C.name]} label={BRAND_LABEL} diff={diff} />
         </p>
         <p class="meta">
-          効くのはその色相と色味で、明るさは段が決める — 暗い色を選んでも文字が
-          読めなくなることはない。
+          効くのはその色相と色味で、明るさは段が決める — 暗い色を選んでも文字が 読めなくなること
+          はない。
         </p>
         {SLIDERS.map((spec) => (
-          <InputRow key={spec.name} spec={spec} />
+          <InputRow key={spec.name} spec={spec} diff={diff} />
         ))}
 
-        <p>
-          <button type="button" disabled={!touched} onClick={clearTheme}>
-            ぜんぶ既定に戻す
-          </button>
+        <p class="meta">
+          保存するまでは試しているだけ — この画面を離れるか読み込み直すと、覚えてある色に戻る。
         </p>
+        <div class="theme-decide">
+          <p class="theme-diff-count" aria-live="polite">
+            {diff.size === 0 ? `${ground}のまま` : `${ground}と違うのは ${String(diff.size)} 項`}
+          </p>
+          <p class="theme-actions">
+            <button type="button" disabled={diff.size === 0} onClick={resetToBase}>
+              ベースに戻す
+            </button>
+            <button type="button" class="theme-save" disabled={!unsaved.value} onClick={save}>
+              保存
+            </button>
+          </p>
+        </div>
       </section>
     </div>
   );

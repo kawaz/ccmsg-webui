@@ -1,4 +1,4 @@
-import { signal } from "@preact/signals";
+import { computed, signal } from "@preact/signals";
 import { type Oklch, srgb } from "./color/oklch.ts";
 import { localStore } from "./settings.ts";
 
@@ -10,6 +10,11 @@ import { localStore } from "./settings.ts";
  *
  * 色そのものは 1 つも計算しない。ここがするのは `:root` に入力を**書く**こと
  * だけで、段が何色になるかは CSS が解く。
+ *
+ * 触ることと決めることは別に持つ: 触った値は下書き (`theme`) として画面に出る
+ * だけで、覚えるのは `save()` を通った時だけ (`saved`)。色は見てみないと決め
+ * られないので、見るために選ぶことと、選び終えることを同じ操作にしない
+ * (DR-0001 §2.7)。
  *
  * 既定を持たないのも同じ理由による: 何も選んでいない時に出るのは `app.css` が
  * 書いてある値で、この module はそれを読んで見せる。数をこちらにも書けば、
@@ -101,15 +106,82 @@ export function clamp(spec: InputSpec, value: number): number {
   return spec.kind === "hue" ? Math.round(held) : Math.round(held * 1000) / 1000;
 }
 
+/** 名前付きの組。**中身は層 0 の入力の組でしかない** — 段表は持たないので、
+ * どれを選んでも文字が読めることは崩れない (DR-0001 §2.3 / §2.8)。
+ *
+ * face を持たないのも決めごと: 段が face ごとの明るさを `light-dark()` の 1 行で
+ * 持っている以上 (§2.4)、1 つの組は**両方の face の姿を既に持っている**。 */
+export interface Preset {
+  readonly id: string;
+  readonly label: string;
+  /** その組が何を変える所なのか。選ぶ前に読めるように、画面に添えて出す。 */
+  readonly note: string;
+  readonly theme: Theme;
+}
+
+/** 数を絞る。見比べたければその場で動かせるので、組が持つ意味は「ここから
+ * 始める」であって「これで完成」ではない。 */
+export const PRESETS: readonly Preset[] = [
+  {
+    id: "default",
+    label: "標準",
+    note: "app.css のまま。何も選んでいない状態",
+    theme: EMPTY,
+  },
+  {
+    id: "warm",
+    label: "暖色",
+    note: "中立に橙を混ぜ、主語の色も暖色へ",
+    theme: {
+      inputs: { "brand-h": 55, "brand-c": 0.13, "neutral-h": 70, "neutral-c": 0.016, "tag-h0": 30 },
+    },
+  },
+  {
+    id: "cool",
+    label: "寒色",
+    note: "中立に青緑を混ぜ、主語の色も寒色へ",
+    theme: {
+      inputs: {
+        "brand-h": 205,
+        "brand-c": 0.13,
+        "neutral-h": 230,
+        "neutral-c": 0.016,
+        "tag-h0": 190,
+      },
+    },
+  },
+  {
+    id: "plain",
+    label: "無彩",
+    note: "中立から色味を抜く。地と罫が完全な灰になる",
+    theme: { inputs: { "neutral-c": 0 } },
+  },
+];
+
 /** 色は「どう読みたいか」であって、どの instance を開いているかとは関係が無い
  * (DESIGN「localStorage keys name what they belong to」)。 */
 const STORAGE = "ccmsg.theme";
 
-export const theme = signal<Theme>(parseTheme(localStore.get(STORAGE)));
+/** 覚えてある値。**ここが変わるのは「保存」を押した時だけ**。 */
+export const saved = signal<Theme>(parseTheme(localStore.get(STORAGE)));
 
-function keep(next: Theme): void {
+/** 今この画面に効いている値 (下書き)。触れば即座に画面へ出るが、覚えはしない。 */
+export const theme = signal<Theme>(saved.peek());
+
+/** 選んでいる組。選んでいなければ、比べる先は覚えてある値の方。 */
+export const preset = signal<string | undefined>(undefined);
+
+/** 比べる先。「今どこから、どれだけ動かしたか」がこの 1 つで決まる。 */
+export const base = computed<Theme>(() => {
+  const chosen = PRESETS.find((one) => one.id === preset.value);
+  return chosen === undefined ? saved.value : chosen.theme;
+});
+
+/** 覚えてある値と下書きが違うか。「保存」が押せるかはこれで決まる。 */
+export const unsaved = computed<boolean>(() => changed(theme.value, saved.value).size > 0);
+
+function preview(next: Theme): void {
   theme.value = next;
-  localStore.set(STORAGE, formatTheme(next));
   apply(next);
 }
 
@@ -118,34 +190,78 @@ function keep(next: Theme): void {
 export function setFace(face: Face): void {
   const { face: dropped, ...rest } = theme.value;
   void dropped;
-  keep(face === "system" ? { ...rest } : { ...rest, face });
+  preview(face === "system" ? { ...rest } : { ...rest, face });
 }
 
 export function setInput(spec: InputSpec, value: number): void {
-  keep({ ...theme.value, inputs: { ...theme.value.inputs, [spec.name]: clamp(spec, value) } });
+  preview({ ...theme.value, inputs: { ...theme.value.inputs, [spec.name]: clamp(spec, value) } });
 }
 
-/** 主語の色を選んでいるか (= 2 入力のどちらかを覚えているか)。 */
-export function brandChosen(held: Theme = theme.value): boolean {
-  return held.inputs[BRAND_H.name] !== undefined || held.inputs[BRAND_C.name] !== undefined;
+export function choosePreset(id: string): void {
+  const chosen = PRESETS.find((one) => one.id === id);
+  if (chosen === undefined) return;
+  preset.value = id;
+  // face は組が持たない (上記)。今立っている face はそのまま連れて行く。
+  const { face } = theme.value;
+  preview({ ...chosen.theme, ...(face === undefined ? {} : { face }) });
 }
 
-export function clearBrand(): void {
-  const { [BRAND_H.name]: first, [BRAND_C.name]: second, ...rest } = theme.value.inputs;
-  void first;
-  void second;
-  keep({ ...theme.value, inputs: rest });
+/** 決めた所で初めて覚える。覚えた値が次のベースになるので、保存した直後は
+ * 差が無い — 組を選んでいたことも、そこで役目を終える。 */
+export function save(): void {
+  const next = theme.value;
+  saved.value = next;
+  preset.value = undefined;
+  localStore.set(STORAGE, formatTheme(next));
 }
 
-/** 選んだものを捨てて app.css に戻す。1 項だけ戻すのも、ぜんぶ戻すのも同じ道。 */
-export function clearTheme(): void {
-  keep(EMPTY);
+/** 試したものを捨てて、覚えてある値に戻す。画面を離れる時もここを通る。 */
+export function discard(): void {
+  preset.value = undefined;
+  preview(saved.value);
 }
 
-export function clearInput(spec: InputSpec): void {
-  const { [spec.name]: dropped, ...rest } = theme.value.inputs;
-  void dropped;
-  keep({ ...theme.value, inputs: rest });
+/** ベースまで戻す。組を選んだ後で触り過ぎた時の帰り道。 */
+export function resetToBase(): void {
+  preview(base.value);
+}
+
+/** 差があった項の名前。入力の名前に `face` を足したものが全部で、**選んで
+ * いないこと自体も 1 つの値**として比べる — 「戻す」がその項を消すことである
+ * 以上、消えているかどうかが差そのもの。 */
+export function changed(draft: Theme, from: Theme): ReadonlySet<string> {
+  const names = new Set<string>();
+  if ((draft.face ?? "system") !== (from.face ?? "system")) names.add(FACE_NAME);
+  for (const spec of INPUTS) {
+    if (draft.inputs[spec.name] !== from.inputs[spec.name]) names.add(spec.name);
+  }
+  return names;
+}
+
+/** face も 1 つの入力として数えるための名前。CSS の変数ではないので、入力の
+ * 名前と衝突しない綴りを 1 か所だけ持つ。 */
+export const FACE_NAME = "face";
+
+/** 何項かをまとめてベースへ戻す。主語の色は 2 入力で 1 つの選択なので、戻すのも
+ * 2 つ一緒 — 画面に出ている操作の単位と、戻す単位を揃える。
+ *
+ * ベースがその項を持っていなければ、消すのが戻すこと。 */
+export function revert(names: readonly string[]): void {
+  const from = base.value;
+  let next = theme.value;
+  for (const name of names) {
+    if (name === FACE_NAME) {
+      const { face: dropped, ...rest } = next;
+      void dropped;
+      next = from.face === undefined ? { ...rest } : { ...rest, face: from.face };
+      continue;
+    }
+    const { [name]: dropped, ...rest } = next.inputs;
+    void dropped;
+    const held = from.inputs[name];
+    next = { ...next, inputs: held === undefined ? rest : { ...rest, [name]: held } };
+  }
+  preview(next);
 }
 
 /** 選ばれたものを `:root` に書く。書いていない項は規則の側の値がそのまま出る
@@ -223,7 +339,7 @@ export function setBrandFromColor(
 ): void {
   const said = oklchOf(color, root);
   if (said === undefined) return;
-  keep({
+  preview({
     ...theme.value,
     inputs: {
       ...theme.value.inputs,

@@ -2544,6 +2544,12 @@ select {
   max-width: 720px;
 }
 
+/* つまみと radio も主語の色で立つ。ブラウザが自分で描く部品なので、色を渡す
+   口は `accent-color` 1 つ — 部品を作り直さずに、選んだ色がそのまま出る。 */
+.theme input {
+  accent-color: var(--brand-fill);
+}
+
 .theme > h2:not(:first-child) {
   margin-top: 20px;
 }
@@ -2551,6 +2557,51 @@ select {
 .theme .meta {
   margin: 4px 0 12px;
   color: var(--fg-muted);
+}
+
+/* 名前付きの組。選ぶものが互いに排他なので radio で、囲いは `fieldset` が既に
+   持っている — 見出しと選択肢の結び付きを class で作り直さない。 */
+.theme-presets {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.theme-presets legend {
+  padding: 0 4px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.theme-preset {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.theme-preset:hover {
+  background: var(--surface-hover);
+}
+
+/* 選ばれている組。行そのものを面で示す — 印を別に足すと、radio と面と印で
+   同じことを 3 回言うことになる。 */
+.theme-preset:has(input:checked) {
+  background: var(--brand-surface);
+}
+
+.theme-preset:has(input:focus-visible) {
+  outline: 2px solid var(--brand-border);
+}
+
+.theme-preset-note {
+  min-width: 0;
 }
 
 .theme-faces {
@@ -2571,8 +2622,61 @@ select {
   gap: 8px;
 }
 
+.theme-row-faces {
+  grid-template-columns: 1fr auto auto;
+}
+
 .theme-label {
   min-width: 0;
+}
+
+/* ベースと違う項。**印の根拠は「戻す」が押せること**で、差の判定は 1 か所
+   (`changed`) にしかない — 行の側で同じ条件をもう一度書かない。 */
+.theme-row:has(.theme-revert:enabled) .theme-label::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--brand-fill);
+}
+
+.theme-row:has(.theme-revert:enabled) .theme-label {
+  color: var(--brand-fg);
+}
+
+/* 決める所。**触っている間ずっと見えている** — 差の数も「保存」も、動かして
+   いる最中に知りたいことなので、下端に貼り付ける。 */
+.theme-decide {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.theme-diff-count {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.theme-actions {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.theme-save:enabled {
+  border-color: var(--brand-border);
+  background: var(--brand-fill);
+  color: var(--on-fill);
 }
 
 /* 面・罫・塗りの 3 つを並べる。1 つの色見本では「どの段で効くか」が出ない。 */
