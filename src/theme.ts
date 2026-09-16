@@ -14,7 +14,7 @@ import { holdSection, type Preset, type Section } from "./settings-section.ts";
  * 触ることと決めることは別に持つ: 触った値は下書き (`theme`) として画面に出る
  * だけで、覚えるのは `save()` を通った時だけ (`saved`)。色は見てみないと決め
  * られないので、見るために選ぶことと、選び終えることを同じ操作にしない
- * (DR-0001 §2.9)。
+ * (DR-0001 §2.10)。
  *
  * 既定を持たないのも同じ理由による: 何も選んでいない時に出るのは `app.css` が
  * 書いてある値で、この module はそれを読んで見せる。数をこちらにも書けば、
@@ -43,7 +43,7 @@ export const INPUTS: readonly InputSpec[] = [
   { name: "brand-h", kind: "hue", max: 360 },
   { name: "brand-c", kind: "chroma", max: 0.4 },
   { name: "neutral-h", kind: "hue", max: 360 },
-  { name: "neutral-c", kind: "chroma", max: 0.03 },
+  { name: "neutral-c", kind: "chroma", max: 0.12 },
   { name: "h-info", kind: "hue", max: 360 },
   { name: "h-success", kind: "hue", max: 360 },
   { name: "h-warning", kind: "hue", max: 360 },
@@ -117,9 +117,13 @@ export function clamp(spec: InputSpec, value: number): number {
  * 始める」であって「これで完成」ではない。
  *
  * **中身は層 0 の入力の組でしかない** — 段表は持たないので、どれを選んでも
- * 文字が読めることは崩れない (DR-0001 §2.3 / §2.10)。face を持たないのも決め
+ * 文字が読めることは崩れない (DR-0001 §2.3 / §2.11)。face を持たないのも決め
  * ごと: 段が face ごとの明るさを `light-dark()` の 1 行で持っている以上
- * (§2.4)、1 つの組は**両方の face の姿を既に持っている**。 */
+ * (§2.4)、1 つの組は**両方の face の姿を既に持っている**。
+ *
+ * 組が動かすのは**色相と彩度と中立の色味の 3 つとも**で、色相だけではない —
+ * 色相しか違わない組を並べると、選び直しても画面が同じ濃さのまま立っていて、
+ * 「別の組を選んだ」ことが画面に出ない。 */
 export const PRESETS: readonly Preset<Theme>[] = [
   {
     id: "default",
@@ -130,21 +134,21 @@ export const PRESETS: readonly Preset<Theme>[] = [
   {
     id: "warm",
     label: "暖色",
-    note: "中立に橙を混ぜ、主語の色も暖色へ",
+    note: "中立に橙を濃く混ぜ、主語の色も暖色へ",
     value: {
-      inputs: { "brand-h": 55, "brand-c": 0.13, "neutral-h": 70, "neutral-c": 0.016, "tag-h0": 30 },
+      inputs: { "brand-h": 55, "brand-c": 0.17, "neutral-h": 70, "neutral-c": 0.09, "tag-h0": 30 },
     },
   },
   {
     id: "cool",
     label: "寒色",
-    note: "中立に青緑を混ぜ、主語の色も寒色へ",
+    note: "中立に青緑を薄く混ぜ、主語の色も寒色へ",
     value: {
       inputs: {
         "brand-h": 205,
-        "brand-c": 0.13,
+        "brand-c": 0.1,
         "neutral-h": 230,
-        "neutral-c": 0.016,
+        "neutral-c": 0.07,
         "tag-h0": 190,
       },
     },

@@ -13,8 +13,12 @@
   --brand-h: 253;
   --brand-c: 0.13;
   /* 中立に混ぜる色味。0 にすると完全な無彩色になる。
+     画面のほとんどは中立の段で塗られているので、**ここが見える量かどうかで
+     「色を選んだ」と言えるかが決まる**。既定はここが面の段に掛かった後 (C 係数
+     0.2〜0.5) でも色が見える所に置く — 0.008 では面に残る C が 0.002〜0.004 に
+     しかならず、無彩と並べても差が出なかった。 */
   --neutral-h: 250;
-  --neutral-c: 0.008;
+  --neutral-c: 0.055;
   /* 意味色 4 つの色相。brand から回して作らない — brand が赤や緑になった瞬間に
      意味が衝突する。 */
   --h-info: 236;
@@ -59,7 +63,10 @@
 
   /* 入力の C に掛かる係数。face で動かさない — テーマが変わると中立の温度まで
      変わる、という結び付きを作らない。 */
-  --c-1: 0;
+  /* 段 1 (地) にも色味を載せる。画面でいちばん広いのがここで、ここだけ係数 0
+     にすると、中立の色相をどう動かしても頁の地は灰のままになる — 入力が効く
+     場所から最大の面を外していることになる。 */
+  --c-1: 0.15;
   --c-2: 0.2;
   --c-3: 0.3;
   --c-4: 0.4;
@@ -261,7 +268,17 @@ button {
 }
 
 button:hover {
-  border-color: var(--brand-fg);
+  border-color: var(--brand-border);
+  background: var(--brand-surface);
+}
+
+/* 選ばれている押しもの。**選ばれていることは 1 か所でしか言わない** — 画面ごとに
+ * 同じ状態を別の言い方で書くと、どれが正しい姿かが増えていく。罫は罫の段 (8)、
+ * 文字は文字の段 (11) から取る。 */
+button.on {
+  border-color: var(--brand-border);
+  background: var(--brand-surface);
+  color: var(--brand-fg);
 }
 
 select {
@@ -336,7 +353,13 @@ select {
 }
 
 .row:hover {
-  background: var(--bg);
+  background: var(--surface-hover);
+}
+
+/* 指し示されている行。押せるものと選ばれているものが主語の色、という言い方を
+ * 一覧でも通す。 */
+.row.on {
+  background: var(--brand-surface);
 }
 
 /* 名前は行の主語なので、細い所では**名前が先に幅を取る** (畳まれて 0 幅に
@@ -1463,11 +1486,6 @@ select {
   gap: 4px;
 }
 
-.viewer-modes button.on {
-  border-color: var(--brand-fg);
-  color: var(--brand-fg);
-}
-
 .viewer-scroll {
   overflow: auto;
   max-height: 70vh;
@@ -2291,11 +2309,6 @@ select {
   font-size: 12px;
 }
 
-.launch-roots button.on {
-  border-color: var(--brand-fg);
-  color: var(--brand-fg);
-}
-
 .launch-command > span {
   display: flex;
   align-items: baseline;
@@ -2332,11 +2345,6 @@ select {
 .usage-periods button {
   padding: 2px 8px;
   font-size: 12px;
-}
-
-.usage-periods button.on {
-  border-color: var(--brand-fg);
-  color: var(--brand-fg);
 }
 
 /* 棒は横幅いっぱいに伸び、高さはその画面のいちばん高い束を基準にする
@@ -2680,12 +2688,6 @@ select {
 .theme-faces {
   display: flex;
   gap: 8px;
-}
-
-/* 選んでいる face。`.tabs` と同じ言い方 (主語の色の文字と枠) で、形は足さない。 */
-.theme-faces button.on {
-  border-color: var(--brand-fg);
-  color: var(--brand-fg);
 }
 
 /* 入力の行。**何がいくつ並ぶかは section が決める**ので、列を数で決め打ちしない

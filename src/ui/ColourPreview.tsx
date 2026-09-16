@@ -104,8 +104,8 @@ export function ColourPreview() {
           <span class="name">ふつうの行</span>
           <span class="meta">添えの文</span>
         </div>
-        <div class="row">
-          <span class="name">もう 1 行</span>
+        <div class="row on">
+          <span class="name">指し示されている行</span>
           <span class="meta">添えの文</span>
         </div>
       </div>
