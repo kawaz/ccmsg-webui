@@ -1,6 +1,6 @@
 ---
 title: localStorage キーを mount path で名前空間化する
-status: open
+status: discarded
 category: bug
 created: 2026-09-17T14:54:30+09:00
 last_read:
@@ -8,9 +8,9 @@ open_entered: 2026-09-17T14:54:30+09:00
 wip_entered:
 blocked_entered:
 pending_entered:
-discarded_entered:
+discarded_entered: 2026-09-17T14:59:02+09:00
 resolved_entered:
-discard_reason:
+discard_reason: ["統括の誤認。DESIGN-ja「localStorageのキー規律」で既に決まっている: 混線する値(draft/files/auth channel/split)はinstanceとsidを名前に含め、人の好み(theme/settings/timeline.display)とendpointの申告は意図して1つ。同一originの複数instanceは区別できている。「同一originの別pathにwebuiを2つmount」は規律の対象外の別シナリオで、要るかも未定"]
 pending_reason:
 close_reason:
 blocked_by:
