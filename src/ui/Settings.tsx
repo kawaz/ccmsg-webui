@@ -3,8 +3,10 @@ import { useEffect } from "preact/hooks";
 import { href } from "../base.ts";
 import type { SectionFace } from "../settings-section.ts";
 import { navigate } from "../state.ts";
+import { keys } from "../actions/keys.ts";
 import { colour } from "../theme.ts";
 import { ColourInputs } from "./ColourInputs.tsx";
+import { KeyBindings } from "./KeyBindings.tsx";
 import { ColourPreview } from "./ColourPreview.tsx";
 import { SettingDecide, SettingPresets } from "./setting-parts.tsx";
 
@@ -37,6 +39,11 @@ const SECTIONS: readonly Listed[] = [
     note: "ここにあるのが選べるもののぜんぶ。段の明るさは出てこない — 文字が読めることは段の側で保証してあり、ここから崩せないようにしてある。",
     Inputs: ColourInputs,
     Preview: ColourPreview,
+  },
+  {
+    store: keys,
+    note: "既定では 1 つも結ばれていません — 結ぶまで、この画面はどの打鍵も奪いません。ブラウザの手を奪う組み合わせは、何が失われるかを言ってから通します。ブラウザがページに渡さない打鍵は、設定できても効かないことをその場で言います。",
+    Inputs: KeyBindings,
   },
 ];
 
