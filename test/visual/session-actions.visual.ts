@@ -24,19 +24,22 @@ test("留めると一覧の先頭に来て、外すと戻る", async ({ ui: page
   await expect(rows.first().locator(".name")).not.toHaveText(name);
 });
 
-test("終了は 2 度押し — 1 度目で本当に終了かを聞く", async ({ ui: page, instance }) => {
+test("終了は確認を開くまで — 決めるのはダイアログの中", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}`);
   const row = page.locator(".row:has(.row-pin)").filter({ hasText: "束 0 を片付ける" }).first();
   await row.getByRole("button", { name: "終了" }).click();
-  await expect(row.getByRole("button", { name: "本当に終了" })).toBeVisible();
-  // 押さずに離れれば何も起きない (この試作では行を出し直すだけ)。
-  await page.reload();
-  await expect(
-    page
-      .locator(".row")
-      .filter({ hasText: "束 0 を片付ける" })
-      .getByRole("button", { name: "終了" }),
-  ).toBeVisible();
+
+  // 危ないアクションの責務は確認を開くまで (DR-0003 §2.8)。開いた確認は区画
+  // ひとつで、既定のボタンは取り消す方。
+  const confirm = page.locator("dialog.confirm");
+  await expect(confirm).toBeVisible();
+  await expect(confirm.getByRole("button", { name: "やめる" })).toBeFocused();
+  await shot(page, "session-kill-confirm.png");
+
+  // 閉じるのはブラウザの持ち物 (`Escape`)。閉じれば何も起きていない。
+  await page.keyboard.press("Escape");
+  await expect(confirm).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "終了" })).toBeVisible();
 });
 
 /** 改名は `terminal` の能力を持つ instance にだけ出る (instance が端末に打鍵を

@@ -24,10 +24,32 @@ test("受け付けられたら入力欄は空になり、結果が 1 行出る",
   await expect(box).toHaveValue("");
 });
 
-test("⌘F は横取りされない (この画面の検索窓は開かない)", async ({ ui: page, instance }) => {
+test("⌘F は横取りされない (結ばれた打鍵が 1 つも無いので)", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
   await expect(page.getByRole("button", { name: "この画面の中を探す" })).toBeVisible();
+  // 既定の割り当ては空 (DR-0003 §2.5)。⌘F はブラウザのものなので、この画面は
+  // 受け取らない。
   await page.locator("body").press("ControlOrMeta+f");
+  await expect(page.getByRole("textbox", { name: /探す言葉/ })).toHaveCount(0);
+});
+
+test("/ は宛先の区画の検索を開く", async ({ ui: page, instance }) => {
+  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  await expect(page.getByRole("button", { name: "この画面の中を探す" })).toBeVisible();
+
+  // どの区画も宛先になっていない間は、区画の役としての打鍵も誰にも届かない。
   await page.locator("body").press("/");
   await expect(page.getByRole("textbox", { name: /探す言葉/ })).toHaveCount(0);
+
+  // tl 本体を宛先にすると、同じ `/` がこの transcript の検索を開く。
+  // 見出しを押して宛先を tl 本体にする (本文は追記で動き続けるので、押す所は
+  // 動かない所を選ぶ)。
+  await page.locator(".timeline > h2").click();
+  await page.keyboard.press("/");
+  await expect(page.getByRole("textbox", { name: /探す言葉/ })).toBeVisible();
+
+  // 一覧を宛先にすれば、同じ `/` が並んでいるものを絞る窓を開く (§2.2)。
+  await page.locator(".pane-list").click({ position: { x: 4, y: 4 } });
+  await page.keyboard.press("/");
+  await expect(page.getByRole("searchbox", { name: "今並んでいるものを絞る" })).toBeVisible();
 });

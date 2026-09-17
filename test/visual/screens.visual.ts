@@ -220,8 +220,11 @@ test("settings", async ({ page, instance }) => {
   await expect(page.getByRole("radio", { name: "Nord" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Solarized Light" })).toBeVisible();
   // 何も触っていない所。覚えてある色と同じなので、差は 0 項で保存も押せない。
-  await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
-  await expect(page.getByRole("button", { name: "保存" })).toBeDisabled();
+  // section が 2 つになったので、見るのは色の section の中 (同じ形の決める所を
+  // どの section も持っている)。
+  const colour = page.locator("section.theme").first();
+  await expect(colour.getByText("覚えてあるもののまま")).toBeVisible();
+  await expect(colour.getByRole("button", { name: "保存" })).toBeDisabled();
   // 選ぶ所の隣に、その色が効いている所が並んでいる (DR-0002 §2.7)。
   await expect(page.getByRole("complementary", { name: "表示例" })).toBeVisible();
   await shot(page, "settings.png");
@@ -279,9 +282,10 @@ test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await expect(danger).toHaveValue(before);
 
   // 保存してから離れる: 読み込み直しても残っている。
+  const colour = page.locator("section.theme").first();
   await danger.fill("300");
-  await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByText("覚えてあるもののまま")).toBeVisible();
+  await colour.getByRole("button", { name: "保存" }).click();
+  await expect(colour.getByText("覚えてあるもののまま")).toBeVisible();
   await page.reload();
   await open();
   await expect(danger).toHaveValue("300");
@@ -292,8 +296,8 @@ test("settings-keeps-and-forgets", async ({ page, instance }) => {
   await expect(
     page.getByRole("button", { name: "危険 (danger) の色相をベースに戻す" }),
   ).toBeDisabled();
-  await page.getByRole("radio", { name: /標準/ }).check();
-  await page.getByRole("button", { name: "保存" }).click();
+  await colour.getByRole("radio", { name: /標準/ }).check();
+  await colour.getByRole("button", { name: "保存" }).click();
   await page.reload();
   await open();
   await expect(danger).toHaveValue(before);
