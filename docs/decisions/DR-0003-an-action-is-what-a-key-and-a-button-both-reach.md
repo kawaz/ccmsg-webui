@@ -155,11 +155,13 @@ DOM のフォーカスは**判定源の 1 つとしてだけ使う**: 入力欄 
 
 #### binding は platform を限定できる
 
-同じアクションに、**その platform でだけ有効な binding** を結べる。mac でだけ `Ctrl+KeyF` を割り当て、他の platform には何も置かない、という形が書ける。
+同じアクションに、**その platform でだけ有効な binding** を結べる。
 
-限定が要るのは、**`CmdOrCtrl` が吸収できるのは「同じ機能が Command 対 Control で対応している」場合だけ**だから。mac の `Ctrl` は Windows の `Ctrl` と役割が違う (mac では Command がアプリの主修飾子で、Ctrl は端末と Emacs 系と VoiceOver のもの) ので、mac で空いている組み合わせと他の platform で空いている組み合わせは一致しない。限定が無いと、片方に合わせた割り当てがもう片方でブラウザの手を奪う。
+限定が要る理由は「キーが無いから」ではない。**押せるかどうかは物理キーの有無で決まり、そこに platform の限定は要らない** — ⌘ は mac 限定のキーなのではなく、そのキーがある環境でしか押されないだけ。Windows キーは DOM では `metaKey` として ⌘ と同じ修飾子に見えるが、OS が先に取るので実用上は使えない。半角/全角・変換・英数/かなは、JIS 配列さえあればどちらの OS でも同じ `code` が届く。**存在しないキーは押されないので、そのための限定は書かなくてよい。**
 
-限定は**検査の前に効く**。mac 限定の `Ctrl+KeyF` は、mac に解決すると `Control+KeyF` であって `Meta+KeyF` ではないので、ブラウザのページ内検索 (⌘F) とは被らずそのまま通る。他の platform では**そもそもその行が無い**ので、`Control+KeyF` が検索を奪うこともない。
+限定が要るのは、**同じキーが両方にあって、ブラウザ側の扱いだけが違う場合**。`Ctrl+F` がそれで、Windows ではブラウザのページ内検索だが mac では誰も使っていない。ここで限定が無いと、mac に合わせた割り当てが Windows で検索を奪う。だから綴りは「他の platform では衝突するので、この platform でだけ」と読む — 「mac 限定のキー」という言い方はしない。
+
+限定は**検査より先に効く**。`Ctrl+F` を mac だけに限定すれば、mac では `Control+KeyF` に解決されてブラウザの ⌘F とは被らず通り、他の platform では**そもそもその行が無い**ので `Ctrl+F` が検索を奪うこともない。
 
 限定を持たない binding は全 platform で有効。既定 (= 何も書かない) は限定無しで、限定は書いた時だけ付く。
 
@@ -173,34 +175,50 @@ DOM のフォーカスは**判定源の 1 つとしてだけ使う**: 入力欄 
 
 「禁止」を採らないのは、警告を無視する自由と、予約に対して何かを禁じても意味が無いことの両方から。**禁じる必要があるものは 1 つも無く、要るのは「何が起きるかを先に言う」ことだけ**だった。
 
-#### 予約の実測 (2026-09-17)
+#### 予約の出典 (2026-09-17)
 
-macOS 26.5.2 / Chrome 152.0.7977.83 / Safari (OS 同梱) で、`System Events` の `key code` によりブラウザへ物理キーとして送り、capture phase の `keydown` が届くか・`preventDefault()` が効くかを観測した。CDP (`Input.dispatchKeyEvent`) ではブラウザ UI のショートカットが再現しないので使っていない。
+**一覧の出所は Chromium のソース**。押して確かめられるのは人が居る 1 台の 1 ブラウザだけなので、網羅を実機に頼らない。
 
-| 組み合わせ | Chrome | Safari | この画面の扱い |
-|---|---|---|---|
-| `Meta+KeyW` | 届かない (タブが閉じる) | 届かない (タブが閉じる) | 予約 |
-| `Meta+KeyT` | 届かない (新規タブ) | 届かない (新規タブ) | 予約 |
-| `Meta+KeyN` | 届かない (新規ウィンドウ) | 届かない (新規ウィンドウ) | 予約 |
-| `Meta+KeyQ` | 届かない (終了) | 届かない (終了) | 予約 |
-| `Meta+Shift+KeyN` | 届かない (シークレット) | 届かない (プライベート) | 予約 |
-| `Control+Tab` | 届かない (次のタブ) | 届かない (次のタブ) | 予約 |
-| `Meta+Shift+KeyT` | 届かない (閉じたタブを戻す) | 届いた | 予約 |
-| `Meta+KeyL` | 届いた | 届かない (アドレスバー) | 予約 |
-| `Meta+KeyR` | 届いた | 届かない (再読み込み) | 予約 |
-| `Meta+Digit1` | 届いた | 届かない (タブ切替) | 予約 |
-| `Meta+KeyF` | 届いた | 届いた | 警告 (ページ内検索) |
-| `Meta+KeyK` | 届いた | 届いた | 警告 (アドレスバー検索) |
-| `Meta+KeyS` / `Meta+KeyP` | 届いた | 届いた | 警告 (保存 / 印刷) |
-| `Meta+BracketLeft` / `Meta+BracketRight` | 届いた | 届いた | 警告 (戻る / 進む) |
-| `Alt+Meta+KeyI` | 届いた | 届いた | 警告 (開発者ツール) |
-| `Control+Meta+KeyF` | 届いた | 届いた | 警告 (全画面) |
-| `Meta+KeyJ` / `Meta+KeyD` | 届いた | 届いた | 警告 (ダウンロード / ブックマーク) |
-| `Escape` | 届いた | 届いた | 割り当ての対象外 (閉じる責務は部品、§2.5) |
+Chrome は `chrome/browser/ui/browser_command_controller.cc` の `IsReservedCommandOrKey` が「ページに渡さないコマンド」を列挙している。そのコマンドに付く accelerator は `chrome/browser/ui/accelerator_table.cc` (Windows / Linux) と `chrome/browser/ui/cocoa/accelerators_cocoa.mm` / `chrome/browser/global_keyboard_shortcuts_mac.mm` (mac)。読んだのは GitHub ミラー `chromium/chromium` の `main`、HEAD `9dfda8687c6295931baa7bcd3b4d888e6d064000`。
 
-**「届くが `preventDefault()` が効かない」は 1 件も無かった** — この 2 つのブラウザでは「届く = 止められる」「止められない = そもそも届かない」の二値になっている。だから予約の判定は「届くか」だけで足り、実装は**片方でも届かない platform があれば予約**として扱う (`Meta+Shift+KeyT` は Safari では届くが、Chrome で届かないので予約)。ブラウザごとに表を分けないのは、人が使っているブラウザをこちらが当てにいく形になり、外した時に何も言わずに効かなくなるため。
+```cpp
+// browser_command_controller.cc, IsReservedCommandOrKey
+return command_id == IDC_CLOSE_TAB || command_id == IDC_CLOSE_WINDOW ||
+       command_id == IDC_NEW_INCOGNITO_WINDOW ||
+       command_id == IDC_NEW_ISOLATED_WINDOW || command_id == IDC_NEW_TAB ||
+       command_id == IDC_NEW_WINDOW || command_id == IDC_RESTORE_TAB ||
+       command_id == IDC_SELECT_NEXT_TAB ||
+       command_id == IDC_SELECT_PREVIOUS_TAB ||
+       command_id == IDC_CYCLE_TO_NEXT_TAB ||
+       command_id == IDC_CYCLE_TO_PREV_TAB || command_id == IDC_EXIT;
+```
 
-Safari の `Alt+Meta+KeyI` は Develop メニューが既定で無効な状態での観測で、有効時は未検証。**Windows / Linux は未検証** — 表の右 2 列は macOS の実測だけで、他の platform の予約は分かっていない。分かるまでは全部を警告として扱い、予約の一覧に推測で足さない。
+| コマンド | mac | Windows / Linux |
+|---|---|---|
+| タブを閉じる | `Meta+KeyW` | `Control+KeyW`、`Control+F4` |
+| ウィンドウを閉じる | `Shift+Meta+KeyW` | `Control+Shift+KeyW`、`Alt+F4` |
+| 新しいタブ | `Meta+KeyT` | `Control+KeyT` |
+| 新しいウィンドウ | `Meta+KeyN` | `Control+KeyN` |
+| シークレットウィンドウ | `Shift+Meta+KeyN` | `Control+Shift+KeyN` |
+| 閉じたタブを戻す | `Shift+Meta+KeyT` | `Control+Shift+KeyT` |
+| 次 / 前のタブ | `Shift+Meta+BracketRight` / `BracketLeft`、`Control+PageDown` / `PageUp`、`Alt+Meta+ArrowRight` / `ArrowLeft` | `Control+PageDown` / `PageUp` |
+| タブを順に回る | `Control+Tab`、`Control+Shift+Tab` | `Control+Tab`、`Control+Shift+Tab` |
+| 終了 | `Meta+KeyQ` | (accelerator 表に無い) |
+
+**重要なのは、ここに `⌘L` も `⌘R` も `⌘1`〜`9` も入っていないこと。** mac の Chrome ではメニューのキー等価であっても、予約でなければ**先にページへ渡り**、ページが処理しなければ差し戻されてメニューが動く (`BrowserNativeWidgetMac::WillExecuteCommand`)。つまりこの 3 つは Chrome では奪える。実際、実機でもそう観測できた。
+
+Safari は本体が非公開で、**ソースから「ページに渡すか」は分からない**。分かるのはメニューのショートカットとして占有されているかまでで、出典は 2 つ: Apple の公開一覧 (<https://support.apple.com/guide/safari/keyboard-and-other-shortcuts-cpsh003/mac>) と、この Mac の `/Applications/Safari.app/Contents/Resources/Base.lproj/MainMenu.nib` から機械的に抜いたメニューのキー等価 (Safari 26.5.2 / 21624.2.5.11.8、71 項目)。両者は概ね一致するが、タブ番号 (`⌘1`〜`9`)・閉じたタブを戻す (`⇧⌘T`)・`⇧⌘[` `]` は nib に静的定義が無く、公開一覧にだけある (実行時に足されているとみられる)。
+
+**ページに渡るかは、Safari についてだけ最小限を実機で観測した** (macOS 26.5.2 / Safari 26.5.2): `⌘W` `⌘T` `⌘N` `⌘Q` `⇧⌘N` `⌃Tab` は届かず、`⌘L` `⌘R` `⌘1` も届かない (Chrome とはここが違う)。`⇧⌘T` は Safari では届く。
+
+この画面が予約として扱うのは、**Chromium が予約するものと、Safari が渡さないと観測したものの和**。片方のブラウザでも届かないなら、人がどちらを使っているかをこちらが当てにいかない。
+
+| | 予約として扱う |
+|---|---|
+| mac | `Meta+KeyW` `Shift+Meta+KeyW` `Meta+KeyT` `Meta+KeyN` `Shift+Meta+KeyN` `Shift+Meta+KeyT` `Meta+KeyQ` `Control+Tab` `Control+Shift+Tab` `Shift+Meta+BracketLeft` `Shift+Meta+BracketRight` `Control+PageUp` `Control+PageDown` `Alt+Meta+ArrowLeft` `Alt+Meta+ArrowRight` `Meta+KeyL` `Meta+KeyR` `Meta+Digit1`〜`Digit9` |
+| Windows / Linux | `Control+KeyW` `Control+Shift+KeyW` `F4` `Control+F4` `Alt+F4` `Control+KeyT` `Control+KeyN` `Control+Shift+KeyN` `Control+Shift+KeyT` `Control+Tab` `Control+Shift+Tab` `Control+PageUp` `Control+PageDown` |
+
+Windows / Linux の側は Chromium のソースだけが出典で、実機では見ていない。ブラウザが 1 つしか出典に無いので、Firefox や Edge で違う可能性は残る — 分かった時に「何が失われるか」を根拠に足す。
 
 警告に載せる組み合わせは、検索・移動・回復に関わるこの範囲で固定する。Safari だけ・Chrome だけの操作を無制限に足すと使える組み合わせが痩せるので、新たに衝突が分かった時に「何が失われるか」を根拠に足す。
 
@@ -216,6 +234,16 @@ Safari の `Alt+Meta+KeyI` は Develop メニューが既定で無効な状態�
 | 開発者ツール | `Alt+Meta+KeyI` | `Control+Shift+KeyI`、`F12` |
 | 全画面 | `Control+Meta+KeyF` | `F11` |
 | ダウンロード / ブックマーク | `Meta+KeyJ`、`Meta+KeyD` | `Control+KeyJ`、`Control+KeyD` |
+
+#### 変換中の打鍵は受けない
+
+IME で変換している間の打鍵は、**どのアクションにも流さない**。事故はいつも同じ 2 つ — 変換を確定する Enter で送られる、変換を取り消す Escape で後ろの何かが閉じる。どちらも人は文字を確定しただけで、打鍵したつもりが無い。
+
+判定は**打鍵を受ける 1 か所**に置く。`isComposing` が立っている keydown と、それを立てない経路で来る `keyCode === 229` を捨てる。加えて **Safari は変換確定の Enter を `compositionend` の後に `isComposing: false` で配る**ので、仕様どおりに読むと確定の打鍵が本物の Enter に見える — だから `compositionend` の直後 1 回に限り、Enter / Escape も確定の側に数える。
+
+入口 1 か所にするのは、composer だけの話ではないから。入力欄の中で閉じる操作 (送る) が自分で見ても、区画の役と人が結んだ打鍵はその外を通るので、同じ判断を 2 度書くことになる。**門は画面ぜんぶで 1 つ**にして、同じ打鍵を 2 人 (入力欄と window) が訊いても同じ答えが返るようにする — 1 人目で印を消すと、2 人目には確定の打鍵が本物に見える。
+
+`page.keyboard` では IME を再現できないので、ここは**合成したイベントの test** で固定する (`test/ime.test.ts`)。
 
 **連続打鍵 (`g` のあと `g`) は持たない。** 1 打鍵目で待つ間の見せ方と、待っている間に来た打鍵の扱いが要る。要ると分かってから足す。綴りを `{ code, modifiers }` の並びに広げる形なので、後から足しても今の綴りは壊れない。
 
@@ -294,6 +322,8 @@ Safari の `Alt+Meta+KeyI` は Develop メニューが既定で無効な状態�
 | **アクションに既定のキーを割り当てておく** | 人の意図に反した動きが最初から起きる。この画面はブラウザの中に居て、人は既に自分の手を持っている (DESIGN の「打鍵はブラウザのもの」) |
 | **ブラウザ標準と被るキーを一律に禁止する** | 禁じる必要があるものが 1 つも無かった。奪えてしまうものは警告して `force` で通せばよく、奪えないもの (予約) は禁じても意味が無い — 効かないことを表示するのが人の役に立つ唯一のこと (§2.5) |
 | **黙って許す (警告も表示もしない)** | 奪ったことに気付くのは別の作業中で、原因をこの画面だと思い付けない。予約の方は、書いたのに効かない理由が人に分からない (§2.5) |
+| **予約の一覧を実機で叩いて作る** | 押して確かめられるのは人が居る 1 台の 1 ブラウザだけで、網羅にならない。しかも確かめている間その機械のキーボードを奪う。Chromium はソースが読めるので、そちらを正本にして実機は裏取りに使う (§2.5) |
+| **変換中の打鍵を composer だけで捨てる** | 区画の役と人が結んだ打鍵は入力欄の外を通るので、同じ判断が 2 か所に要る。入口 1 か所に門を置けば、確定の Enter はどこへも流れない (§2.5) |
 | **予約の表をブラウザごとに分ける** | 人が今どのブラウザを使っているかをこちらが当てにいく形になり、外した時に何も言わずに効かなくなる。片方でも届かないなら予約として扱う (§2.5) |
 | **platform 限定を持たず `CmdOrCtrl` だけで済ませる** | `CmdOrCtrl` が吸収できるのは同じ機能が Command 対 Control で対応している場合だけ。mac の `Ctrl` は他の platform の `Ctrl` と役割が違うので、空いている組み合わせが一致しない (§2.5) |
 | **できないアクションを既定で止める (上へ流さない)** | 内側が無効な時に何も起きない。外側の同名が動く方が望みに近い。止めたいものは危ないものだけなので、既定を「流す」にして `destructive` の印で括る (§2.3) |
@@ -334,7 +364,9 @@ Safari の `Alt+Meta+KeyI` は Develop メニューが既定で無効な状態�
 | Q6 | 終了の二段の確認はアクションの中か外か | アクションの責務は確認を開くまで。確認は木の節を持つ区画 | §2.8 |
 | Q7 | 宛先の区画を画面でどう見せるか | 立っている区画に細い縁。色は focus ring と同じ意味名 | §2.2 |
 | Q8 | binding が platform を限定できるか | できる。限定は検査より前に効くので、mac 限定の `Ctrl+KeyF` は ⌘F と被らない | §2.5 |
-| Q9 | ブラウザ標準と被る組み合わせをどう断るか | 禁止ではなく警告 (`force` で通せる) と予約 (設定できても効かない、その旨を表示) の 2 種。予約の一覧は実測 | §2.5 |
+| Q9 | ブラウザ標準と被る組み合わせをどう断るか | 禁止ではなく警告 (`force` で通せる) と予約 (設定できても効かない、その旨を表示) の 2 種 | §2.5 |
+| Q10 | 予約の一覧をどう作るか | Chromium のソースが正本 (`IsReservedCommandOrKey` と accelerator 表)。Safari は公開一覧 + メニュー定義 + ページに渡るかの最小限の観測 | §2.5 |
+| Q11 | IME の変換中の打鍵をどう扱うか | 打鍵を受ける 1 か所で捨てる。`isComposing` / `keyCode 229` に加え、`compositionend` の直後 1 回の Enter / Escape も | §2.5 |
 
 ## 6. 関連
 

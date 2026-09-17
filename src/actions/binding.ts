@@ -223,28 +223,58 @@ export function displayBinding(binding: Binding, platform: Platform): string {
   ].join("+");
 }
 
-/** ブラウザがページに渡さないと**実測した**組み合わせ (DR-0003 §2.5 の表)。
+/** ブラウザがページに渡さない組み合わせ (DR-0003 §2.5 の表)。
  *
- * 2026-09-17、macOS の Chrome 152 と Safari で、物理キーとして送って keydown が
- * 届くかを観測したもの。**片方でも届かなければ予約**として扱う — 人が今どの
- * ブラウザを使っているかをこちらが当てにいくと、外した時に何も言わずに効か
- * なくなる。
+ * 出典は **Chromium のソース** — `IsReservedCommandOrKey` が予約とするコマンドと、
+ * その accelerator。実機で叩いて数えるより、こちらの方が網羅できる (押して確かめ
+ * られるのは人が居る 1 台の 1 ブラウザだけ)。Safari は本体が非公開なので、公開の
+ * ショートカット一覧とメニュー定義に、ページへ渡るかを見た少数の観測を足してある。
  *
- * **Windows / Linux は未検証**なので 1 つも載せない。推測で足すと、実際には
- * 使える組み合わせを「効きません」と言うことになる。 */
-const RESERVED_ON_MAC: readonly string[] = [
-  "MKeyW",
-  "MKeyT",
-  "MKeyN",
-  "MKeyQ",
-  "MSKeyN",
-  "MSKeyT",
-  "MKeyL",
-  "MKeyR",
-  "CTab",
-  "CSTab",
-  ...Array.from({ length: 9 }, (_, at) => `MDigit${String(at + 1)}`),
-];
+ * **片方のブラウザでも届かなければ予約**として扱う — 人が今どちらを使っているか
+ * をこちらが当てにいくと、外した時に何も言わずに効かなくなる。 */
+const RESERVED: Readonly<Record<Platform, readonly string[]>> = {
+  mac: [
+    // Chromium: IDC_CLOSE_TAB / CLOSE_WINDOW / NEW_TAB / NEW_WINDOW /
+    // NEW_INCOGNITO_WINDOW / RESTORE_TAB / EXIT と、タブを移る 6 つ。
+    "MKeyW",
+    "MSKeyW",
+    "MKeyT",
+    "MKeyN",
+    "MSKeyN",
+    "MSKeyT",
+    "MKeyQ",
+    "CTab",
+    "CSTab",
+    "MSBracketLeft",
+    "MSBracketRight",
+    "CPageUp",
+    "CPageDown",
+    "MAArrowLeft",
+    "MAArrowRight",
+    // Safari だけが取るもの (Chrome では届く)。アドレスバー・再読み込み・
+    // タブ番号で、どれも観測した。
+    "MKeyL",
+    "MKeyR",
+    ...Array.from({ length: 9 }, (_, at) => `MDigit${String(at + 1)}`),
+  ],
+  other: [
+    // Chromium の accelerator 表 (Windows / Linux)。mac と同じコマンドが
+    // Control に載り、ウィンドウを閉じる手が OS のものとして 2 つ増える。
+    "CKeyW",
+    "CSKeyW",
+    "F4",
+    "CF4",
+    "AF4",
+    "CKeyT",
+    "CKeyN",
+    "CSKeyN",
+    "CSKeyT",
+    "CTab",
+    "CSTab",
+    "CPageUp",
+    "CPageDown",
+  ],
+};
 
 /** 奪えてしまうが、奪うと何が失われるかを先に言う組み合わせ (§2.5)。
  *
@@ -300,7 +330,7 @@ export type Verdict =
 
 export function checkBinding(binding: Binding, platform: Platform): Verdict {
   const key = resolvedKey(resolveBinding(binding, platform));
-  if (platform === "mac" && RESERVED_ON_MAC.includes(key)) return { at: "reserved" };
+  if (RESERVED[platform].includes(key)) return { at: "reserved" };
   const warned = WARNED[platform].find((one) => one.keys.includes(key));
   if (warned !== undefined) return { at: "warned", lost: warned.lost };
   return { at: "clear" };

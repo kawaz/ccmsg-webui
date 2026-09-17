@@ -122,10 +122,15 @@ describe("警告と予約", () => {
     expect(bindingWorks({ ...binding, force: true }, "mac")).toBe(false);
   });
 
-  test("Windows / Linux の予約は未検証なので、予約として断らない", () => {
-    // 実測は macOS の Chrome と Safari だけ。推測で足すと、実際には使える
-    // 組み合わせを「効きません」と言うことになる (DR-0003 §2.5)。
-    expect(checkBinding(read("CmdOrCtrl+KeyW"), "other").at).toBe("warned");
+  test("予約は platform ごとに違う集合で、同じ綴りでも解決先で決まる", () => {
+    // `CmdOrCtrl+KeyW` は mac で ⌘W、それ以外で Ctrl+W。Chromium はどちらでも
+    // タブを閉じる手として予約する (DR-0003 §2.5 の出典)。
+    expect(checkBinding(read("CmdOrCtrl+KeyW"), "mac").at).toBe("reserved");
+    expect(checkBinding(read("CmdOrCtrl+KeyW"), "other").at).toBe("reserved");
+    // Safari だけが取るものは mac でだけ予約。Windows / Linux の Ctrl+L は
+    // ブラウザの手を奪うが、ページには届く。
+    expect(checkBinding(read("CmdOrCtrl+KeyL"), "mac").at).toBe("reserved");
+    expect(checkBinding(read("CmdOrCtrl+KeyL"), "other").at).toBe("warned");
   });
 
   test("ブラウザの手に触らない組み合わせはそのまま通る", () => {
