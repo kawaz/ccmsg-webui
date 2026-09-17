@@ -190,6 +190,38 @@ A section says what its inputs are, how they are written down, how they reach th
 
 Why it is decided this way, and what was turned down, is in [DR-0002](decisions/DR-0002-settings-are-sections-tried-before-they-are-kept.md).
 
+## An operation is an action, and a pane is where keys land
+
+Somewhere to press and a keystroke start **one and the same action** (`src/actions/`). An action holds an id, a title and, on the dangerous ones, a mark (`catalogue.ts`) — and no implementation at all. "Can it run now" and "run it" are held by **whichever scope volunteers**, so the same id can have a different answer in each place. What a person learns is one word — "next", "search" — and where it lands is decided by what is standing.
+
+**The scope tree is the component tree.** A part that is a pane names itself `<Pane name="tl.body">` and nesting is parenthood (`src/ui/Scope.tsx`). No diagram is kept beside it, because the diagram is what goes stale and nothing breaks when it does. There are nodes with no layout of their own (`Holder`) — a row in the list is one: a button inside the row reaches the handler that acts on **that row**, while a keystroke climbs from the pane and reaches the handler that acts on **the row under the cursor**. Same id, same title, different handler.
+
+**What is standing is app state**, not DOM focus. Focus comes off in too many ways here — a click on the margin, an embedded terminal, an `autoFocus` field. Focus decides one thing only: whether characters are being typed, and while they are, no keystroke is offered to an action. The direction is **state → DOM**: focus is moved to the standing node because focus is the only thing that tells a screen reader which pane is live. Inside a pane a roving tabindex means tab reaches the row under the cursor and no other.
+
+Starting an action **climbs from the inside out** and stops where a handler is found. A handler that cannot run right now passes it outward — if nothing is chosen in the transcript, the list's "next" moving is closer to what was meant than nothing moving. What must not pass outward carries the `destructive` mark and stops there instead. When no handler is found at all, **nothing happens** (no `preventDefault`), so the browser's own hand survives.
+
+A dangerous action's whole responsibility is **opening the confirmation**. What ends the session is the decision inside it, and since a key and a button go through the same single action, no path skips it. The confirmation is a pane with a node of its own: opening it makes it the standing pane, and closing it hands the standing back to where it was.
+
+The standing pane carries a **thin edge**, in the same colour name as the focus ring — "keys land here" is one meaning, so there is no reason for a pane's edge and an element's ring to be different colours.
+
+The keys a pane holds as part of being that pane are not the key table: up and down in a list, ← → to fold, deciding to open, up/down and PageUp/PageDown in the transcript body, `/` per pane. They sit where a `separator` moving under ← → sits. The table a person bound is consulted first, so wanting up and down for something else is never blocked by a pane's own role.
+
+**Only signals may be read by "can it run"**. Somewhere to press asks that during render, so reading anything else leaves nothing to tell it that it became pressable (a button whose props did not change is not redrawn).
+
+Platform features are taken where they save writing it here. The confirmation is a `<dialog>` opened with `showModal()`: the rest of the page going inert, `Escape` closing it and the top layer all come with it, so no `inert` of our own is applied. The fold marker on a section heading is CSS `content`, which keeps the heading's **text** the heading's name — nothing reading it, a test or a screen reader, reads the marker. **Invoker Commands (`command` / `commandfor`) were not taken**: a button naming what it starts in an attribute fits, but `commandfor` points at an **element**, and what is needed here is "climb from the standing pane and find the handler". Pressability and the title are read off the action as well, so the path goes through JS regardless.
+
+Why it was decided this way, and what was turned down, is in [DR-0003](decisions/DR-0003-an-action-is-what-a-key-and-a-button-both-reach.md).
+
+## Key bindings are one settings section
+
+The key table is one settings section (`src/actions/keys.ts`) holding **a spelling → an action id**. The table knows nothing of the actions themselves, so an id this build no longer has costs that one row and nothing else. What the settings screen lists is **the actions** — a person looks for "I want a key for this", not "what was this key again" — and the titles come from the actions, so adding one costs the screen nothing.
+
+One keystroke has three shapes. **What is stored is `{ code, modifiers }`**: `code` is `KeyboardEvent.code`, the physical position a layout cannot move, and the modifiers are a set, which is where order and duplication are normalised. **What a person writes is `CmdOrCtrl` / `Cmd` / `Ctrl` / `Alt` / `Shift`.** `CmdOrCtrl` **resolves to one modifier** on the current platform; it is a substitution, not a disjunction — on a mac, Control belongs to terminals, Emacs-style hands and VoiceOver, and firing on both would take those too. **What is shown** is the resolved shape (`⌘⇧K` on a mac, `Ctrl+Shift+K` elsewhere). The settings field keeps the spelling itself with the resolution beside it: symbols alone cannot be copied into a setting, a spelling alone does not say which key, and the resolution shown beside it is what makes the substitution visible.
+
+A binding can be **limited to one platform**. The limit applies before the clash check, so a mac-only `Ctrl+KeyF` passes without touching the browser's find (⌘F), and on every other platform that row simply does not exist.
+
+A combination that clashes with the browser is **not forbidden; it is one of two things**. A **warning** says what would be lost and passes once `force` is set — there is no reason to take ⌘F away from someone who does not use it. A **reservation** is a keystroke the browser never delivers, and `force` cannot change that: rather than refusing it, the screen **says that it can be set and will not work**. When a binding does nothing, nobody can tell a typo from the browser unless the screen says which it is. The reserved list is what Chrome and Safari were measured doing on macOS (DR-0003 §2.5); Windows and Linux are unmeasured, so nothing is listed for them.
+
 ## The parts, and what each of them holds
 
 So that changing one thing means touching one place, every layer states what it
@@ -351,8 +383,9 @@ dropped.
   keystrokes arrived, not that the name changed — the new name arrives later on
   the `agents` topic. It is not offered by an instance with no terminal in front
   of it (the `terminal` capability)
-- **Ending** takes two presses. The first asks politely, and the forceful one is
-  offered **only when that did not work**: it costs the session its chance to
+- **Ending** opens a confirmation, and what asks the instance is the decision
+  inside it. The forceful one appears on the row **only when that did not
+  work**: it costs the session its chance to
   flush its transcript, so the screen never chooses it — the contract defines
   `force` that way and a person decides
 
@@ -467,9 +500,7 @@ The search covers **what this page already holds** — the stretch of the transc
 
 ### The keystrokes belong to the browser
 
-**This page defines no keyboard shortcuts of its own.** Putting a box that can see inside a collapsed fold on ⌘F would open it in one keystroke, but that keystroke is already the browser's own way of searching a page, and taking it costs the reader the standard hand they came with. What a page may add is somewhere to press, not a new meaning for a key.
-
-Should shortcuts ever be added: **off by default**, and **never bound to a combination a browser already spells** (⌘F / ⌘K / ⌘L and their kin).
+**Nothing is bound by default.** Until a person binds one in the settings, this page takes no keystroke at all. The box is opened by its 🔍 and by the `/` the standing pane holds as part of being a pane (above).
 
 Whitespace within a query line separates AND terms and newlines separate OR clauses. A double-quoted phrase is one term whose internal runs of whitespace match `\s+`. `[Aa]` and `[.*]` switch case sensitivity and regular expressions on. **That grammar belongs to the page, not to the contract**: the contract states what a daemon and a client say to each other, and how a string typed into a search box is read is not one of those things.
 
