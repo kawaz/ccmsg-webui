@@ -44,7 +44,7 @@ UI Events 仕様は、`KeyboardEvent.key` を利用者の意図するキー値�
 - UI Events `getModifierState()`: https://w3c.github.io/uievents/#dom-keyboardevent-getmodifierstate
 - MDN `getModifierState()`: https://developer.mozilla.org/docs/Web/API/KeyboardEvent/getModifierState
 
-`navigator.platform` は HTML Standard 上で互換目的の情報であり、新しいコードでの利用は非推奨と MDN が明記する。User-Agent Client Hints の `navigator.userAgentData.platform` は User-Agent Client Hints 仕様の値だが、MDN では limited availability であり、Safari を含む全対象で使える基盤ではない。従って表示プラットフォームの判定は、`userAgentData.platform` があれば利用し、なければ `navigator.platform` を互換フォールバックにする。判定できない場合は記号へ翻訳せず語で表示する。プラットフォーム判定をキーバインドの意味そのものに混ぜない。
+`navigator.platform` は HTML Standard 上で互換目的の情報であり、新しいコードでの利用は非推奨と MDN が明記する。User-Agent Client Hints の `navigator.userAgentData.platform` は User-Agent Client Hints 仕様の値だが、MDN では limited availability であり、Safari を含む全対象で使える基盤ではない。従って表示プラットフォームの判定は、`userAgentData.platform` と `navigator.platform` の**いずれかが mac を示せば mac**とする (DR-0003 §5 Q13 の裁定)。当初は「新しい方を優先し、無ければ古い方へフォールバック」を推奨したが、**両者が食い違う環境が実機で見つかった**: 自動化された Chromium は macOS 上でも `userAgentData.platform` に `Windows` を返し、`navigator.platform` だけが `MacIntel` を返す (2026-09-17、Playwright 1.63 / Chromium)。優先順位ではなく論理和にするのは、mac を mac でないと読んだ時の損失 (`CmdOrCtrl` が Control に解決し、⌘ のつもりの割り当てが効かない上に Control 側を奪う) が逆向きの損失より大きいためである。判定できない場合は記号へ翻訳せず語で表示する。プラットフォーム判定をキーバインドの意味そのものに混ぜない。
 
 - HTML Standard `Navigator.platform`: https://html.spec.whatwg.org/multipage/system-state.html#dom-navigator-platform
 - MDN `navigator.platform`: https://developer.mozilla.org/docs/Web/API/Navigator/platform

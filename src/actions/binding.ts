@@ -41,13 +41,21 @@ export interface Resolved {
 /** 今の platform。判定は表示と解決のためだけに使い、**保存する意味には混ぜない**
  * — 設定を別の platform へ持ち運んでも綴りの意味は変わらない。
  *
- * `navigator.platform` は互換目的の情報なので、あれば User-Agent Client Hints の
- * 方を先に読む。どちらも読めなければ mac ではない側に倒す (記号に翻訳しない方が
- * 誤読が少ない)。 */
+ * **2 つの出所のどちらかが mac だと言えば mac**。`userAgentData.platform` は
+ * User-Agent Client Hints の値で、`navigator.platform` は互換目的の古い値 —
+ * 新しい方を先に読むのが筋だが、**実機で食い違う環境がある**: 自動化された
+ * Chromium は macOS の上でも `userAgentData.platform` に `Windows` を返し、
+ * `navigator.platform` だけが `MacIntel` と言う。
+ *
+ * 片方でも mac だと言えば mac にするのは、間違え方の重さが釣り合っていないから
+ * — mac を mac でないと読むと `CmdOrCtrl` が Control に解決し、⌘ のつもりで
+ * 結んだ打鍵がどれも効かない上に、Control 側を奪う。逆向きの間違いは、mac で
+ * しか起きない予約を余分に断るだけで済む。 */
 export function platformNow(): Platform {
   const hinted = (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform;
-  const said = hinted ?? navigator.platform;
-  return /mac/i.test(said) ? "mac" : "other";
+  return [hinted, navigator.platform].some((said) => said !== undefined && /mac/i.test(said))
+    ? "mac"
+    : "other";
 }
 
 /** 綴りに書ける別名。正規形は `MODIFIERS` の綴りで、`format` はそちらへ戻す。 */
