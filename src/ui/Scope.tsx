@@ -1,4 +1,4 @@
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, RefObject } from "preact";
 import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { eventKey } from "../actions/binding.ts";
@@ -74,19 +74,28 @@ export function Pane({
   name,
   label,
   class: className,
+  style,
+  hold,
   children,
 }: {
   name: string;
   /** 読み上げが言うこの区画の名前。 */
   label: string;
   class?: string;
+  style?: string;
+  /** 区画の箱そのものが要る所 (測る / 動かす) へ渡す手。 */
+  hold?: RefObject<HTMLDivElement>;
   children: ComponentChildren;
 }) {
   const parent = useScope();
   const scope = useMemo(() => new Scope(name, parent), [name, parent]);
-  const box = useRef<HTMLDivElement>(null);
-  const here = standing.value;
-  const on = scope.contains(here);
+  const own = useRef<HTMLDivElement>(null);
+  const box = hold ?? own;
+  // 縁が付くのは**今キーを受けている節そのもの**だけ。内側が立っている間に
+  // 外側まで縁が付くと、どこに当たるのかがかえって読めなくなる。
+  const on = standing.value === scope;
+
+  useEffect(() => scope.parent?.adopt(scope), [scope]);
 
   // 画面から消えた区画が宛先のままだと、以後の打鍵が誰にも届かない。親へ返す。
   useEffect(
@@ -111,6 +120,7 @@ export function Pane({
       <div
         ref={box}
         class={`pane-scope${on ? " standing" : ""}${className === undefined ? "" : ` ${className}`}`}
+        style={style}
         tabIndex={-1}
         role="group"
         aria-label={label}

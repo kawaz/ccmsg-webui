@@ -9,11 +9,14 @@ import {
   route,
   sessionsOpen,
   toast,
+  toggleSessionsOpen,
 } from "../state.ts";
+import { Confirm } from "./Confirm.tsx";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { Stale } from "./Disconnected.tsx";
 import { Main } from "./Main.tsx";
 import { SessionList } from "./SessionList.tsx";
+import { Pane, standOn, useAction, useScope } from "./Scope.tsx";
 import { Splitter, useSplitWidth } from "./Splitter.tsx";
 
 /** 繋がっている時の画面の**組み立て**。
@@ -33,6 +36,7 @@ export function Shell() {
         </p>
       )}
       <Panes />
+      <Confirm />
     </>
   );
 }
@@ -89,14 +93,17 @@ function Panes() {
   // だけ一覧で、それ以外は本文 (戻る道はバーの「一覧」)。
   const showing = at.at === "sessions" ? "list" : "main";
   return (
-    <div
+    <Pane
+      name="workspace"
+      label="作業画面"
+      hold={box}
       class={`panes showing-${showing}${open ? "" : " list-off"}`}
-      ref={box}
       style={split.width === undefined ? undefined : `--sessions-w:${String(split.width)}px`}
     >
-      <div class="pane pane-list">
+      <PaneMoves />
+      <Pane name="session-list" label="セッションの一覧" class="pane pane-list">
         <SessionList />
-      </div>
+      </Pane>
       <Splitter
         class="panes-split"
         label="一覧と本文の境目"
@@ -109,11 +116,46 @@ function Panes() {
         onSet={split.hold}
         onSettle={split.keep}
       />
-      <div class="pane pane-main" ref={main}>
+      <Pane name="main" label="メインコンテンツ" hold={main} class="pane pane-main">
         <ScrollerContext.Provider value={main}>
           <Main />
         </ScrollerContext.Provider>
-      </div>
-    </div>
+      </Pane>
+    </Pane>
   );
+}
+
+/** 区画をまたぐ移動 (DR-0003 §2.7)。
+ *
+ * **押す所を持たない** — 押す所を作ると、押した時点でそこがフォーカスを持って
+ * しまい、目的の「手を離さず辿る」が消える (§2.4)。既定の割り当ても無いので、
+ * 欲しい人が設定で綴りを結ぶ (§2.5)。
+ *
+ * 描くものが無いのにコンポーネントなのは、担当を名乗るのが**その節の中に居る
+ * こと**だから — workspace の担当は workspace の中で名乗る。 */
+function PaneMoves() {
+  const scope = useScope();
+  const go = (name: string): void => {
+    const to = scope.child(name);
+    if (to !== undefined) standOn(to);
+  };
+  useAction("workspace.focus-sidebar", {
+    // 出ていない区画へは移れない。移れてしまうと、キーの当たる先が画面から
+    // 消えたままになる。
+    enabled: () => sessionsOpen.value && scope.child("session-list") !== undefined,
+    run: () => {
+      go("session-list");
+    },
+  });
+  useAction("workspace.focus-main", {
+    enabled: () => scope.child("main") !== undefined,
+    run: () => {
+      go("main");
+    },
+  });
+  useAction("workspace.toggle-sidebar", {
+    enabled: () => true,
+    run: toggleSessionsOpen,
+  });
+  return null;
 }

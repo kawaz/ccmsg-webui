@@ -4,7 +4,9 @@ import { watchRegisterLinks } from "./auth/register-link.ts";
 import { adoptLocation, holdRegistration, registration, resume } from "./state.ts";
 import { applySaved } from "./settings-section.ts";
 import "./theme.ts";
+import "./actions/keys.ts";
 import { App } from "./ui/App.tsx";
+import { listenForKeys } from "./ui/Scope.tsx";
 
 // 覚えてあるものを `:root` に書いてから描く。選んでいない分は app.css のままで
 // 立つので、ここが書くのは人が決めた項だけ。section が増えてもここは増えない。
@@ -31,6 +33,10 @@ addEventListener("popstate", () => {
 // the person: a browser with no session is left at a screen offering to
 // connect, which is where asking for a passkey becomes something they pressed.
 if (registration.peek() === undefined) void resume();
+
+// 打鍵を受ける口は画面ぜんぶで 1 つ。結ばれているものが無い間は何も起きない
+// ので、ここが立っていること自体は人の打鍵を奪わない (DR-0003 §2.5)。
+listenForKeys();
 
 const root = document.getElementById("app");
 if (root === null) throw new Error("#app がありません");

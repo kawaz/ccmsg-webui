@@ -1063,6 +1063,71 @@ export function toggleSessionsOpen(): void {
   localStore.set(sessionsOpenKey(), formatSessionsOpen(sessionsOpen.value));
 }
 
+/** 一覧のカーソルが今指している単位 (`src/sessions-cursor.ts` の名前)。
+ *
+ * **選ぶことと開くことは別** (DR-0003 §2.2): ここが動くのは辿っている間だけで、
+ * 開くのは決定の時。カーソルが乗っただけで開くと、辿る途中の行を全部読み込みに
+ * 行くことになる。行に効く操作 (改名・終了・留める) が対象にするのはこちらで、
+ * 開いている行ではない。 */
+export const listCursor = signal<string | undefined>(undefined);
+
+/** 畳んであるセクション。畳んだセクションは一覧の軸の上で 1 単位になる。 */
+export const listCollapsed = signal<ReadonlySet<string>>(new Set());
+
+export function toggleListSection(section: string, collapsed: boolean): void {
+  const next = new Set(listCollapsed.value);
+  if (collapsed) next.add(section);
+  else next.delete(section);
+  listCollapsed.value = next;
+}
+
+/** 今並んでいるものを絞る言葉 (クイックフィルタ)。
+ *
+ * **オフラインのセッションを探すこととは別**のもの (§2.2)。同じ窓に見えても、
+ * こちらは今並んでいるものを絞るだけで、一覧に無いものは取りに行かない。 */
+export const listFilter = signal<string>("");
+export const listFilterOpen = signal(false);
+
+/** 今カーソルの行を改名している最中か。行の中の state ではなく画面の state なのは、
+ * 打鍵からも押す所からも同じ 1 つのアクションが起こすため (§2.4)。 */
+export const renaming = signal<Sid | undefined>(undefined);
+
+/** 普通に頼んでも消えなかったセッション。強い方を出すかの材料で、instance が
+ * そう言ったという事実 (契約) をそのまま持つ。 */
+export const unkilled = signal<ReadonlySet<Sid>>(new Set());
+
+export function markUnkilled(sid: Sid, stuck: boolean): void {
+  const next = new Set(unkilled.value);
+  if (stuck) next.add(sid);
+  else next.delete(sid);
+  unkilled.value = next;
+}
+
+/** 開いている確認。**危ないアクションの責務は、これを開くまで** (DR-0003 §2.8)
+ * で、実際に終わらせるのはこの中の決定。キーから起こしても押す所から起こしても
+ * 同じ 1 つのアクションを通るので、確認の出ない経路ができない。 */
+export interface Confirmation {
+  /** 何をしようとしているか。題はアクションの側から出る。 */
+  readonly action: string;
+  /** 決めた後に何が起きるか。 */
+  readonly note: string;
+  readonly go: () => void;
+}
+
+export const confirming = signal<Confirmation | undefined>(undefined);
+
+export function askFirst(ask: Confirmation): void {
+  confirming.value = ask;
+}
+
+export function dismissConfirm(): void {
+  confirming.value = undefined;
+}
+
+/** 選んでいる transcript の 1 通 (§2.7)。同じ声の前後へ動く軸は、この 1 通が
+ * 決めている。 */
+export const selectedItem = signal<string | undefined>(undefined);
+
 /** 留めてあるセッション。並びの先頭に来て、印が付く。 */
 export const pinned = signal<ReadonlySet<Sid>>(loadPinned());
 

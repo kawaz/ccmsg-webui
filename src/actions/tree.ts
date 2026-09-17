@@ -31,6 +31,7 @@ export class Scope {
    * 「一覧なら上下で辿れる」という**区画の役そのもの**で、`separator` が ← →
    * で動くのと同じ所に居る。 */
   private readonly keys = new Map<string, string>();
+  private readonly children = new Map<string, Scope>();
 
   constructor(name: string, parent?: Scope) {
     this.name = name;
@@ -52,6 +53,21 @@ export class Scope {
     return () => {
       if (this.keys.get(spell) === id) this.keys.delete(spell);
     };
+  }
+
+  /** 子の節を親に知らせる。区画をまたぐ移動 (「サイドバーへ移る」) が、行き先を
+   * 名前で指せるのはこれがあるから — 移動が部品の中の副作用だと、どこからどこへ
+   * 移れるかを人が設定で組み替えられない (§2.2)。 */
+  adopt(child: Scope): () => void {
+    this.children.set(child.name, child);
+    return () => {
+      if (this.children.get(child.name) === child) this.children.delete(child.name);
+    };
+  }
+
+  /** 名前で指した子。まだ画面に無ければ答えは無い (= そこへは移れない)。 */
+  child(name: string): Scope | undefined {
+    return this.children.get(name);
   }
 
   handlerOf(id: string): Handler | undefined {
