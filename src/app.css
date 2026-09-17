@@ -2921,6 +2921,16 @@ select {
 
 /* セクションの見出しは畳みの取っ手そのもの。見出しの見た目はそのままで、
    押せることだけを足す。 */
+/* 畳みの印は CSS が出す。見出しの**文字**は見出しの名前だけにしておく —
+   印を文字として置くと、見出しを読む所 (test も読み上げも) が印ごと読む。 */
+.section-fold::before {
+  content: "\25bc ";
+}
+
+.section-fold[aria-expanded="false"]::before {
+  content: "\25b6 ";
+}
+
 .section-fold {
   padding: 0;
   border: 0;

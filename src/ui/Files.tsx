@@ -1,3 +1,4 @@
+import { computed } from "@preact/signals";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { DirEntry, Sid } from "@ccmsg/protocol";
 import type { FilesView, OpenFile } from "../files/files-view.ts";
@@ -377,7 +378,10 @@ function FileBody({
     () => splitLines(file.content).map((text, at) => ({ key: String(at + 1), text })),
     [file.content],
   );
-  const matched = useMemo(() => matchingKeys(units, words), [units, words]);
+  const matched = useMemo(
+    () => computed(() => matchingKeys(units, search.words.value)),
+    [units, search],
+  );
   const reveal = (key: string) => {
     scroller.current
       ?.querySelector(`[data-search-key="${key}"]`)

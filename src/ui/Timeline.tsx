@@ -1,6 +1,6 @@
 import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
-import { useSignal } from "@preact/signals";
+import { computed, useSignal } from "@preact/signals";
 import { liveness, reachable, type Sid, type TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { useFileWords } from "../files/file-word-link.ts";
@@ -280,10 +280,18 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
         : groups,
     [groups, rowsWaiting, gone, view.sid, view.agentId],
   );
+  // 選べるのは**メッセージ**だけ。声の軸は「誰が言ったか」の軸なので、道具の
+  // 1 行や思考が列に混ざると、辿った先に選んだ印の出る所が無い。
+  const messages = useMemo(() => held.filter((one) => one.type.startsWith("message.")), [held]);
   const search = useInViewSearch();
   const words = search.words.value;
   const units = useMemo(() => timelineSearchUnits(nodes), [nodes]);
-  const matched = useMemo(() => matchingKeys(units, words), [units, words]);
+  // 一致の並びは computed で持つ。押す所の「できるか」がここを読むので、ただの
+  // 値だと数が変わったことが伝わらない (`SearchBar` の `matched` を読む)。
+  const matched = useMemo(
+    () => computed(() => matchingKeys(units, search.words.value)),
+    [units, search],
+  );
   const nodesByUnit = useMemo(() => groupIndexByUnitKey(nodes), [nodes]);
   // 通知が「何に答えたか」と言う mid から、その 1 通が居る所へ。
   const itemsByMid = useMemo(() => itemIdsByMid(held), [held]);
@@ -428,7 +436,7 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     const target = event.target;
     if (!(target instanceof Element) || target.closest(".search-hl") === null) return;
     const key = target.closest("[data-search-key]")?.getAttribute("data-search-key");
-    const at = key === null || key === undefined ? -1 : matched.indexOf(key);
+    const at = key === null || key === undefined ? -1 : matched.value.indexOf(key);
     if (at >= 0) search.index.value = at + 1;
   };
 
@@ -579,7 +587,7 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
           <SearchWordsContext.Provider value={words}>
             <Pane name="tl.body" label="transcript" class="tl-scope">
               <TimelineActions
-                items={held}
+                items={messages}
                 select={select}
                 page={page}
                 openSearch={() => {

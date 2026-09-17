@@ -60,7 +60,7 @@ import {
   terminalIdOfSession,
   unkilled,
 } from "../state.ts";
-import { Act, standOn, useAction, useScope, useScopeKeys } from "./Scope.tsx";
+import { Act, Holder, standOn, useAction, useScope, useScopeKeys } from "./Scope.tsx";
 import { terminalLabel } from "../terminals.ts";
 
 /** セッションごとの、輪を描く窓。frame は系列ごとに 1 行来るので、行に 1 つを
@@ -93,19 +93,101 @@ function groupTitle(section: SessionSection, count: number): string {
   return `${SESSION_SECTION_LABELS[section]} (${String(count)})`;
 }
 
-/** 行の上でできること。
+/** セッション 1 つに効くアクションの担当。
  *
- * 押す所は**アクションを起こす 1 行**で、することの中身はアクションの側にある
- * (DR-0003 §2.4)。対象は**カーソルの行**なので、押す前にカーソルをその行へ移す
- * — 押した所とキーで別の行が対象になったら、同じアクションである意味が無い。
+ * **同じ組を 2 か所が名乗る** (DR-0003 §2.3): 行の中では自分の行を対象に、区画の
+ * 上ではカーソルの行を対象に。押す所は行の中に居るので内側 (= その行) に当たり、
+ * 打鍵は区画から登るのでカーソルの行に当たる — 押した所とキーで別の行が対象に
+ * なることがない。
  *
  * 終了・強制終了・削除は `destructive` の印付き。呼ばれたら確認を開くまでが
  * 責務で (§2.8)、段階を行が持つことはもう無い。 */
+function useSessionActions(peerOf: () => PeerInfo | undefined) {
+  const ask = (action: string, note: string, go: () => void): void => {
+    askFirst({ action, note, go });
+  };
+  useAction("session-list.pin", {
+    enabled: () => peerOf() !== undefined,
+    run: () => {
+      const peer = peerOf();
+      if (peer !== undefined) togglePinned(peer.sid);
+    },
+  });
+  useAction("session-list.rename", {
+    // 改名は端末に打鍵を送ってもらう操作なので、端末を持つ instance でだけ。
+    enabled: () => peerOf() !== undefined && can("terminal"),
+    run: () => {
+      renaming.value = peerOf()?.sid;
+    },
+  });
+  useAction("session-list.kill", {
+    enabled: () => peerOf() !== undefined,
+    run: () => {
+      const sid = peerOf()?.sid;
+      if (sid === undefined) return;
+      ask(
+        "session-list.kill",
+        "このセッションに終了を頼みます。消えなかった時だけ、強い方を選べるようになります。",
+        () => {
+          killSession(sid, false)
+            .then((said) => {
+              // 消えなかったのは失敗ではなく、次に何を選ぶかの材料 (契約)。
+              markUnkilled(sid, !said.terminated);
+            })
+            .catch(() => {
+              markUnkilled(sid, false);
+            });
+        },
+      );
+    },
+  });
+  useAction("session-list.kill-force", {
+    // 強い方は**人が 1 度普通に頼んでから**選ぶもの (契約)。
+    enabled: () => {
+      const peer = peerOf();
+      return peer !== undefined && unkilled.value.has(peer.sid);
+    },
+    run: () => {
+      const sid = peerOf()?.sid;
+      if (sid === undefined) return;
+      ask(
+        "session-list.kill-force",
+        "強い方は transcript を書き切る機会ごと奪います。書きかけの行は残りません。",
+        () => {
+          killSession(sid, true)
+            .then((said) => {
+              markUnkilled(sid, !said.terminated);
+            })
+            .catch(() => {
+              /* 断られたことは行のままで分かる (次の snapshot が来る)。 */
+            });
+        },
+      );
+    },
+  });
+  useAction("session-list.forget", {
+    enabled: () => {
+      const peer = peerOf();
+      return peer !== undefined && isLost(peer, Date.now());
+    },
+    run: () => {
+      const sid = peerOf()?.sid;
+      if (sid === undefined) return;
+      ask("session-list.forget", "instance がこのセッションを忘れます。一覧から消えます。", () => {
+        void forgetLostSession(sid);
+      });
+    },
+  });
+}
+
+/** 行の中の押す所。押す所は**アクションを起こす 1 行**で、することの中身は
+ * アクションの側にある (§2.4)。 */
 function RowActions({ peer }: { peer: PeerInfo }) {
   const draft = useSignal("");
   const problem = useSignal<string | undefined>(undefined);
   const held = pinned.value.has(peer.sid);
   const stuck = unkilled.value.has(peer.sid);
+  useSessionActions(() => peer);
 
   const rename = (): void => {
     const title = draft.value.trim();
@@ -192,63 +274,65 @@ function PeerRow({
     if (onCursor) box.current?.scrollIntoView({ block: "nearest" });
   }, [onCursor]);
   return (
-    <div class={`row${onCursor ? " on-cursor" : ""}`} ref={box}>
-      <span
-        class={ring === undefined ? "cache-slot" : `cache-slot ${ring.class}`}
-        style={ring?.style}
-      >
-        {ring !== undefined && <CacheRing />}
-      </span>
-      <button
-        type="button"
-        class="name open"
-        // roving tabindex: 節の中で tab が届くのはカーソルの行だけ。一覧の行数
-        // だけ tab を押させない。
-        tabIndex={onCursor ? 0 : -1}
-        onClick={() => {
-          // 押した行がカーソルの行になる。行に効く操作の対象がカーソルの行
-          // である以上、押した所とキーで別の行を指してはならない。
-          listCursor.value = unitKey({ at: "session", section, sid: peer.sid });
-          open(peer.sid);
-        }}
-      >
-        {sessionLabel(peer)}
-      </button>
-      {waiting > 0 && (
-        <span class="waiting-badge" title="このセッションの inbox で待っている通数">
-          {waiting}
+    <Holder name={`row ${peer.sid}`}>
+      <div class={`row${onCursor ? " on-cursor" : ""}`} ref={box}>
+        <span
+          class={ring === undefined ? "cache-slot" : `cache-slot ${ring.class}`}
+          style={ring?.style}
+        >
+          {ring !== undefined && <CacheRing />}
         </span>
-      )}
-      {failure !== undefined && (
-        // The error may run to several lines; the row shows the first
-        // and the whole of it is on the title.
-        <span class="error" title={failure.text}>
-          {failure.text.split("\n")[0]}
-        </span>
-      )}
-      {standingRow !== undefined && (
-        <span class="state" title="このセッションの状態の畳みが今どうなっているか">
-          {standingRow}
-        </span>
-      )}
-      {!twofold && <TerminalLink terminalId={terminalIdOfSession(peer.sid)} />}
-      {twofold ? (
         <button
           type="button"
-          class="row-danger"
+          class="name open"
+          // roving tabindex: 節の中で tab が届くのはカーソルの行だけ。一覧の行数
+          // だけ tab を押させない。
+          tabIndex={onCursor ? 0 : -1}
           onClick={() => {
+            // 押した行がカーソルの行になる。行に効く操作の対象がカーソルの行
+            // である以上、押した所とキーで別の行を指してはならない。
+            listCursor.value = unitKey({ at: "session", section, sid: peer.sid });
             open(peer.sid);
           }}
         >
-          run を選ぶ
+          {sessionLabel(peer)}
         </button>
-      ) : (
-        <RowActions peer={peer} />
-      )}
-      {at !== undefined && <span class="meta">{when(at)}</span>}
-      <span class="meta mono">{peer.instance}</span>
-      {isLost(peer, now) && <Act action="session-list.forget">削除</Act>}
-    </div>
+        {waiting > 0 && (
+          <span class="waiting-badge" title="このセッションの inbox で待っている通数">
+            {waiting}
+          </span>
+        )}
+        {failure !== undefined && (
+          // The error may run to several lines; the row shows the first
+          // and the whole of it is on the title.
+          <span class="error" title={failure.text}>
+            {failure.text.split("\n")[0]}
+          </span>
+        )}
+        {standingRow !== undefined && (
+          <span class="state" title="このセッションの状態の畳みが今どうなっているか">
+            {standingRow}
+          </span>
+        )}
+        {!twofold && <TerminalLink terminalId={terminalIdOfSession(peer.sid)} />}
+        {twofold ? (
+          <button
+            type="button"
+            class="row-danger"
+            onClick={() => {
+              open(peer.sid);
+            }}
+          >
+            run を選ぶ
+          </button>
+        ) : (
+          <RowActions peer={peer} />
+        )}
+        {at !== undefined && <span class="meta">{when(at)}</span>}
+        <span class="meta mono">{peer.instance}</span>
+        {isLost(peer, now) && <Act action="session-list.forget">削除</Act>}
+      </div>
+    </Holder>
   );
 }
 
@@ -383,6 +467,9 @@ function ListActions({
   onFilter: () => void;
 }) {
   const scope = useScope();
+  // 区画の上では、行に効くアクションの対象は**カーソルの行**。行の中の同じ
+  // アクション (その行が対象) は内側に居るので、押す所には行の方が当たる。
+  useSessionActions(() => cursorPeer);
   const here = (): ReturnType<typeof unitAt> => unitAt(units, listCursor.value);
   const move = (step: 1 | -1): void => {
     const to = stepCursor(units, listCursor.value, step);
@@ -392,10 +479,6 @@ function ListActions({
     const main = scope.parent?.child("main");
     if (main !== undefined) standOn(main);
   };
-  const ask = (action: string, note: string, go: () => void): void => {
-    askFirst({ action, note, go });
-  };
-
   useAction("session-list.select-prev", {
     enabled: () => units.length > 0,
     run: () => {
@@ -446,72 +529,6 @@ function ListActions({
     enabled: () => true,
     run: onFilter,
   });
-  useAction("session-list.pin", {
-    enabled: () => cursorPeer !== undefined,
-    run: () => {
-      if (cursorPeer !== undefined) togglePinned(cursorPeer.sid);
-    },
-  });
-  useAction("session-list.rename", {
-    // 改名は端末に打鍵を送ってもらう操作なので、端末を持つ instance でだけ。
-    enabled: () => cursorPeer !== undefined && can("terminal"),
-    run: () => {
-      renaming.value = cursorPeer?.sid;
-    },
-  });
-  useAction("session-list.kill", {
-    enabled: () => cursorPeer !== undefined,
-    run: () => {
-      const sid = cursorPeer?.sid;
-      if (sid === undefined) return;
-      ask(
-        "session-list.kill",
-        "このセッションに終了を頼みます。消えなかった時だけ、強い方を選べるようになります。",
-        () => {
-          killSession(sid, false)
-            .then((said) => {
-              // 消えなかったのは失敗ではなく、次に何を選ぶかの材料 (契約)。
-              markUnkilled(sid, !said.terminated);
-            })
-            .catch(() => {
-              markUnkilled(sid, false);
-            });
-        },
-      );
-    },
-  });
-  useAction("session-list.kill-force", {
-    // 強い方は**人が 1 度普通に頼んでから**選ぶもの (契約)。
-    enabled: () => cursorPeer !== undefined && unkilled.value.has(cursorPeer.sid),
-    run: () => {
-      const sid = cursorPeer?.sid;
-      if (sid === undefined) return;
-      ask(
-        "session-list.kill-force",
-        "強い方は transcript を書き切る機会ごと奪います。書きかけの行は残りません。",
-        () => {
-          killSession(sid, true)
-            .then((said) => {
-              markUnkilled(sid, !said.terminated);
-            })
-            .catch(() => {
-              /* 断られたことは行のままで分かる (次の snapshot が来る)。 */
-            });
-        },
-      );
-    },
-  });
-  useAction("session-list.forget", {
-    enabled: () => cursorPeer !== undefined && isLost(cursorPeer, Date.now()),
-    run: () => {
-      const sid = cursorPeer?.sid;
-      if (sid === undefined) return;
-      ask("session-list.forget", "instance がこのセッションを忘れます。一覧から消えます。", () => {
-        void forgetLostSession(sid);
-      });
-    },
-  });
-
   // 区画の役としての打鍵 (§2.2 の表)。PageUp / PageDown は区画のスクロールで、
   // 区画そのものが focus を持っているのでブラウザの既定がそのまま効く。
   useScopeKeys({
@@ -622,7 +639,6 @@ export function SessionList() {
                   toggleListSection(group.section, !shut);
                 }}
               >
-                <span aria-hidden="true">{shut ? "▶" : "▼"}</span>{" "}
                 {groupTitle(group.section, group.rows.length)}
               </button>
             </h2>

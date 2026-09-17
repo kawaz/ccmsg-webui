@@ -25,7 +25,11 @@ export function useScope(): Scope {
 /** このスコープがそのアクションの担当を名乗る。
  *
  * 渡す 2 つは毎描画作り直されてよい — 呼ばれた時に**その時の**関数を通るので、
- * 中で読んでいる値が古くなることはない。 */
+ * 中で読んでいる値が古くなることはない。
+ *
+ * ただし `enabled` が読むのは **signal だけ**にする。押す所はそれを描画の中で
+ * 問うので、signal 以外を読むと「押せるようになったこと」を伝える相手が居ない —
+ * props が同じままの押す所は描き直されず、無効なボタンがそこに残る。 */
 export function useAction(id: string, handler: Handler): void {
   const scope = useScope();
   const latest = useRef(handler);
@@ -58,6 +62,20 @@ export function useScopeKeys(keys: Readonly<Record<string, string>>): void {
     };
     // 結び付けの中身が変わった時だけ張り直す (毎描画の object は同じ中身でも別物)。
   }, [scope, spelled]);
+}
+
+/** 版組を持たない節。
+ *
+ * 一覧の 1 行のように、**同じアクションを自分を対象に担当する**所が要る時に
+ * 使う。区画ではないので縁も focus も持たず、木の上に名前が 1 つ増えるだけ。
+ *
+ * これで押す所とキーの食い違いが消える: 行のボタンは自分の行を対象にした担当に
+ * 当たり (内側が勝つ)、打鍵は区画から登るのでカーソルの行を対象にした担当に
+ * 当たる。同じ id、同じ題、違う担当 — §2.3 がまさにこれ。 */
+export function Holder({ name, children }: { name: string; children: ComponentChildren }) {
+  const parent = useScope();
+  const scope = useMemo(() => new Scope(name, parent), [name, parent]);
+  return <ScopeContext.Provider value={scope}>{children}</ScopeContext.Provider>;
 }
 
 /** 宛先をこの区画にする。クリックでも打鍵でも移る (§2.2)。 */

@@ -32,6 +32,13 @@ export class Scope {
    * で動くのと同じ所に居る。 */
   private readonly keys = new Map<string, string>();
   private readonly children = new Map<string, Scope>();
+  /** 担当が入れ替わった回数。
+   *
+   * 押す所が押せるかは担当が居るかで決まるので、**担当が名乗り出たこと自体が
+   * 描き直しの理由**になる。signal にしておかないと、まだ誰も担当していない
+   * 瞬間に描かれたボタンが、担当が現れても押せないまま残る (読んだ signal が
+   * 1 つも無いので、描き直す理由がどこにも無い)。 */
+  private readonly revision = signal(0);
 
   constructor(name: string, parent?: Scope) {
     this.name = name;
@@ -42,8 +49,11 @@ export class Scope {
   /** 担当を名乗る。返るのは降ろす手で、区画が画面から消えた時に呼ぶ。 */
   handle(id: string, handler: Handler): () => void {
     this.handlers.set(id, handler);
+    this.revision.value += 1;
     return () => {
-      if (this.handlers.get(id) === handler) this.handlers.delete(id);
+      if (this.handlers.get(id) !== handler) return;
+      this.handlers.delete(id);
+      this.revision.value += 1;
     };
   }
 
@@ -68,6 +78,11 @@ export class Scope {
   /** 名前で指した子。まだ画面に無ければ答えは無い (= そこへは移れない)。 */
   child(name: string): Scope | undefined {
     return this.children.get(name);
+  }
+
+  /** 担当の入れ替わりを読む (描画の中から呼ぶと、入れ替わった時に描き直る)。 */
+  watch(): number {
+    return this.revision.value;
   }
 
   handlerOf(id: string): Handler | undefined {
@@ -135,6 +150,9 @@ export function run(id: string, from: Scope = standing.value): Dispatched {
  * どうかの判定が 2 か所に無い (§2.4)。 */
 export function canRun(id: string, from: Scope = standing.value): boolean {
   for (const scope of from.chain()) {
+    // 担当の入れ替わりを読む。押せるかを描画の中で問う所は、これで担当が
+    // 名乗り出た時に描き直る。
+    scope.watch();
     const handler = scope.handlerOf(id);
     if (handler === undefined) continue;
     if (handler.enabled()) return true;

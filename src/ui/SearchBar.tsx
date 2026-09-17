@@ -52,13 +52,17 @@ export function SearchBar({
   onReveal,
 }: {
   search: InViewSearchState;
-  /** 一致したかたまりの名前を、出てくる順に。 */
-  matched: readonly string[];
+  /** 一致したかたまりの名前を、出てくる順に。
+   *
+   * **signal で受ける**。アクションの「できるか」がここを読むので、ただの値だと
+   * 一致の数が変わったことが押す所に伝わらない — props が同じままの押す所は
+   * 描き直されず、無効なボタンがそこに残る。 */
+  matched: ReadonlySignal<readonly string[]>;
   /** その 1 つを画面に出す (畳まれていれば開いてから)。 */
   onReveal: (key: string) => void;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
-  const total = matched.length;
+  const total = matched.value.length;
   const current = search.index.value;
 
   // 窓が開いたら打てる所へ。開く道が 🔍 だけではなくなった (区画の `/` からも
@@ -78,20 +82,20 @@ export function SearchBar({
     const to = step(search.index.value);
     if (to === 0) return;
     search.index.value = to;
-    const key = matched[to - 1];
+    const key = matched.value[to - 1];
     if (key !== undefined) onReveal(key);
   };
 
   useAction("search.prev-match", {
-    enabled: () => matched.length > 0,
+    enabled: () => matched.value.length > 0,
     run: () => {
-      move((from) => prevIndex(from, matched.length));
+      move((from) => prevIndex(from, matched.value.length));
     },
   });
   useAction("search.next-match", {
-    enabled: () => matched.length > 0,
+    enabled: () => matched.value.length > 0,
     run: () => {
-      move((from) => nextIndex(from, matched.length));
+      move((from) => nextIndex(from, matched.value.length));
     },
   });
   useAction("search.close", {
