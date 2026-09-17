@@ -25,9 +25,15 @@ test("← でセクションが畳まれ、畳んだ分は 1 単位になる", a
   await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
   await page.locator(".pane-list").click({ position: { x: 4, y: 4 } });
 
-  // 先頭の見出しへ降りて畳む。畳んだ後の次の上下は、その中の行を飛ばす。
+  // 先頭の見出しへ降り、行まで入ってから ← を 2 回。1 回目は見出しへ戻り
+  // (「1 つ外へ」)、2 回目でそのセクションを畳む。
   await page.keyboard.press("ArrowDown");
   const head = page.locator(".section-fold").first();
+  await expect(head).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator(".row.on-cursor")).toHaveCount(1);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator(".row.on-cursor")).toHaveCount(0);
   await expect(head).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("ArrowLeft");
   await expect(head).toHaveAttribute("aria-expanded", "false");

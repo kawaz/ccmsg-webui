@@ -10,8 +10,8 @@
       "darwin/light": "adc776827ec9fe231271ad0ec82fdf1567f62999892b57cb46d223fb86b6e358"
     },
     "actions-key-bindings": {
-      "darwin/dark": "f27afd410acd3d2f85d9a15e2d7954937b0b995423740a86f979bc89c96d8077",
-      "darwin/light": "0c47f462c8011bddf2f78b0c4da4e3652642b42217d7250afc4435f967838dc7"
+      "darwin/dark": "bfe2eae368e0cb2a297a3541619e2a91b13f2a4169b2178303a181f16d24a53d",
+      "darwin/light": "d057c969f9a8ea884fa1bb208be68829473dcc016e2a1b6488d4875e8bb7ae1e"
     },
     "actions-standing-list": {
       "darwin/dark": "372b2fc44cb50ca42bc88a74a1b76145234de7ba1e1e6a2484868c024fd1ac1e",
@@ -138,12 +138,12 @@
       "linux/light": "6c853077ed839252577f2a73d734a105995cbfd25d2e55b248a27990bbce6bac"
     },
     "session-kill-confirm": {
-      "darwin/dark": "170624e3d771562968331e195e6ee89289725e25648b1b4a47f51f5c63aee724",
-      "darwin/light": "c1143fd7feba170aa69bbf72fde8e03886c6d9c8fb0555546bad9c303da67a22"
+      "darwin/dark": "48771ae33569fe2f2889a922941075614ff8642c4a11663dc14707dbc53749b4",
+      "darwin/light": "0ad5d290c1960d6b2a7f8ee64e07a5db2cfb4f3ec6559c6322138a77d963f25f"
     },
     "session-pinned": {
       "darwin/dark": "f124f6f9379459874672ce4e52d0fd188899abe03edf7ce67815f6abff3cba87",
-      "darwin/light": "1882c6ee3dbcf3d9e1d6e524d850f8716a63d37dcc413fb85c6aaa2f237b98e5",
+      "darwin/light": "c185987a4cca75cdf41b49ea814b1b4607f0a88ab497c28122228cbb716fcc99",
       "linux/dark": "2c08f95ef8fdcb81c54d867a9200d069f1711fad31e692314170d96d235429d7",
       "linux/light": "b585e2347fad80654096f4d8cc9e44808dddaaacaaf75de9761b0cb9ca53b101"
     },

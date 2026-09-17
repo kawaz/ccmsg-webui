@@ -493,14 +493,21 @@ function ListActions({
     },
   });
   useAction("session-list.collapse", {
-    // 畳めるのは開いているセクションの上に居る時だけ。
+    // セッションの上ではそのセクションの見出しへ戻る。見出しの上で押せば畳む —
+    // 同じ ← が「1 つ外へ」の 1 語のまま、木を上がる形になる。
     enabled: () => {
       const at = here();
-      return at?.at === "section" && !listCollapsed.value.has(at.section);
+      if (at === undefined) return false;
+      return at.at === "session" || !listCollapsed.value.has(at.section);
     },
     run: () => {
       const at = here();
-      if (at?.at === "section") toggleListSection(at.section, true);
+      if (at === undefined) return;
+      if (at.at === "session") {
+        listCursor.value = unitKey({ at: "section", section: at.section });
+        return;
+      }
+      toggleListSection(at.section, true);
     },
   });
   useAction("session-list.expand", {
