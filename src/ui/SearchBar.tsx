@@ -1,11 +1,12 @@
 import { computed, type ReadonlySignal, type Signal, useSignal } from "@preact/signals";
-import { useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef } from "preact/hooks";
 import {
   nextIndex,
   parseSearchQuery,
   prevIndex,
   type SearchWord,
 } from "../search/in-view-search.ts";
+import { Act, useAction } from "./Scope.tsx";
 
 /** 表示中のものを探す窓 (DR-0022)。
  *
@@ -60,6 +61,13 @@ export function SearchBar({
   const total = matched.length;
   const current = search.index.value;
 
+  // 窓が開いたら打てる所へ。開く道が 🔍 だけではなくなった (区画の `/` からも
+  // 開く) ので、開けた側ではなくここが面倒を見る。
+  const editing = search.editing.value;
+  useEffect(() => {
+    if (editing) box.current?.focus();
+  }, [editing]);
+
   // ここを開くのは 🔍 だけ。打鍵では開かない — ブラウザの持ち物である打鍵を
   // 画面が横取りすると、この窓が畳んだ中身まで探せる代わりに、ページの中を
   // 探す標準の手が使えなくなる。
@@ -73,6 +81,27 @@ export function SearchBar({
     const key = matched[to - 1];
     if (key !== undefined) onReveal(key);
   };
+
+  useAction("search.prev-match", {
+    enabled: () => matched.length > 0,
+    run: () => {
+      move((from) => prevIndex(from, matched.length));
+    },
+  });
+  useAction("search.next-match", {
+    enabled: () => matched.length > 0,
+    run: () => {
+      move((from) => nextIndex(from, matched.length));
+    },
+  });
+  useAction("search.close", {
+    enabled: () => search.editing.value || search.query.value !== "",
+    run: () => {
+      search.query.value = "";
+      search.index.value = 0;
+      search.editing.value = false;
+    },
+  });
 
   if (!search.editing.value && search.query.value === "") {
     return (
@@ -161,37 +190,15 @@ export function SearchBar({
       <span class="search-count">
         [{total === 0 ? 0 : current}/{total}]
       </span>
-      <button
-        type="button"
-        aria-label="前の一致へ"
-        disabled={total === 0}
-        onClick={() => {
-          move((from) => prevIndex(from, total));
-        }}
-      >
+      <Act action="search.prev-match" label="前の一致へ">
         ↑
-      </button>
-      <button
-        type="button"
-        aria-label="次の一致へ"
-        disabled={total === 0}
-        onClick={() => {
-          move((from) => nextIndex(from, total));
-        }}
-      >
+      </Act>
+      <Act action="search.next-match" label="次の一致へ">
         ↓
-      </button>
-      <button
-        type="button"
-        aria-label="検索をやめる"
-        onClick={() => {
-          search.query.value = "";
-          search.index.value = 0;
-          search.editing.value = false;
-        }}
-      >
+      </Act>
+      <Act action="search.close" label="検索をやめる">
         ✕
-      </button>
+      </Act>
     </p>
   );
 }
