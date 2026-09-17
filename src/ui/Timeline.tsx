@@ -78,6 +78,7 @@ import {
   peers,
   preferredRoute,
   reading,
+  selectedItem,
   sessionPaths,
   setTimelineDisplay,
   timelineFaces,
@@ -101,6 +102,8 @@ import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
+import { Act, Pane, useAction, useScopeKeys } from "./Scope.tsx";
+import { hasVoiceNeighbour, stepInVoice, stepItem } from "../timeline/voice-nav.ts";
 
 /** A session's transcript as the items an instance read it into, followed
  * forwards and read backwards.
@@ -527,6 +530,45 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     };
   }, [scroller]);
 
+  /** 1 通を選ぶ。**選んだ所は画面の中に居る** — 畳まれていれば開き、描かれて
+   * いなければ窓ごとそこへ動かす (`reveal` と同じ道を通る)。 */
+  const select = (id: string | undefined): void => {
+    if (id === undefined) return;
+    selectedItem.value = id;
+    reveal(id);
+  };
+
+  /** 1 画面ぶん動かして、その先で最初に目に入る 1 通を選ぶ。
+   *
+   * **スクロールと選択の両方に効く** (§2.2 の表)。選択だけ動かすと画面が付いて
+   * 来ず、スクロールだけだと選んでいる 1 通が画面の外に残る。 */
+  const page = (step: 1 | -1): void => {
+    const at = room();
+    const outer = box.current;
+    if (at === null || outer === null) return;
+    const span = viewportOf(at);
+    following.current = false;
+    scrollBoxTo(at, scrollTopOf(at) + span * step);
+    const local = scrollTopOf(at) - topOf(at, outer);
+    const seen = visibleRange(shownHeights.current, local, span, 0);
+    // 見えている最初のかたまりの中の 1 通。かたまりなら先頭の行を採る。
+    for (let index = seen.first; index < seen.last; index += 1) {
+      const node = nodes[index];
+      const id =
+        node === undefined
+          ? undefined
+          : node.kind === "row"
+            ? node.row.item.id
+            : node.kind === "fold"
+              ? node.rows[0]?.item.id
+              : undefined;
+      if (id !== undefined) {
+        selectedItem.value = id;
+        return;
+      }
+    }
+  };
+
   const pathLinker = useTimelinePathLinker(view.sid);
   const fileWords = useTimelineFileWords(view.sid);
   const agent = view.agentId;
@@ -535,90 +577,175 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
       <PathLinkerContext.Provider value={pathLinker}>
         <FileWordsContext.Provider value={fileWords}>
           <SearchWordsContext.Provider value={words}>
-            <section class="section timeline">
-              <h2>
-                {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
-              </h2>
-              {agent !== undefined && (
-                <p class="tl-note">
-                  worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
-                  セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
-                </p>
-              )}
-              <ReadingTabs />
-              <DisplayPanel types={seenTypes} />
-              <SearchBar search={search} matched={matched} onReveal={reveal} />
-              {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
-              <div class="tl-pane" ref={pane} onClick={onClickIn}>
-                <p class="empty tl-edge">
-                  {view.atBeginning.value
-                    ? "— 先頭 —"
-                    : view.loading.value
-                      ? "読み込み中…"
-                      : "上にスクロールすると遡ります"}
-                </p>
-                <div class="tl-window" ref={box}>
-                  <div class="tl-space" style={{ height: `${range.before}px` }} />
-                  <div class="tl-items" ref={items}>
-                    {nodes.slice(range.first, range.last).map((node, index) => (
-                      <NodeView key={keys[range.first + index]} node={node} />
-                    ))}
-                  </div>
-                  <div class="tl-space" style={{ height: `${range.after}px` }} />
-                </div>
-                {nodes.length === 0 && !view.loading.value && (
-                  <p class="empty">まだ transcript がありません。</p>
+            <Pane name="tl.body" label="transcript" class="tl-scope">
+              <TimelineActions
+                items={held}
+                select={select}
+                page={page}
+                openSearch={() => {
+                  search.editing.value = true;
+                }}
+              />
+              <section class="section timeline">
+                <h2>
+                  {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
+                </h2>
+                {agent !== undefined && (
+                  <p class="tl-note">
+                    worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
+                    セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
+                  </p>
                 )}
-                {agent === undefined &&
-                  notifications.value
-                    .filter((one) => one.notification.sid === view.sid)
-                    .map((one) => (
-                      <div key={one.key} class="tl-bubble notice">
-                        <span class="tl-who">通知</span>
-                        <div class="tl-body">
-                          <MarkdownView
-                            source={one.notification.text}
-                            pathLinker={pathLinker}
-                            fileWords={fileWords}
-                            highlight={words}
-                          />
-                          <p class="tl-note">
-                            transcript に同じ返事が現れたらそちらが正
-                            {one.notification.reply_to !== undefined && (
-                              <ReplyToLink
-                                mid={one.notification.reply_to}
-                                at={itemsByMid}
-                                onGo={reveal}
-                              />
-                            )}
-                          </p>
+                <ReadingTabs />
+                <DisplayPanel types={seenTypes} />
+                <SearchBar search={search} matched={matched} onReveal={reveal} />
+                {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
+                <div class="tl-pane" ref={pane} onClick={onClickIn}>
+                  <p class="empty tl-edge">
+                    {view.atBeginning.value
+                      ? "— 先頭 —"
+                      : view.loading.value
+                        ? "読み込み中…"
+                        : "上にスクロールすると遡ります"}
+                  </p>
+                  <div class="tl-window" ref={box}>
+                    <div class="tl-space" style={{ height: `${range.before}px` }} />
+                    <div class="tl-items" ref={items}>
+                      {nodes.slice(range.first, range.last).map((node, index) => (
+                        <NodeView key={keys[range.first + index]} node={node} />
+                      ))}
+                    </div>
+                    <div class="tl-space" style={{ height: `${range.after}px` }} />
+                  </div>
+                  {nodes.length === 0 && !view.loading.value && (
+                    <p class="empty">まだ transcript がありません。</p>
+                  )}
+                  {agent === undefined &&
+                    notifications.value
+                      .filter((one) => one.notification.sid === view.sid)
+                      .map((one) => (
+                        <div key={one.key} class="tl-bubble notice">
+                          <span class="tl-who">通知</span>
+                          <div class="tl-body">
+                            <MarkdownView
+                              source={one.notification.text}
+                              pathLinker={pathLinker}
+                              fileWords={fileWords}
+                              highlight={words}
+                            />
+                            <p class="tl-note">
+                              transcript に同じ返事が現れたらそちらが正
+                              {one.notification.reply_to !== undefined && (
+                                <ReplyToLink
+                                  mid={one.notification.reply_to}
+                                  at={itemsByMid}
+                                  onGo={reveal}
+                                />
+                              )}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-              </div>
-              {/* worker には送り先が無い: 話しかける相手は worker を起動した
+                      ))}
+                </div>
+                {/* worker には送り先が無い: 話しかける相手は worker を起動した
                 セッションで、worker 自身は instance に繋いでいない。 */}
-              {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
-              <p class="footer">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate(
-                      agent === undefined
-                        ? { at: "sessions" }
-                        : { at: "session", sid: view.sid, tab: "timeline" },
-                    );
-                  }}
-                >
-                  {agent === undefined ? "一覧に戻る" : "親のセッションに戻る"}
-                </button>
-              </p>
-            </section>
+                {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
+                <p class="footer">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate(
+                        agent === undefined
+                          ? { at: "sessions" }
+                          : { at: "session", sid: view.sid, tab: "timeline" },
+                      );
+                    }}
+                  >
+                    {agent === undefined ? "一覧に戻る" : "親のセッションに戻る"}
+                  </button>
+                </p>
+              </section>
+            </Pane>
           </SearchWordsContext.Provider>
         </FileWordsContext.Provider>
       </PathLinkerContext.Provider>
     </ViewContext.Provider>
   );
+}
+
+/** tl 本体が担当するアクションと、区画の役としての打鍵 (DR-0003 §2.7)。
+ *
+ * 上下は**スクロールと選択の両方**に効く。同じ声の前後は、選んでいる 1 通が
+ * 決めた列を辿る — 選ぶ前のそれは、どの列かが決まらないので効かない。 */
+function TimelineActions({
+  items,
+  select,
+  page,
+  openSearch,
+}: {
+  items: readonly TranscriptItem[];
+  select: (id: string | undefined) => void;
+  page: (step: 1 | -1) => void;
+  openSearch: () => void;
+}) {
+  const at = (): string | undefined => selectedItem.value;
+  useAction("timeline.select-message", {
+    enabled: () => items.length > 0,
+    run: () => {
+      // まだ何も選んでいなければ先頭から。既に選んでいれば、その 1 通を画面へ
+      // 出し直すだけ (選び直しではない)。
+      select(at() ?? items[0]?.id);
+    },
+  });
+  useAction("timeline.select-prev", {
+    enabled: () => items.length > 0,
+    run: () => {
+      select(stepItem(items, at(), -1));
+    },
+  });
+  useAction("timeline.select-next", {
+    enabled: () => items.length > 0,
+    run: () => {
+      select(stepItem(items, at(), 1));
+    },
+  });
+  useAction("timeline.page-up", {
+    enabled: () => items.length > 0,
+    run: () => {
+      page(-1);
+    },
+  });
+  useAction("timeline.page-down", {
+    enabled: () => items.length > 0,
+    run: () => {
+      page(1);
+    },
+  });
+  useAction("timeline.select-prev-in-voice", {
+    enabled: () => hasVoiceNeighbour(items, selectedItem.value, -1),
+    run: () => {
+      select(stepInVoice(items, at(), -1));
+    },
+  });
+  useAction("timeline.select-next-in-voice", {
+    enabled: () => hasVoiceNeighbour(items, selectedItem.value, 1),
+    run: () => {
+      select(stepInVoice(items, at(), 1));
+    },
+  });
+  useAction("timeline.open-search", {
+    enabled: () => true,
+    run: openSearch,
+  });
+  useScopeKeys({
+    ArrowUp: "timeline.select-prev",
+    ArrowDown: "timeline.select-next",
+    PageUp: "timeline.page-up",
+    PageDown: "timeline.page-down",
+    Slash: "timeline.open-search",
+    Enter: "timeline.select-message",
+  });
+  return null;
 }
 
 /** 通知が答えた 1 通へ戻る所。
@@ -1016,9 +1143,12 @@ function MessageView({ item }: { item: TranscriptItem }) {
     key,
     resolveDisplay(faceOf(timelineFaces.value, item.subject), item.type).open,
   );
+  // 選んでいる 1 通は、吹き出しの階層と両立させる — 枠を足すのではなく、その
+  // 吹き出し自身の色で縁を強める (色は DR-0001 の段のまま)。
+  const chosen = selectedItem.value === item.id;
   return (
     <Fold
-      class={`tl-bubble member ${voiceOf(item)}`.trimEnd()}
+      class={`tl-bubble member ${voiceOf(item)}${chosen ? " chosen" : ""}`.trimEnd()}
       style={`--member-h:${memberHue(memberOf(item))}`}
       folds={timelineFolds.value}
       foldKey={key}
@@ -1028,9 +1158,37 @@ function MessageView({ item }: { item: TranscriptItem }) {
           <span class="tl-mark" aria-hidden="true">
             {open ? "▼" : "▶"}
           </span>
-          <span class="tl-who">{itemLabel(item)}</span>
+          {/* 押した 1 通が選んだ 1 通になる。畳みの開け閉めはそのまま (押した
+              所で畳みが動くのは今までどおり)。 */}
+          <span
+            class="tl-who"
+            onClick={() => {
+              selectedItem.value = item.id;
+            }}
+          >
+            {itemLabel(item)}
+          </span>
           {!open && <span class="tl-brief">{messageBrief(item)}</span>}
           <RelativeTime at={item.at} />
+          {chosen && (
+            // 同じ声の前後へ。押す所と打鍵が同じアクションを起こすので、
+            // 「この声だけ辿る」がどちらの手でも同じものになる (§2.4)。
+            <span
+              class="tl-voice-nav"
+              onClick={(event: MouseEvent) => {
+                // 畳みの開け閉めは summary の既定の動き。ここを押した時だけは
+                // 畳まずに、選択だけを動かす。
+                event.preventDefault();
+              }}
+            >
+              <Act action="timeline.select-prev-in-voice" label="同じ声の前へ">
+                ▲
+              </Act>
+              <Act action="timeline.select-next-in-voice" label="同じ声の次へ">
+                ▼
+              </Act>
+            </span>
+          )}
         </>
       }
     >
