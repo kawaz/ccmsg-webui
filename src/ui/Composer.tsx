@@ -1,6 +1,7 @@
 import { useSignal } from "@preact/signals";
 import { useEffect, useRef } from "preact/hooks";
 import type { Sid } from "@ccmsg/protocol";
+import { composing } from "../actions/ime.ts";
 import { composerAction } from "../conversation/composer-keydown.ts";
 import { draftKey } from "../conversation/draft.ts";
 import { describeSendOutcome } from "../conversation/send-outcome.ts";
@@ -75,6 +76,10 @@ export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: str
           remember(event.currentTarget.value);
         }}
         onKeyDown={(event) => {
+          // 変換を確定した打鍵で送らない。`isComposing` だけでは Safari の確定の
+          // Enter (`compositionend` の後に false で届く) が本物の Enter に見える
+          // ので、門にも訊く (`src/actions/ime.ts`)。
+          if (!composing.accepts(event)) return;
           if (composerAction(event) !== "send") return;
           // 改行は textarea 自身の仕事なので、送る時だけ打鍵を取り上げる。
           event.preventDefault();

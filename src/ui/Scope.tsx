@@ -3,6 +3,7 @@ import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { eventKey } from "../actions/binding.ts";
 import { actionOf } from "../actions/catalogue.ts";
+import { composing } from "../actions/ime.ts";
 import { keymap } from "../actions/keys.ts";
 import { canRun, type Handler, ROOT, run, runKey, Scope, standing } from "../actions/tree.ts";
 
@@ -216,15 +217,23 @@ function typing(target: EventTarget | null): boolean {
  * 割り当ててあるが今は誰も担当しない打鍵で、ブラウザの標準の手まで失うのは
  * 筋が通らない (§2.3)。 */
 export function listenForKeys(): () => void {
+  // 変換中の打鍵を捨てる門 (`src/actions/ime.ts`)。門は画面ぜんぶで 1 つで、
+  // 入力欄の中で閉じる操作も同じものを引く。
+  const onComposed = (): void => {
+    composing.composed();
+  };
   const onKey = (event: KeyboardEvent): void => {
+    if (!composing.accepts(event)) return;
     if (event.defaultPrevented || typing(event.target)) return;
     const spell = eventKey(event);
     const bound = keymap.peek().get(spell);
     const ran = bound === undefined ? runKey(spell) : run(bound);
     if (ran !== "none") event.preventDefault();
   };
+  window.addEventListener("compositionend", onComposed, true);
   window.addEventListener("keydown", onKey);
   return () => {
+    window.removeEventListener("compositionend", onComposed, true);
     window.removeEventListener("keydown", onKey);
   };
 }
