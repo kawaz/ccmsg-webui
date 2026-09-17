@@ -397,6 +397,7 @@ export async function shot(
   options: { readonly animations?: "allow" | "disabled" } = {},
 ): Promise<void> {
   await fontsReady(page);
+  await stillness(page);
   await expect(page).toHaveScreenshot(name, {
     mask: [
       page.locator(".app-bar .meta"),
@@ -426,9 +427,36 @@ export async function shot(
       page.locator(".tl-when"),
       page.locator(".run-pid"),
       page.locator(".run-when"),
+      // そのセッションの inbox で**今**待っている通数。届いた 1 通が相手に
+      // 渡る瞬間は instance が決めるので、走らせるたびに違う瞬間が写る。席は
+      // 常に置いてあるので (`.waiting-slot`)、覆っても行の組み方は写る。
+      page.locator(".waiting-badge"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });
+}
+
+/** 動いているものが止まるまで待つ。
+ *
+ * 待つのは**出来事**で、時間ではない: 本文を動かす箱の位置が 2 frame 続けて
+ * 同じになったら、錨が決まって置き直しが終わったということ
+ * (`anchor-snapshot-one-frame-stale` の症状がここに出る)。高さの測り直しは
+ * 描画のたびに走るので、1 frame では「測る前」と「測った後」の区別が付かない。
+ *
+ * 箱がまだ無い画面 (設定・登録) では待つものが無いので、そのまま返る。 */
+async function stillness(page: Page): Promise<void> {
+  await page.waitForFunction((where: string) => {
+    const box = document.querySelector(where);
+    if (box === null) return true;
+    const was = box.scrollTop;
+    return new Promise<boolean>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve(box.scrollTop === was);
+        });
+      });
+    });
+  }, BODY);
 }
 
 /** Wait for the fonts the page asked for.

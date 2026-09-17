@@ -298,11 +298,17 @@ function PeerRow({
         >
           {sessionLabel(peer)}
         </button>
-        {waiting > 0 && (
-          <span class="waiting-badge" title="このセッションの inbox で待っている通数">
-            {waiting}
-          </span>
-        )}
+        {/* 待っている通数は**入れ物ごと常に置く**。0 通の間も場所を取るので、
+          1 通届いた / 渡ったの瞬間に行が組み直されない — 輪の入れ物
+          (`.cache-slot`) と同じ理由で、数が出たり消えたりするものは席を
+          先に取っておく。 */}
+        <span class="waiting-slot">
+          {waiting > 0 && (
+            <span class="waiting-badge" title="このセッションの inbox で待っている通数">
+              {waiting}
+            </span>
+          )}
+        </span>
         {failure !== undefined && (
           // The error may run to several lines; the row shows the first
           // and the whole of it is on the title.

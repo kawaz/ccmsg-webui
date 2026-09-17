@@ -1641,6 +1641,16 @@ select {
 /* この画面から送って、まだ渡っていない 1 通たち。届いていない事実そのものは
  * 異常ではない (契約では inbox で待っている成功) ので、警告の赤ではなく
  * 待ちの色で出す。 */
+/* 通数の席。数が出ても消えても行の組み方が変わらないように、入れ物は常に置く
+   (`.cache-slot` と同じ理由)。幅は 1 桁ぶんで、2 桁以上は広がってよい —
+   広がるのは実際に通数が増えた時だけで、0 と 1 の間では動かない。 */
+.waiting-slot {
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 1.6em;
+}
+
 .waiting-badge {
   padding: 0 6px;
   border-radius: 999px;
