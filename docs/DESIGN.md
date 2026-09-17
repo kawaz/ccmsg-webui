@@ -204,7 +204,9 @@ A dangerous action's whole responsibility is **opening the confirmation**. What 
 
 The standing pane carries a **thin edge**, in the same colour name as the focus ring — "keys land here" is one meaning, so there is no reason for a pane's edge and an element's ring to be different colours.
 
-The keys a pane holds as part of being that pane are not the key table: up and down in a list, ← → to fold, deciding to open, up/down and PageUp/PageDown in the transcript body, `/` per pane. They sit where a `separator` moving under ← → sits. The table a person bound is consulted first, so wanting up and down for something else is never blocked by a pane's own role.
+The keys a pane holds as part of being that pane are not the key table: up and down in a list, deciding to open, up/down and PageUp/PageDown in the transcript body, `/` per pane. They sit where a `separator` moving under ← → sits — what closes inside a part, and so never appears in the table. In the list **← means one step outwards**: from a session to its section heading, and from a heading to folding it. The table a person bound is consulted first, so wanting up and down for something else is never blocked by a pane's own role.
+
+The current platform is a mac if **either** `userAgentData.platform` or `navigator.platform` says so. They disagree in real setups — an automated Chromium answers `Windows` to the first while running on macOS — and reading a mac as something else resolves `CmdOrCtrl` to Control, which leaves every binding meant for ⌘ dead while taking Control's own.
 
 **Only signals may be read by "can it run"**. Somewhere to press asks that during render, so reading anything else leaves nothing to tell it that it became pressable (a button whose props did not change is not redrawn).
 
