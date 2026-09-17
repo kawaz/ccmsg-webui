@@ -4,6 +4,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
+| 2026-09-17 | request | open | [request-hyoui-iframe-allow-publickey-credentials-get](./2026-09-17-request-hyoui-iframe-allow-publickey-credentials-get.md) | hyoui を埋め込む iframe の `allow` に `publickey-credentials-get` を足す (hyoui DR-0036 passkey 認証) |
 | 2026-09-17 | request | open | [timeline-waiting-tool-and-background-button](./2026-09-17-timeline-waiting-tool-and-background-button.md) | 同期ツール実行中を TL に待機表示し、Background ボタンで端末を Ctrl+B 化 |
 | 2026-09-17 | request | open | [reserved-keys-beyond-chromium](./2026-09-17-reserved-keys-beyond-chromium.md) | 予約キーの表の出典を Chromium 以外 (Firefox / Edge、Windows・Linux の実機、Safari の動的分) まで広げる |
 | 2026-09-17 | request | open | [timeline-selected-message-and-voice-nav](./2026-09-17-timeline-selected-message-and-voice-nav.md) | v2 の TL に選択中メッセージと同じ声の前後移動を追加 |
