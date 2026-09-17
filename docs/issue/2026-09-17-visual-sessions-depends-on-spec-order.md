@@ -3,7 +3,7 @@ title: sessions の visual test が同一走行内の他 spec の副作用に依
 status: open
 category: bug
 created: 2026-09-17T08:42:09+09:00
-last_read:
+last_read: 2026-09-17T11:53:18+09:00
 open_entered: 2026-09-17T08:42:09+09:00
 wip_entered:
 blocked_entered:
