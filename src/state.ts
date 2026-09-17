@@ -1088,6 +1088,10 @@ export function toggleListSection(section: string, collapsed: boolean): void {
 export const listFilter = signal<string>("");
 export const listFilterOpen = signal(false);
 
+/** 起動のフォームを開いているか。開くことがアクションなので、開いているかは
+ * 画面の state として外に出る (打鍵からも押す所からも同じ 1 つが起こす)。 */
+export const launcherOpen = signal(false);
+
 /** 今カーソルの行を改名している最中か。行の中の state ではなく画面の state なのは、
  * 打鍵からも押す所からも同じ 1 つのアクションが起こすため (§2.4)。 */
 export const renaming = signal<Sid | undefined>(undefined);

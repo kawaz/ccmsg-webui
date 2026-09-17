@@ -5,7 +5,7 @@ import type {
   LauncherRunResult,
   LauncherTemplate,
 } from "@ccmsg/protocol";
-import { can, readLauncherConfig, runLauncher, status } from "../state.ts";
+import { can, launcherOpen, readLauncherConfig, runLauncher, status } from "../state.ts";
 
 /** セッションを 1 つ始める。
  *
@@ -112,7 +112,13 @@ export function Launcher() {
   };
 
   return (
-    <details class="section launcher">
+    <details
+      class="section launcher"
+      open={launcherOpen.value}
+      onToggle={(event) => {
+        launcherOpen.value = (event.currentTarget as HTMLDetailsElement).open;
+      }}
+    >
       <summary>セッションを始める</summary>
       {problem.value !== undefined && <p class="banner">{problem.value}</p>}
       {held === undefined ? (

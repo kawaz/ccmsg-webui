@@ -41,6 +41,7 @@ import {
   listCursor,
   listFilter,
   listFilterOpen,
+  launcherOpen,
   llmRequests,
   markUnkilled,
   navigate,
@@ -523,6 +524,13 @@ function ListActions({
       if (at?.at !== "session") return;
       open(at.sid);
       toMain();
+    },
+  });
+  useAction("session-list.new", {
+    // 始められる instance でだけ。献立を持っていない所では入口ごと無い。
+    enabled: () => can("launcher"),
+    run: () => {
+      launcherOpen.value = true;
     },
   });
   useAction("session-list.open-search", {
