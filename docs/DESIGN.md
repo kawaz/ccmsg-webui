@@ -244,6 +244,8 @@ which layer would have to change if it changed.
 | each screen (`Timeline`, `Files`, `Status`, `Usage`, `TerminalPanel`) | what it reads (topics, ops) and how it draws it | where it has been placed |
 | `Settings` | the layer-0 colour inputs and the face | anything the instance says — it reads none of it, which is why it hangs off `App` rather than off `Main` |
 
+**The list tells "not heard yet" apart from "nothing there".** The sessions and the terminals arrive separately, and a harness that has started without naming itself yet is only in the second. Until both have arrived an empty list says it is still listening rather than that there is nothing. Having heard both is on the pane as well (`data-settled`): whether the contents are still arriving is knowable only from the state, so what takes the pictures reads it too.
+
 ## The list and the body sit side by side, except where they cannot
 
 The page is the bar along the top (the connection and the ways in) and two panes

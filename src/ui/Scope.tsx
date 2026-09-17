@@ -94,6 +94,7 @@ export function Pane({
   label,
   class: className,
   style,
+  settled,
   hold,
   children,
 }: {
@@ -102,6 +103,10 @@ export function Pane({
   label: string;
   class?: string;
   style?: string;
+  /** この区画が、立つのに要るものを受け取り切ったか。`data-settled` として
+   * 画面に出る — 中身が届く途中かどうかは、読む人にも、絵を撮る道具にも、
+   * 状態からしか分からない。 */
+  settled?: boolean;
   /** 区画の箱そのものが要る所 (測る / 動かす) へ渡す手。 */
   hold?: RefObject<HTMLDivElement>;
   children: ComponentChildren;
@@ -140,6 +145,7 @@ export function Pane({
         ref={box}
         class={`pane-scope${on ? " standing" : ""}${className === undefined ? "" : ` ${className}`}`}
         style={style}
+        {...(settled === true ? { "data-settled": "" } : {})}
         tabIndex={-1}
         role="group"
         aria-label={label}

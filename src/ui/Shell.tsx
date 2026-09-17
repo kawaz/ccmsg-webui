@@ -5,6 +5,7 @@ import {
   dismissToast,
   generationWarning,
   hello,
+  listSettled,
   navigate,
   route,
   sessionsOpen,
@@ -101,7 +102,12 @@ function Panes() {
       style={split.width === undefined ? undefined : `--sessions-w:${String(split.width)}px`}
     >
       <PaneMoves />
-      <Pane name="session-list" label="セッションの一覧" class="pane pane-list">
+      <Pane
+        name="session-list"
+        label="セッションの一覧"
+        class="pane pane-list"
+        settled={listSettled.value}
+      >
         <SessionList />
       </Pane>
       <Splitter

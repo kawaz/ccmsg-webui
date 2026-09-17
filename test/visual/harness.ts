@@ -397,6 +397,7 @@ export async function shot(
   options: { readonly animations?: "allow" | "disabled" } = {},
 ): Promise<void> {
   await fontsReady(page);
+  await listReady(page);
   await stillness(page);
   await expect(page).toHaveScreenshot(name, {
     mask: [
@@ -434,6 +435,20 @@ export async function shot(
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });
+}
+
+/** 一覧が「届くべきものを受け取り切った」と言うまで待つ。
+ *
+ * 待つのは**状態**で、時間ではない: 画面は受け取った snapshot から
+ * `data-settled` を導いていて (`src/state.ts` の `listSettled`)、起動しただけの
+ * ハーネスの行はそこが立って初めて出揃う。立つ前に撮ると、行が届く前後のどちら
+ * が写るかが走るたびに変わる。
+ *
+ * 一覧が出ていない画面 (設定・登録・狭い画面の本文) には待つものが無い。 */
+async function listReady(page: Page): Promise<void> {
+  const list = page.locator(".pane-list");
+  if ((await list.count()) === 0) return;
+  await expect(list).toHaveAttribute("data-settled", "");
 }
 
 /** 動いているものが止まるまで待つ。

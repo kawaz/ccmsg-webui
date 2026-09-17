@@ -41,6 +41,7 @@ import {
   listCursor,
   listFilter,
   listFilterOpen,
+  listSettled,
   launcherOpen,
   llmRequests,
   markUnkilled,
@@ -638,9 +639,11 @@ export function SessionList() {
           <p class="empty">
             {word !== ""
               ? "絞り込みに当たるセッションはありません。"
-              : connected
-                ? "セッションはまだありません。"
-                : "接続すると一覧が出ます。"}
+              : !connected
+                ? "接続すると一覧が出ます。"
+                : listSettled.value
+                  ? "セッションはまだありません。"
+                  : "一覧を聞いています…"}
           </p>
         </section>
       )}

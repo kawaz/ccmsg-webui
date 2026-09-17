@@ -240,6 +240,20 @@ export const status = signal<ConnectionStatus>("idle");
  * snapshot が上書きするまで読む価値がある (古いことは帯が言う)。戻るのは人が
  * 明示的に切断した時だけで、それは持っているものを捨てる操作そのもの。 */
 export const listed = signal(false);
+
+/** 端末の一覧を**一度でも**受け取ったか。
+ *
+ * セッションの一覧とは別に持つ。起動しただけでまだ名乗っていないハーネスの行
+ * (`startingRuns`) はこの topic からしか出てこないので、これが届く前の一覧は
+ * 「起動中のものは無い」と言っているのではなく、まだ聞いていないだけ。 */
+export const terminalsListed = signal(false);
+
+/** 一覧が立つのに要るものを、どれも受け取り切ったか。
+ *
+ * 「何も無い」と「まだ聞いていない」は違うことなので、空の一覧を出す前にこれを
+ * 読む。画面にも出る (`data-settled`) — 出しておくと、絵を撮る側が「行が届く
+ * 途中」を撮らずに済む。 */
+export const listSettled = computed(() => listed.value && terminalsListed.value);
 export const statusDetail = signal<string | undefined>(undefined);
 export const hello = signal<HelloResult | undefined>(undefined);
 /** Set once the instance and this build disagree about the contract. There is
@@ -579,6 +593,7 @@ export const connection = new Connection({
         );
         break;
       case "terminals":
+        if (message.snapshot) terminalsListed.value = true;
         terminalSlots.value = terminalRows.push(
           message.instance,
           (message.data as TerminalsData).terminals,
@@ -926,6 +941,7 @@ export function disconnect(): void {
   terminalRows.clear();
   hello.value = undefined;
   listed.value = false;
+  terminalsListed.value = false;
   transcript.value = undefined;
   sessionStatus.value = undefined;
   // 読んでいた file の本文も instance から聞いたもの。木と本文の写しは捨て、
