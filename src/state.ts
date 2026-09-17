@@ -6,6 +6,7 @@ import type {
   Capability,
   LlmRequestInfo,
   LlmUsageReadResult,
+  AuthAccountReadResult,
   AuthRefreshReason,
   AuthSession,
   AgentsFrame,
@@ -43,10 +44,16 @@ import type {
   TranscriptItem,
   TranslateRunResult,
 } from "@ccmsg/protocol";
-import { assertPasskey, refreshSession, registerPasskey } from "./auth/client.ts";
+import {
+  assertPasskey,
+  canOfferPasskey,
+  enrolInstance,
+  refreshSession,
+  registerPasskey,
+} from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
 import { endpointFromLocation, isEndpoint, socketUrl } from "./auth/endpoint.ts";
-import { isRefused, type RegisterLink, type Registration } from "./auth/register-link.ts";
+import { type Enrolment, type EnrolmentLink, isRefused } from "./auth/enrolment-link.ts";
 import {
   access,
   authProblem,
@@ -59,8 +66,8 @@ import {
   isSignInDeclined,
   needsRegistration,
   needsSignIn,
-  subject,
   tokenIsLive,
+  user,
 } from "./auth/session.ts";
 import { TabShare } from "./auth/tab-share.ts";
 import { type ConnectionStatus, Connection } from "./connection.ts";
@@ -79,6 +86,7 @@ import {
   waitingCounts,
 } from "./conversation/inbox.ts";
 import { oversizeReason } from "./frame-limit.ts";
+import { describeRefusal } from "./refusal.ts";
 import type { Route } from "./route.ts";
 import { formatSessionsOpen, parseSessionsOpen, sessionsOpenKey } from "./layout/panes.ts";
 import { localStore } from "./settings.ts";
@@ -200,33 +208,34 @@ export function setEndpoint(next: string): boolean {
   return true;
 }
 
-/** The registration a link carried, while it is being completed.
+/** The enrolment a link carried, while it is being carried out.
  *
  * Filled in from the fragment, whenever one arrives: it is the whole of what
- * `passkey add` handed over, and the six digits that go with it arrive by the
- * other route (the person's eyes, from a terminal). */
-export const registration = signal<Registration | undefined>(undefined);
+ * `ccmsg user create` or `ccmsg user add --enroll` handed over, and the six
+ * digits that go with it arrive by the other route (the person's eyes, from a
+ * terminal). */
+export const enrolment = signal<Enrolment | undefined>(undefined);
 
-/** Take up what a registration link brought.
+/** Take up what an enrolment link brought.
  *
- * The link names the instance it is for, so opening one is the person stating
- * an endpoint — and the field takes that value here rather than after the
- * ceremony. **Nothing is acted on here**: the claims are read without a
- * signature — anyone can write a token and hand somebody the link — so what
- * this page does with them is show them, and the person decides. The instance
- * named in them is dialed once the registration succeeds, which is the point at
+ * The link names the endpoint its answer is posted to, so opening one is the
+ * person stating an endpoint — and the field takes that value here rather than
+ * after the ceremony. **Nothing is acted on here**: the claims are read without
+ * a signature — anyone can write a token and hand somebody the link — so what
+ * this page does with them is show them, and the person decides. The endpoint
+ * named in them is dialed once the enrolment succeeds, which is the point at
  * which the instance holding the secret has said the link was its own. Leaving
  * the screen leaves this page where it already was.
  *
- * A link that cannot be registered by says so instead. Somebody opened a URL
- * they were handed, and a page that quietly carried on would leave them
- * pressing it again. */
-export function holdRegistration(link: RegisterLink): void {
+ * A link that cannot be acted on says so instead. Somebody opened a URL they
+ * were handed, and a page that quietly carried on would leave them pressing it
+ * again. */
+export function holdEnrolment(link: EnrolmentLink): void {
   if (isRefused(link)) {
     authProblem.value = link.refused;
     return;
   }
-  registration.value = link;
+  enrolment.value = link;
 }
 export const status = signal<ConnectionStatus>("idle");
 
@@ -787,13 +796,13 @@ export function sessionPaths(sid: Sid): { cwd?: string; root?: string } {
  * they coordinate under with them. */
 const tabs = new TabShare({
   endpoint: () => endpoint.peek(),
-  subject: () => subject.peek(),
+  user: () => user.peek(),
   session: () => {
     const held = access.peek();
-    const sub = subject.peek();
-    return held === undefined || sub === undefined || !tokenIsLive()
+    const who = user.peek();
+    return held === undefined || who === undefined || !tokenIsLive()
       ? undefined
-      : { sub, access: held };
+      : { user: who, access: held };
   },
   locks: navigator.locks as LockManager | undefined,
 });
@@ -988,25 +997,79 @@ export async function signIn(): Promise<boolean> {
   }
 }
 
-/** Finish what a registration link started: make the passkey, spend the link
- * with the digits from the terminal, and connect on the session it answers. */
-export async function completeRegistration(code: string, deviceLabel: string): Promise<void> {
-  const held = registration.peek();
+/** Stand a passkey in the browser's own autofill, and take it if it is chosen.
+ *
+ * The other way in is a button, which is a prompt the person asked for. This is
+ * the offer that waits: somebody who has not been here in a while sees their
+ * passkey among the browser's suggestions instead of having to remember that
+ * the button is what they want. Nothing is asked of them — an offer nobody
+ * takes ends when the screen does.
+ *
+ * Answers with how to take the offer back down, for the screen to call when it
+ * goes away: a standing `credentials.get()` outlives the screen that asked for
+ * it, and a second one raised beside it is refused by the browser. */
+export function offerPasskey(): () => void {
+  const controller = new AbortController();
+  void (async () => {
+    const at = endpoint.peek();
+    if (at === undefined || !(await canOfferPasskey())) return;
+    try {
+      const session = await assertPasskey(at, {
+        mediation: "conditional",
+        signal: controller.signal,
+      });
+      // As in `signIn`: a session got for the instance just left is not one to
+      // hold while another is being dialed.
+      if (endpoint.peek() !== at) return;
+      holdSession(session);
+      needsSignIn.value = false;
+      needsRegistration.value = false;
+      wanted.value = true;
+      openSocket(at);
+    } catch {
+      // An offer that was not taken, or one this screen took back down. Neither
+      // is a failure of anything the person did, and the button is still there.
+    }
+  })();
+  return () => {
+    controller.abort();
+  };
+}
+
+/** Carry out what an enrolment link authorized, and connect on what it answers.
+ *
+ * Which ceremony runs is the claims' answer and not the form's: making the
+ * person creates a passkey, and handing them an instance asserts the one they
+ * have (contract DR-0030 §4). Both spend the same URL with the same six digits
+ * from the terminal.
+ *
+ * The name is only the person's to settle where they are being made. A URL that
+ * adds an instance joins an account they have already named, and registering
+ * again does not rename them. */
+export async function completeEnrolment(
+  code: string,
+  said: { displayName?: string; deviceLabel?: string } = {},
+): Promise<void> {
+  const held = enrolment.peek();
   if (held === undefined) return;
   authProblem.value = undefined;
   try {
-    const session = await registerPasskey({
-      token: held.token,
-      claims: held.claims,
-      code,
-      deviceLabel,
-    });
+    const session =
+      held.claims.purpose === "create_user"
+        ? await registerPasskey({
+            token: held.token,
+            claims: held.claims,
+            code,
+            displayName: said.displayName ?? "",
+            ...(said.deviceLabel === undefined ? {} : { deviceLabel: said.deviceLabel }),
+          })
+        : await enrolInstance({ token: held.token, claims: held.claims, code });
     // The link is spent and the issuing instance has answered for it, so what
     // it named is now something this page has been told rather than something a
     // fragment claimed: this is where the instance becomes the one being dialed.
     setEndpoint(held.claims.endpoint);
     holdSession(session);
-    registration.value = undefined;
+    enrolment.value = undefined;
     wanted.value = true;
     openSocket();
   } catch (cause) {
@@ -1014,12 +1077,59 @@ export async function completeRegistration(code: string, deviceLabel: string): P
   }
 }
 
-/** Leave the registration screen without registering. What the link authorized
- * is untouched — it is spent by registering and by nothing else. */
-export function dismissRegistration(): void {
-  registration.value = undefined;
+/** Leave the enrolment screen without carrying it out. What the link authorized
+ * is untouched — it is spent by the ceremony and by nothing else. */
+export function dismissEnrolment(): void {
+  enrolment.value = undefined;
   authProblem.value = undefined;
   void resume();
+}
+
+/** The person's own account, as the instance answers it: who they are, the
+ * passkeys that answer for them, and the instances they own (contract DR-0030
+ * §8).
+ *
+ * Read when the screen showing it is opened and after anything on it is
+ * removed, rather than held between visits. It is the instance's answer about
+ * records that other instances also write, so what a page kept would be a
+ * picture of a moment it cannot tell has passed. */
+export const account = signal<AuthAccountReadResult | undefined>(undefined);
+export const accountProblem = signal<string | undefined>(undefined);
+
+export async function readAccount(): Promise<void> {
+  if (status.peek() !== "open") return;
+  try {
+    account.value = (await connection.request(
+      "auth.account.read",
+      {},
+    )) as unknown as AuthAccountReadResult;
+    accountProblem.value = undefined;
+  } catch (cause) {
+    accountProblem.value = describeRefusal(cause);
+  }
+}
+
+/** Give up one instance, or one passkey, and read back what is left.
+ *
+ * The one the connection stands on is refused by the instance rather than
+ * hidden here (`auth_in_use`): what may be let go of is the instance's to say,
+ * and a screen that guessed at it would be a second answer to go out of step. */
+export async function removeOwnership(instance: string): Promise<void> {
+  await forget("auth.ownership.remove", { instance });
+}
+
+export async function removeCredential(credentialId: string): Promise<void> {
+  await forget("auth.credential.remove", { credential_id: credentialId });
+}
+
+async function forget(op: string, args: Record<string, unknown>): Promise<void> {
+  try {
+    await connection.request(op, args);
+    accountProblem.value = undefined;
+  } catch (cause) {
+    accountProblem.value = describeRefusal(cause);
+  }
+  await readAccount();
 }
 
 /** How much of a connection's remaining life to use before renewing it. The

@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import type { AuthRefreshReason, AuthSession, Subject, Timestamp } from "@ccmsg/protocol";
+import type { AuthRefreshReason, AuthSession, Timestamp, UserId } from "@ccmsg/protocol";
 import { AuthError } from "./client.ts";
 
 /** What this page holds of a person's session, and nothing else holds.
@@ -11,7 +11,14 @@ import { AuthError } from "./client.ts";
  * not have to: the instance reads it back. */
 
 export const access = signal<AuthSession["access"] | undefined>(undefined);
-export const subject = signal<Subject | undefined>(undefined);
+
+/** Who is here: the person, and nothing about where they connected.
+ *
+ * The same value the authenticator holds as its user handle, which is why one
+ * person reaching three instances is one of these and not three (contract
+ * DR-0030). What it names is the owner of every drawer this page keeps a
+ * session's worth of state in. */
+export const user = signal<UserId | undefined>(undefined);
 
 /** When the *connection* stops being authorized, as `hello` and `auth.extend`
  * state it. Not the same as the token's own expiry: a connection opened with a
@@ -22,11 +29,13 @@ export const connectionExpiresAt = signal<Timestamp | undefined>(undefined);
  * needed. The screen this raises is the only way back. */
 export const needsSignIn = signal(false);
 
-/** Set when asking for a passkey produced none: this browser has not been
- * registered for this endpoint, or whoever is at it declined. Registering is
- * what is offered then, and not before — it starts at a terminal, and putting
- * it in front of someone who has a passkey is telling them to do work they
- * have already done. */
+/** Set when asking for a passkey produced none: this authenticator holds none
+ * for this page's origin, or whoever is at it declined. A passkey answers for
+ * an origin rather than for an instance (contract DR-0030 §2), so what is
+ * missing is a passkey made *here*, whichever instance is being dialed.
+ * Registering is what is offered then, and not before — it starts at a
+ * terminal, and putting it in front of someone who has a passkey is telling
+ * them to do work they have already done. */
 export const needsRegistration = signal(false);
 
 /** What went wrong the last time this page tried to authenticate, in words for
@@ -51,14 +60,14 @@ export function connectRefreshReason(): AuthRefreshReason {
 export function holdSession(session: AuthSession): void {
   everHeld = true;
   access.value = session.access;
-  subject.value = session.sub;
+  user.value = session.user;
   needsSignIn.value = false;
   authProblem.value = undefined;
 }
 
 export function forgetSession(): void {
   access.value = undefined;
-  subject.value = undefined;
+  user.value = undefined;
   connectionExpiresAt.value = undefined;
 }
 
@@ -108,12 +117,14 @@ export function isSignInDeclined(cause: unknown): boolean {
 export function describeAuthError(cause: unknown): string {
   if (!(cause instanceof AuthError)) return String(cause);
   switch (cause.code) {
+    // 期限切れ・使用済み・発行元不明を言い分けない。どれだったかを言うことは
+    // 「その URL は本物だった」を言うことでもあり、6 桁を間違えた人と使えない
+    // URL を渡された人がここで見るものは同じでよい (契約 issue
+    // `registration-url-checked-before-the-form`)。
     case "auth_expired":
-      return "この登録 URL は期限切れです。CLI で発行し直してください。";
     case "auth_unknown_issuer":
-      return "この URL を発行した instance に届きませんでした。発行し直してください。";
     case "auth_invalid":
-      return "コードか URL が無効です。";
+      return "この URL か 6 桁のコードが使えません。CLI で発行し直してください。";
     case "invalid_args":
     case "bad_request":
       return `要求の形が違います: ${cause.message}`;

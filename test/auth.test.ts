@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type AuthSession, isValid, originOf, rpIdOf, WebUi } from "@ccmsg/protocol";
+import type { AuthSession } from "@ccmsg/protocol";
 import { fromBase64Url, toBase64Url } from "../src/auth/base64url.ts";
 import { AuthError, refreshSession } from "../src/auth/client.ts";
 import {
@@ -12,20 +12,27 @@ import {
 import { defaultDeviceLabel } from "../src/auth/device-label.ts";
 import { authUrl, endpointFromLocation, isEndpoint, socketUrl } from "../src/auth/endpoint.ts";
 import {
+  type Enrolment,
+  type EnrolmentLink,
   isRefused,
-  parseRegisterFragment,
-  type RegisterLink,
-  type Registration,
+  parseEnrolmentFragment,
   readClaims,
-  watchRegisterLinks,
-} from "../src/auth/register-link.ts";
+  watchEnrolmentLinks,
+} from "../src/auth/enrolment-link.ts";
 
-/** What a fragment held, as a registration. Fails the test rather than
- * narrowing quietly: a refusal read as a registration would pass assertions
- * about fields nobody looked at. */
-function registrationOf(link: RegisterLink | undefined): Registration {
+/** What a fragment held, as an enrolment. Fails the test rather than narrowing
+ * quietly: a refusal read as an enrolment would pass assertions about fields
+ * nobody looked at. */
+function enrolmentOf(link: EnrolmentLink | undefined): Enrolment {
   if (link === undefined || isRefused(link)) throw new Error(`登録ではありません: ${String(link)}`);
   return link;
+}
+
+/** What a fragment refused with, or a failure. */
+function refusalOf(link: EnrolmentLink | undefined): string {
+  if (link === undefined || !isRefused(link))
+    throw new Error(`拒否されていません: ${String(link)}`);
+  return link.refused;
 }
 
 function token(claims: Record<string, unknown>): string {
@@ -33,15 +40,35 @@ function token(claims: Record<string, unknown>): string {
   return `header.${body}.signature`;
 }
 
+/** A user id is the WebAuthn user handle itself: sixteen bytes spelled
+ * base64url, which is twenty-two characters whose last one carries the four
+ * bits that have nowhere to go (contract `UserId`). */
+const USER = "AAAAAAAAAAAAAAAAAAAAAA";
+
+/** The URL that makes a person: it settles their handle, and the ceremony it
+ * runs makes a passkey. */
 const CLAIMS = {
   iss: "0123456789abcdef0123456789abcdef",
-  sub: "main-1",
-  unit: "main",
+  purpose: "create_user",
+  instance: "0123456789abcdef0123456789abcdef",
+  origin: "https://ui.example",
   endpoint: "http://localhost:5173/",
-  webui: "https://ui.example/ccmsg/",
   expires_at: 1_800_000_000_000,
   jti: "one",
-  user_id: "AAAABBBBCCCCDDDD",
+  user: USER,
+  display_name: "kawaz",
+};
+
+/** The URL that hands somebody an instance: who arrives is the assertion's
+ * answer, so no handle is named. */
+const ADD_OWNER = {
+  iss: "0123456789abcdef0123456789abcdef",
+  purpose: "add_owner",
+  instance: "fedcba9876543210fedcba9876543210",
+  origin: "https://ui.example",
+  endpoint: "https://h.example/",
+  expires_at: 1_800_000_000_000,
+  jti: "two",
 };
 
 describe("base64url without padding", () => {
@@ -80,12 +107,14 @@ describe("what hangs under an endpoint", () => {
 
   test("an instance may be dialed where no passkey could ever be made", () => {
     // What the connection bar admits is the contract's `Endpoint`, which is
-    // wider than its `WebUi`: an instance is reached over plain HTTP and at an
-    // address literal, while the page making a credential needs a secure
-    // context and a relying party that is a domain. The two are narrowed for
-    // different reasons, so the bar does not borrow the ceremony's rule.
+    // wider than the `Origin` a ceremony is held at: an instance is reached over
+    // plain HTTP and at an address literal, while the page making a credential
+    // needs a secure context and a relying party that is a domain. The two are
+    // narrowed for different reasons, so the bar does not borrow the ceremony's
+    // rule — and the two values are never compared with each other (contract
+    // DR-0030 §4).
     expect(isEndpoint("http://192.0.2.9:8080/")).toBe(true);
-    expect(isValid(WebUi, "http://192.0.2.9:8080/")).toBe(false);
+    expect(readClaims(token({ ...CLAIMS, origin: "http://192.0.2.9:8080" }))).toBeUndefined();
   });
 
   test("the page's own address is what an endpoint is first guessed from", () => {
@@ -100,64 +129,81 @@ describe("what hangs under an endpoint", () => {
   });
 });
 
-describe("the registration link", () => {
+describe("the enrolment link", () => {
   test("the fragment carries the token, and the claims are read for display", () => {
-    const one = registrationOf(parseRegisterFragment(`#register=${token(CLAIMS)}`));
-    expect(one.claims.sub).toBe("main-1");
+    const one = enrolmentOf(parseEnrolmentFragment(`#enroll=${token(CLAIMS)}`));
+    expect(one.claims.purpose).toBe("create_user");
     expect(one.claims.endpoint).toBe("http://localhost:5173/");
     expect(one.token).toBe(token(CLAIMS));
   });
 
-  test("the link names the web UI as well as the instance, and they are not one URL", () => {
-    // The two answer different questions: which instance the credential admits
-    // its holder to, and which page it may be presented from (contract
-    // DR-0029). The relying party and the origin are read off the second.
-    const one = registrationOf(parseRegisterFragment(`#register=${token(CLAIMS)}`));
-    expect(one.claims.webui).toBe("https://ui.example/ccmsg/");
-    expect(rpIdOf(one.claims.webui)).toBe("ui.example");
-    expect(originOf(one.claims.webui)).toBe("https://ui.example");
+  test("making a person names the handle the passkey is made against", () => {
+    // The issuer settles it rather than the page: a second value for one person
+    // would be a second account in their authenticator, which no instance could
+    // reach in to merge (contract DR-0030 §1).
+    const one = enrolmentOf(parseEnrolmentFragment(`#enroll=${token(CLAIMS)}`));
+    if (one.claims.purpose !== "create_user") throw new Error("create_user ではありません");
+    expect(one.claims.user).toBe(USER);
+    // The name the authenticator is to show, which the form lets them settle.
+    expect(one.claims.display_name).toBe("kawaz");
   });
 
-  test("a web UI no ceremony could run at is refused in words, not in silence", () => {
-    // The contract admits https, http on the loopback names a browser trusts,
-    // and no address literal, because that is what a secure context and a
-    // relying party that is a domain come to (contract `WebUi`). A person was
-    // handed this URL and opened it, so the page says why it cannot be used.
-    for (const webui of ["http://ui.example/", "https://198.51.100.9/"]) {
-      const link = parseRegisterFragment(`#register=${token({ ...CLAIMS, webui })}`);
-      if (link === undefined || !isRefused(link)) throw new Error(`拒否されていません: ${webui}`);
-      expect(link.refused).toContain(webui);
-      expect(link.refused).toContain("https");
+  test("handing over an instance names no handle, because the assertion says who", () => {
+    const one = enrolmentOf(parseEnrolmentFragment(`#enroll=${token(ADD_OWNER)}`));
+    expect(one.claims.purpose).toBe("add_owner");
+    // Stating one anyway is a claim the ceremony was never held to, so the
+    // shape refuses it rather than leaving it unread (contract `EnrollClaims`).
+    expect(readClaims(token({ ...ADD_OWNER, user: USER }))).toBeUndefined();
+  });
+
+  test("one address decides the ceremony, and the endpoint is only where it is posted", () => {
+    // The origin is where the person was sent and the only place the passkey may
+    // be made; the endpoint may be a load balancer with any instance behind it,
+    // and is compared with nothing (contract DR-0030 §4).
+    const one = enrolmentOf(parseEnrolmentFragment(`#enroll=${token(ADD_OWNER)}`));
+    expect(one.claims.origin).toBe("https://ui.example");
+    expect(one.claims.endpoint).toBe("https://h.example/");
+  });
+
+  test("an origin no ceremony could be held at is not the contract's shape", () => {
+    // https, http on the loopback names a browser trusts, and no address
+    // literal: what a secure context and a relying party that is a domain come
+    // to (contract `Origin`).
+    for (const origin of ["http://ui.example", "https://198.51.100.9"]) {
+      expect(readClaims(token({ ...CLAIMS, origin }))).toBeUndefined();
     }
   });
 
-  test("a loopback web UI is what makes a development machine work", () => {
-    const one = registrationOf(
-      parseRegisterFragment(`#register=${token({ ...CLAIMS, webui: "http://localhost:5173/" })}`),
+  test("a loopback origin is what makes a development machine work", () => {
+    const one = enrolmentOf(
+      parseEnrolmentFragment(`#enroll=${token({ ...CLAIMS, origin: "http://localhost:5173" })}`),
     );
-    expect(one.claims.webui).toBe("http://localhost:5173/");
+    expect(one.claims.origin).toBe("http://localhost:5173");
   });
 
-  test("a token that is not one at all says so without naming a URL", () => {
-    const link = parseRegisterFragment("#register=not.a.token");
-    if (link === undefined || !isRefused(link)) throw new Error("拒否されていません");
-    expect(link.refused).toContain("発行し直して");
+  test("every URL that cannot be used meets the same words", () => {
+    // Which of them it was is not said. Telling somebody the URL was real but
+    // spent is telling them the URL was real (contract issue
+    // `registration-url-checked-before-the-form`), and a person who mistyped
+    // nothing has nothing to do differently either way.
+    const nonsense = refusalOf(parseEnrolmentFragment("#enroll=not.a.token"));
+    expect(nonsense).toContain("使えません");
+    // The spelling this contract does not speak. Silence would leave whoever
+    // opened it pressing the link again.
+    expect(refusalOf(parseEnrolmentFragment(`#register=${token(CLAIMS)}`))).toBe(nonsense);
   });
 
-  test("claims that name no web UI are not the contract's shape", () => {
-    const { webui: _dropped, ...without } = CLAIMS;
-    expect(readClaims(token(without))).toBeUndefined();
-  });
-
-  test("a fragment naming no registration is not one", () => {
-    expect(parseRegisterFragment("#other=value")).toBeUndefined();
-    expect(parseRegisterFragment("")).toBeUndefined();
+  test("a fragment naming no enrolment is not one", () => {
+    expect(parseEnrolmentFragment("#other=value")).toBeUndefined();
+    expect(parseEnrolmentFragment("")).toBeUndefined();
   });
 
   test("a token whose claims are not the contract's shape is refused", () => {
     // Read for display alone, and still checked: a shape this page cannot
     // display is not something to display half of.
-    expect(readClaims(token({ sub: "main-1" }))).toBeUndefined();
+    const { origin: _dropped, ...without } = CLAIMS;
+    expect(readClaims(token(without))).toBeUndefined();
+    expect(readClaims(token({ ...CLAIMS, purpose: "something_else" }))).toBeUndefined();
     expect(readClaims("not.a.token")).toBeUndefined();
     expect(readClaims("single-segment")).toBeUndefined();
   });
@@ -165,7 +211,7 @@ describe("the registration link", () => {
 
 describe("why a refresh is being asked for", () => {
   const SESSION = {
-    sub: "main-1",
+    user: USER,
     access: { value: "token", expires_at: 1_800_000_000_000 },
   } as unknown as AuthSession;
 
@@ -233,7 +279,7 @@ describe("what to call the device being registered", () => {
   });
 });
 
-describe("a registration link arriving in an open tab", () => {
+describe("an enrolment link arriving in an open tab", () => {
   /** A stand-in address bar: the fragment, and whoever is listening for it. */
   function page(hash: string) {
     const reactors: (() => void)[] = [];
@@ -255,32 +301,32 @@ describe("a registration link arriving in an open tab", () => {
     };
   }
 
-  test("a fragment that arrives after load starts the same registration", () => {
-    const held: RegisterLink[] = [];
+  test("a fragment that arrives after load starts the same enrolment", () => {
+    const held: EnrolmentLink[] = [];
     const tab = page("");
-    watchRegisterLinks(tab.port, (one) => held.push(one));
+    watchEnrolmentLinks(tab.port, (one) => held.push(one));
     expect(held).toHaveLength(0);
 
-    tab.arrive(`#register=${token(CLAIMS)}`);
+    tab.arrive(`#enroll=${token(CLAIMS)}`);
     expect(held).toHaveLength(1);
-    expect(registrationOf(held[0]).claims.sub).toBe("main-1");
+    expect(enrolmentOf(held[0]).claims.instance).toBe(CLAIMS.instance);
     // The token is spent where it is read, so the address bar is left shareable.
     expect(tab.state.hash).toBe("");
     expect(tab.state.cleared).toBe(1);
   });
 
   test("a fragment present at load is taken without waiting for a change", () => {
-    const held: RegisterLink[] = [];
-    const tab = page(`#register=${token(CLAIMS)}`);
-    watchRegisterLinks(tab.port, (one) => held.push(one));
+    const held: EnrolmentLink[] = [];
+    const tab = page(`#enroll=${token(CLAIMS)}`);
+    watchEnrolmentLinks(tab.port, (one) => held.push(one));
     expect(held).toHaveLength(1);
     expect(tab.state.hash).toBe("");
   });
 
-  test("a fragment naming no registration still clears, and holds nothing", () => {
-    const held: RegisterLink[] = [];
+  test("a fragment naming no enrolment still clears, and holds nothing", () => {
+    const held: EnrolmentLink[] = [];
     const tab = page("#other=value");
-    watchRegisterLinks(tab.port, (one) => held.push(one));
+    watchEnrolmentLinks(tab.port, (one) => held.push(one));
     expect(held).toHaveLength(0);
     expect(tab.state.cleared).toBe(1);
   });

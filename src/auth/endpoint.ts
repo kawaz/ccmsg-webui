@@ -7,16 +7,15 @@ import { Endpoint, isValid } from "@ccmsg/protocol";
  * and everything an instance serves hangs under it: `<endpoint>ws` for the
  * socket, `<endpoint>auth/…` for what happens before a socket exists.
  *
- * **It is not where this page came from.** A web UI is published at a URL of
- * its own (contract `WebUi`) and dials an endpoint that may be another site
- * entirely: a credential names both, and each answers a different question —
- * the endpoint which instance a person is admitted to, the web UI which page
- * they may come from (contract DR-0029). So the endpoint is stated by the
- * person at the connection bar, and the address of this page is only the first
- * guess offered to them, for the deployment where the instance serves the UI
- * itself. */
+ * **It is not where this page came from.** This page is published at an origin
+ * of its own and dials an endpoint that may be another site entirely. The two
+ * are not compared with each other: a passkey answers for the origin it was
+ * made at, and which instance its holder may enter is the ownership record's
+ * answer (contract DR-0030). So the endpoint is stated by the person at the
+ * connection bar, and the address of this page is only the first guess offered
+ * to them, for the deployment where the instance serves the UI itself. */
 
-const ROUTES = ["challenge", "register", "assert", "refresh"] as const;
+const ROUTES = ["challenge", "register", "enroll", "assert", "refresh"] as const;
 export type AuthRoute = (typeof ROUTES)[number];
 
 export function authUrl(endpoint: string, route: AuthRoute): string {

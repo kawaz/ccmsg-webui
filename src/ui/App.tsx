@@ -1,8 +1,8 @@
 import { needsSignIn } from "../auth/session.ts";
-import { listed, registration, route } from "../state.ts";
+import { enrolment, listed, route } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { Disconnected } from "./Disconnected.tsx";
-import { Register } from "./Register.tsx";
+import { Enrolment } from "./Enrolment.tsx";
 import { Settings } from "./Settings.tsx";
 import { Shell } from "./Shell.tsx";
 import { SignIn } from "./SignIn.tsx";
@@ -19,10 +19,10 @@ import { SignIn } from "./SignIn.tsx";
  *
  * 持たないもの: 並べ方 (= `Shell`)、どの画面か (= `Main`)、何を読むか (= 各画面)。 */
 export function App() {
-  if (registration.value !== undefined) {
+  if (enrolment.value !== undefined) {
     return (
       <div class="app">
-        <Register />
+        <Enrolment />
       </div>
     );
   }

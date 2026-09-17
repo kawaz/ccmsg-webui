@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { AuthSession, Subject } from "@ccmsg/protocol";
+import type { AuthSession, UserId } from "@ccmsg/protocol";
 import { TabShare } from "../src/auth/tab-share.ts";
 
 /** What the person's tabs agree on: one refresh between them, and the access
@@ -62,21 +62,21 @@ beforeEach(() => {
   FakeChannel.open.clear();
 });
 
-function session(value: string, expires_at = Date.now() + 60_000, sub = "someone"): AuthSession {
-  return { sub: sub as Subject, access: { value, expires_at } };
+function session(value: string, expires_at = Date.now() + 60_000, who = "someone"): AuthSession {
+  return { user: who as UserId, access: { value, expires_at } };
 }
 
 function tab(
   endpoint: string,
   options: {
-    sub?: () => Subject | undefined;
+    user?: () => UserId | undefined;
     locks?: LockManager;
     session?: () => AuthSession | undefined;
   } = {},
 ): TabShare {
   const share = new TabShare({
     endpoint: () => endpoint,
-    subject: options.sub ?? ((): Subject | undefined => "someone" as Subject),
+    user: options.user ?? ((): UserId | undefined => "someone" as UserId),
     session: options.session ?? ((): AuthSession | undefined => undefined),
     ...(options.locks === undefined ? {} : { locks: options.locks }),
     channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
@@ -115,7 +115,7 @@ describe("one refresh between the person's tabs", () => {
     const one = tab("http://h/", { locks });
     const two = new TabShare({
       endpoint: () => "http://h/",
-      subject: (): Subject => "someone" as Subject,
+      user: (): UserId => "someone" as UserId,
       session: (): AuthSession | undefined => undefined,
       locks,
       channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
@@ -191,13 +191,13 @@ describe("one refresh between the person's tabs", () => {
 });
 
 describe("who a tab is coordinating with", () => {
-  test("names carry the endpoint and the subject, so strangers do not meet", async () => {
+  test("names carry the endpoint and the person, so strangers do not meet", async () => {
     const locks = fakeLocks();
     const mine = tab("http://h/", { locks });
     const elsewhere = tab("http://h/other/", { locks });
     const another = tab("http://h/", {
       locks,
-      sub: (): Subject => "somebody-else" as Subject,
+      user: (): UserId => "somebody-else" as UserId,
     });
 
     await mine.renew(async () => session("standing"));
@@ -207,10 +207,10 @@ describe("who a tab is coordinating with", () => {
   });
 
   test("a tab with no session yet listens on the endpoint alone", () => {
-    let sub: Subject | undefined;
+    let who: UserId | undefined;
     const share = new TabShare({
       endpoint: () => "http://h/",
-      subject: () => sub,
+      user: () => who,
       session: (): AuthSession | undefined => undefined,
       channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
     });
@@ -218,7 +218,7 @@ describe("who a tab is coordinating with", () => {
     expect([...FakeChannel.open.keys()]).toContain("ccmsg.auth:http://h/");
 
     // Learning who this is moves the tab to the name that names them.
-    sub = "someone" as Subject;
+    who = "someone" as UserId;
     share.share(session("standing"));
     expect([...FakeChannel.open.keys()]).toContain("ccmsg.auth:http://h/:someone");
   });
@@ -230,7 +230,7 @@ describe("who a tab is coordinating with", () => {
     let at = "http://h/";
     const share = new TabShare({
       endpoint: () => at,
-      subject: (): Subject => "someone" as Subject,
+      user: (): UserId => "someone" as UserId,
       session: (): AuthSession | undefined => undefined,
       channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
     });
@@ -252,7 +252,7 @@ describe("who a tab is coordinating with", () => {
     let at = "http://h/";
     const share = new TabShare({
       endpoint: () => at,
-      subject: (): Subject => "someone" as Subject,
+      user: (): UserId => "someone" as UserId,
       session: (): AuthSession | undefined => undefined,
       channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
     });
@@ -273,7 +273,7 @@ describe("who a tab is coordinating with", () => {
     const heard: string[] = [];
     const share = new TabShare({
       endpoint: () => at,
-      subject: (): Subject => "someone" as Subject,
+      user: (): UserId => "someone" as UserId,
       session: (): AuthSession | undefined => undefined,
       channel: (name: string) => new FakeChannel(name) as unknown as BroadcastChannel,
     });
@@ -287,7 +287,7 @@ describe("who a tab is coordinating with", () => {
     const elsewhere = new FakeChannel("ccmsg.auth:http://h/:someone");
     elsewhere.postMessage({
       kind: "access",
-      sub: "someone" as Subject,
+      user: "someone" as UserId,
       value: "left-behind",
       expires_at: Date.now() + 60_000,
     });

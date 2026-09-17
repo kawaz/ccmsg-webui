@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { connectionExpiresAt, subject } from "../auth/session.ts";
+import { connectionExpiresAt, user } from "../auth/session.ts";
 import type { ConnectionStatus } from "../connection.ts";
 import { instanceLabel } from "../instance-label.ts";
 import { statusBadge } from "../llm/status-view.ts";
@@ -179,7 +179,10 @@ function EndpointField() {
  * own and dials an endpoint that may be another site (contract DR-0029). What
  * is left to do is stop and start it, which is one button: it says the thing
  * pressing it does, and what it is doing now is the word beside the dot. Who is
- * connected is answered by a passkey and shown beside it. */
+ * connected is answered by a passkey and shown beside it — as the head of the
+ * id, which is what a person has here: the whole of it is sixteen random bytes
+ * and names nobody (contract DR-0030 §1), and the name they read themselves by
+ * is on the account screen the link beside this one opens. */
 export function ConnectionBar() {
   const state = status.value;
   const on = wanted.value;
@@ -202,9 +205,9 @@ export function ConnectionBar() {
       <SessionsToggle />
       <UsageLink />
       <SettingsLink />
-      {subject.value !== undefined && (
-        <span class="meta connection-who">
-          {subject.value}
+      {user.value !== undefined && (
+        <span class="meta connection-who" title={user.value}>
+          {user.value.slice(0, 8)}
           {connectionExpiresAt.value !== undefined &&
             ` / 期限 ${untilWords(connectionExpiresAt.value)}`}
         </span>

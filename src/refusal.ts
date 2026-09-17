@@ -12,6 +12,8 @@ const WORDS: Partial<Record<ErrorCode, string>> = {
     "同じセッションを 2 つのプロセスが書いているので、instance は受け取りません。どちらを終わらせるかを選ぶと、また送れるようになります。",
   ambiguous_run:
     "走っている run が 2 つ以上あるので、どれのことかを決められませんでした。run を選び直してください。",
+  auth_in_use:
+    "今つないでいる instance と、今の接続が使っている passkey は、この画面からは外せません。別の instance を開いてから、または CLI で外してください。",
 };
 
 export function describeRefusal(cause: unknown): string {

@@ -1,15 +1,16 @@
-import {
-  type AuthChallenge,
-  type AuthRefreshReason,
-  type AuthRegisterArgs,
-  type AuthSession,
-  type RegisterClaims,
-  rpIdOf,
+import type {
+  AssertionCredential,
+  AuthChallenge,
+  AuthEnrollArgs,
+  AuthRefreshReason,
+  AuthRegisterArgs,
+  AuthSession,
+  EnrollClaims,
 } from "@ccmsg/protocol";
 import { bufferOf, toBase64Url } from "./base64url.ts";
 import { type AuthRoute, authUrl } from "./endpoint.ts";
 
-/** The four HTTP routes an instance answers before a connection exists, and the
+/** The five HTTP routes an instance answers before a connection exists, and the
  * two calls to the authenticator that sit between them.
  *
  * Nothing here holds a token: what these produce is handed to the caller, and
@@ -89,38 +90,46 @@ function registrationCredential(credential: PublicKeyCredential): AuthRegisterAr
   };
 }
 
-/** Make a passkey for what a registration URL authorized, and spend the URL.
+/** Make a passkey for what an enrolment URL authorized, and spend the URL.
  *
- * Two URLs are at work and they are not the same one: the credential is made
- * at `claims.webui`, which is the page running this, and posted to
- * `claims.endpoint`, which is the instance it is being registered for. The
- * relying party is read off the first (`rpIdOf`) because that is the one the
- * browser will hold the ceremony to — it refuses a relying party that is not
- * this page's own domain or a suffix of it, and the instance checks the same
- * value from the other side (contract DR-0029).
+ * One origin is at work rather than two: the ceremony is held at the origin the
+ * claims name, which is this page, and the relying party is that origin's host
+ * (contract DR-0030 §2). The browser refuses a relying party that is not this
+ * page's own domain, and the instance compares the same host from the other
+ * side, so it is read off `location` rather than out of the claims — a claim
+ * the browser would refuse anyway is not a value to build a ceremony from. What
+ * the claims say the origin is, is shown to the person instead, who can see
+ * that the page they are on is not the one they were sent to.
  *
- * The challenge is fetched from the endpoint being registered for, and travels
- * back beside the credential with the instance that can spend it: behind a load
+ * The account name is the person's. The URL carried an administrator's guess at
+ * it and the form let them settle it, and it is given to the authenticator as
+ * both `name` and `displayName` — a passkey manager keeps the name and shows it
+ * wherever the key is listed, and what it keeps is `name`.
+ *
+ * The challenge is fetched from the endpoint being posted to, and travels back
+ * beside the credential with the instance that can spend it: behind a load
  * balancer the one that issued it, the one that made the URL and the one
  * receiving this may all be different (contract `AuthRegisterArgs`). */
 export async function registerPasskey(options: {
   token: string;
-  claims: RegisterClaims;
+  claims: Extract<EnrollClaims, { purpose: "create_user" }>;
   code: string;
+  displayName: string;
   deviceLabel?: string;
 }): Promise<AuthSession> {
-  const { claims } = options;
+  const { claims, displayName } = options;
   const challenge = await fetchChallenge(claims.endpoint);
   const created = await navigator.credentials.create({
     publicKey: {
       challenge: bufferOf(challenge.challenge),
-      rp: { id: rpIdOf(claims.webui), name: claims.unit },
+      rp: { id: location.hostname, name: "ccmsg" },
       user: {
-        // The handle the issuing instance settled on for this subject: a second
-        // value for one person would be a second account on their device.
-        id: bufferOf(claims.user_id),
-        name: claims.sub,
-        displayName: options.deviceLabel === undefined ? claims.sub : options.deviceLabel,
+        // The handle the issuing instance settled on for this person: a second
+        // value for one person would be a second account on their device, which
+        // nothing here could reach in to merge (contract DR-0030 §1).
+        id: bufferOf(claims.user),
+        name: displayName,
+        displayName,
       },
       pubKeyCredParams: [
         { type: "public-key", alg: -7 },
@@ -138,6 +147,7 @@ export async function registerPasskey(options: {
     ...(options.deviceLabel === undefined || options.deviceLabel === ""
       ? {}
       : { device_label: options.deviceLabel }),
+    ...(displayName === "" ? {} : { display_name: displayName }),
     challenge,
     credential: registrationCredential(created as PublicKeyCredential),
   };
@@ -148,35 +158,102 @@ export async function registerPasskey(options: {
   )) as unknown as AuthSession;
 }
 
-/** Prove a registered passkey and get a session.
- *
- * No credential is named: a resident passkey answers with the handle it was
- * made against, and which subject that is is the instance's to look up. No
- * relying party is named either: a credential was made at a web UI and its
- * relying party is that UI's host (contract `rpIdOf`), which is this page's own
- * domain and what the browser assumes when none is stated. */
-export async function assertPasskey(endpoint: string): Promise<AuthSession> {
-  const challenge = await fetchChallenge(endpoint);
-  const got = await navigator.credentials.get({
-    publicKey: {
-      challenge: bufferOf(challenge.challenge),
-      userVerification: "required",
-    },
-  });
-  if (got === null) throw new AuthError("aborted", "passkey が提示されませんでした", 0);
-  const credential = got as PublicKeyCredential;
+/** What `navigator.credentials.get()` produced, in the contract's spelling. */
+function assertionCredential(credential: PublicKeyCredential): AssertionCredential {
   const answer = credential.response as AuthenticatorAssertionResponse;
   const handle = answer.userHandle;
+  return {
+    raw_id: toBase64Url(credential.rawId),
+    client_data_json: toBase64Url(answer.clientDataJSON),
+    authenticator_data: toBase64Url(answer.authenticatorData),
+    signature: toBase64Url(answer.signature),
+    ...(handle === null ? {} : { user_handle: toBase64Url(handle) }),
+  };
+}
+
+/** Ask the authenticator for a passkey of this page's own domain.
+ *
+ * No credential is named: a resident passkey answers with the handle it was
+ * made against, and which person that is is the instance's to look up. No
+ * relying party is named either: a credential is made at an origin and its
+ * relying party is that origin's host (contract DR-0030 §2), which is this
+ * page's own domain and what the browser assumes when none is stated.
+ *
+ * `mediation` is how the ask is put. The default one is a prompt the person
+ * pressed something to get; `"conditional"` is the offer that stands in the
+ * browser's own autofill until they take it, and is what a page shows somebody
+ * who has not been here in a while. */
+async function getAssertion(
+  endpoint: string,
+  options: { mediation?: CredentialMediationRequirement; signal?: AbortSignal } = {},
+): Promise<{ challenge: AuthChallenge; credential: AssertionCredential }> {
+  const challenge = await fetchChallenge(endpoint);
+  const got = await navigator.credentials.get({
+    publicKey: { challenge: bufferOf(challenge.challenge), userVerification: "required" },
+    ...(options.mediation === undefined ? {} : { mediation: options.mediation }),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+  });
+  if (got === null) throw new AuthError("aborted", "passkey が提示されませんでした", 0);
+  return { challenge, credential: assertionCredential(got as PublicKeyCredential) };
+}
+
+/** Prove a passkey and get a session. */
+export async function assertPasskey(
+  endpoint: string,
+  options: { mediation?: CredentialMediationRequirement; signal?: AbortSignal } = {},
+): Promise<AuthSession> {
+  const proved = await getAssertion(endpoint, options);
   return (await post(endpoint, "assert", {
-    credential: {
-      raw_id: toBase64Url(credential.rawId),
-      client_data_json: toBase64Url(answer.clientDataJSON),
-      authenticator_data: toBase64Url(answer.authenticatorData),
-      signature: toBase64Url(answer.signature),
-      ...(handle === null ? {} : { user_handle: toBase64Url(handle) }),
-    },
-    challenge,
+    credential: proved.credential,
+    challenge: proved.challenge,
   })) as unknown as AuthSession;
+}
+
+/** Whether this browser can stand a passkey in its own autofill.
+ *
+ * Asked rather than assumed: where it is absent the offer is simply not made,
+ * and the button beside it is the whole way in. */
+export async function canOfferPasskey(): Promise<boolean> {
+  const api = globalThis.PublicKeyCredential as
+    | { isConditionalMediationAvailable?: () => Promise<boolean> }
+    | undefined;
+  if (api?.isConditionalMediationAvailable === undefined) return false;
+  try {
+    return await api.isConditionalMediationAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/** Take an instance the person was handed, with the passkey they already have.
+ *
+ * No credential is made: the person exists, and an instance is not something a
+ * passkey is made for (contract DR-0030 §4). The assertion says who is here and
+ * the six digits say that they are the one asking for this instance — a synced
+ * passkey left unattended would otherwise be enough for somebody else to hand
+ * themselves an instance in their name.
+ *
+ * Succeeds where they already own it, and says nothing about which it was: a
+ * refusal would read as a mistyped code to the person, and owning something is
+ * not a count (contract DR-0030 §4). */
+export async function enrolInstance(options: {
+  token: string;
+  claims: EnrollClaims;
+  code: string;
+}): Promise<AuthSession> {
+  const { claims } = options;
+  const proved = await getAssertion(claims.endpoint);
+  const args: AuthEnrollArgs = {
+    token: options.token,
+    code: options.code,
+    challenge: proved.challenge,
+    credential: proved.credential,
+  };
+  return (await post(
+    claims.endpoint,
+    "enroll",
+    args as unknown as Record<string, unknown>,
+  )) as unknown as AuthSession;
 }
 
 /** Trade the refresh cookie for a new access token.

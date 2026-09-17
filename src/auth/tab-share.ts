@@ -1,4 +1,4 @@
-import type { AuthSession, Subject } from "@ccmsg/protocol";
+import type { AuthSession, UserId } from "@ccmsg/protocol";
 
 /** What the person's open tabs agree on: one refresh at a time, and one access
  * token between them.
@@ -10,15 +10,15 @@ import type { AuthSession, Subject } from "@ccmsg/protocol";
  * few hours' life and every store this page could write it to is readable by
  * every script that ever runs on this origin.
  *
- * Names carry the endpoint and, once it is known, the subject: one origin can
+ * Names carry the endpoint and, once it is known, the person: one origin can
  * serve several endpoints, and one endpoint several people, and tabs that are
  * not the same session have nothing to coordinate. */
 
-/** What travels between tabs. The subject rides along because a tab that has
+/** What travels between tabs. The person rides along because a tab that has
  * only the endpoint's name to listen on cannot read it off the name. */
 export interface SharedAccess {
   readonly kind: "access";
-  readonly sub: Subject;
+  readonly user: UserId;
   readonly value: string;
   readonly expires_at: number;
 }
@@ -53,7 +53,7 @@ export interface TabShareDeps {
    * and can state another one, and tabs of two instances are not tabs of one
    * session. */
   readonly endpoint: () => string | undefined;
-  readonly subject: () => Subject | undefined;
+  readonly user: () => UserId | undefined;
   /** What this tab holds right now, so it can answer another tab's ask. */
   readonly session: () => AuthSession | undefined;
   readonly locks?: LockManager | undefined;
@@ -81,7 +81,7 @@ export class TabShare {
   }
 
   /** Hear what other tabs settle on. The channel is opened here and reopened
-   * whenever the name changes, which is what learning the subject does. */
+   * whenever the name changes, which is what learning who is here does. */
   listen(listener: (shared: AuthSession) => void): void {
     this.#listener = listener;
     this.#reopen();
@@ -119,7 +119,7 @@ export class TabShare {
     if (held === undefined) return undefined;
     if (this.#heldScope !== this.#scope()) return undefined;
     if (held.expires_at - EXPIRY_MARGIN_MS <= this.#now()) return undefined;
-    return { sub: held.sub, access: { value: held.value, expires_at: held.expires_at } };
+    return { user: held.user, access: { value: held.value, expires_at: held.expires_at } };
   }
 
   /** Refresh as the person's one tab that is doing so.
@@ -175,7 +175,7 @@ export class TabShare {
   #messageOf(session: AuthSession): SharedAccess {
     return {
       kind: "access",
-      sub: session.sub,
+      user: session.user,
       value: session.access.value,
       expires_at: session.access.expires_at,
     };
@@ -190,17 +190,17 @@ export class TabShare {
     return (this.#deps.now ?? Date.now)();
   }
 
-  /** The endpoint alone until the subject is known, and both once it is: a tab
-   * that has not authenticated yet has no session to be part of, and a tab that
-   * has must not share one person's token with another's.
+  /** The endpoint alone until the person is known, and both once they are: a
+   * tab that has not authenticated yet has no session to be part of, and a tab
+   * that has must not share one person's token with another's.
    *
    * A tab that has stated no endpoint names none. It has nothing to coordinate
    * either, so what it would listen on is never used — and the moment it states
    * one, the name it takes is that endpoint's. */
   #scope(): string {
     const at = this.#deps.endpoint() ?? "";
-    const sub = this.#deps.subject();
-    return sub === undefined ? at : `${at}:${sub}`;
+    const who = this.#deps.user();
+    return who === undefined ? at : `${at}:${who}`;
   }
 
   #reopen(): void {
