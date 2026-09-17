@@ -76,11 +76,10 @@ test("キーバインドの設定は、綴りと今の環境での姿を並べ�
   await page.getByLabel("前へ (transcript) の打鍵").fill("CmdOrCtrl+KeyF");
   await expect(page.locator(".key-warned").first()).toContainText("ページ内検索");
 
-  // 予約 (ブラウザがページに渡さない打鍵) をここでは見ない。予約が分かって
-  // いるのは macOS だけで (DR-0003 §2.5 の実測)、この browser は macOS の上でも
-  // `navigator.userAgentData.platform` に `Windows` を返す — platform の判定は
-  // そこを先に読む決まりなので (`docs/research/2026-09-17-key-binding-notation.md`)、
-  // 画面は mac 以外として振る舞う。予約の判定そのものは `test/binding.test.ts`
-  // が platform を渡して見ている。
+  // ブラウザがページに渡さない打鍵は、設定できても効かないことを言う。
+  // タブを閉じる手は Chromium がどの platform でも予約するので (DR-0003 §2.5 の
+  // 出典)、走らせる platform を問わずここに出る。
+  await page.getByLabel("同じ声の次へ の打鍵").fill("CmdOrCtrl+KeyW");
+  await expect(page.locator(".key-reserved").first()).toContainText("効きません");
   await shot(page, "actions-key-bindings.png");
 });
