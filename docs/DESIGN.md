@@ -234,21 +234,22 @@ which layer would have to change if it changed.
 
 | Part | Holds | Does not hold |
 |---|---|---|
-| `App` | which form the page takes (registering / signing in / nothing heard yet / the colour screen / the app) | arrangement, screens, reading |
-| `Shell` | the arrangement: the bar, the notices that cover everything, the two panes | which screen, what is read |
-| `ConnectionBar` | the connection's state, and the ways in (the list, usage, colour) | what is in the list or the body |
+| `App` | reading the shape (`phase`) and switching on it | deciding the shape (= `src/phase.ts`), arrangement, screens, reading |
+| `Shell` | the arrangement once connected: the nav, the notices, the two panes, the footer | which screen, what is read |
+| `ConnectionBar` | the endpoint and 接続, **before connecting** | what is in the list or the body, ways into other screens |
+| `GlobalNav` | the ways into other screens once connected, the connection's mark, the standing reload | what the connection is made of (= the account screen) |
 | `Panes` (inside `Shell`) | where the two panes sit, the remembered divider, the narrow-screen slide | what is inside them |
 | `Splitter` | grabbing, arrow keys, reading and writing the remembered width | what the two sides mean (its label and key are given to it) |
 | `SessionList` | the sessions and what a row can do | the screens, the layout |
 | `Main` | **URL to screen** | what a screen reads, the layout |
 | each screen (`Timeline`, `Files`, `Status`, `Usage`, `TerminalPanel`) | what it reads (topics, ops) and how it draws it | where it has been placed |
-| `Settings` | the layer-0 colour inputs and the face | anything the instance says — it reads none of it, which is why it hangs off `App` rather than off `Main` |
+| `Settings` | the sections and their inputs | anything the instance says — it reads none of it, but **the way in exists only once connected** (see "shape" below) |
 
 **The list tells "not heard yet" apart from "nothing there".** The sessions and the terminals arrive separately, and a harness that has started without naming itself yet is only in the second. Until both have arrived an empty list says it is still listening rather than that there is nothing. Having heard both is on the pane as well (`data-settled`): whether the contents are still arriving is knowable only from the state, so what takes the pictures reads it too.
 
 ## The list and the body sit side by side, except where they cannot
 
-The page is the bar along the top (the connection and the ways in) and two panes
+The page is the nav along the top (`GlobalNav`) and two panes
 below it: the list on the left, whatever the URL names on the right, and a
 divider that can be dragged (`src/ui/Splitter.tsx` — the same part the file tree
 and file body use; only the label and the key it remembers differ).
@@ -265,13 +266,63 @@ shows which way it went). Which one that is comes from the **URL**: the list
 while the list is what is named, the body otherwise, so no second piece of state
 has to agree with it.
 
-The bar's 一覧 means different things at different widths: fold or unfold the
+The nav's 一覧 means different things at different widths: fold or unfold the
 left pane where they are side by side, and go back to the list where they are
 not. **Which of the two is the CSS's to say** (the width threshold lives in one
 place and is read at the moment of the press). Whether it is folded and where
 the divider sits are remembered in localStorage — the first is this browser's
 preference, the second is per instance, since how much room one wants depends on
 who is being read.
+
+## One value decides what the whole screen is
+
+What form the page takes is answered by `phase` alone (DR-0004). The rule is
+`phaseOf` in `src/phase.ts`, and the one line handing it its material (the
+signals) stands in `src/state.ts`. `App` switches on the answer and **nothing
+else decides the shape** — two places deciding it means an order of precedence
+nobody is checking becomes the ruling. That nothing else reads it is held by a
+test rather than by prose (`test/phase.test.ts` walks `src/ui/`).
+
+| Shape | What it is | Root of the tree |
+|---|---|---|
+| `offline` | there is somewhere to state an address, and nothing is connected | not connected |
+| `registering` | an enrolment URL was opened | not connected |
+| `authenticating` | standing where a passkey is asked for | not connected |
+| `connecting` | opening the socket (the greeting included) | not connected |
+| `receiving` | the socket is open, the list's snapshot is not here yet | not connected |
+| `live` | there is a list, and somebody to talk to | connected |
+| `stale` | there is a list, and nobody to talk to | connected |
+
+**"Not connected" means "no list is standing yet"**, not that a line is down.
+
+**Before connecting the bar is the whole of the page** and holds the address
+and 接続 and nothing else. Settings, the account and usage are not there — every way offered
+to somebody who has not connected is one more way that is not connecting.
+**After connecting there is no band**: the ways into other screens are in
+`GlobalNav`, what is being dialed is in the footer at the smallest size, and the
+connection's state is one mark in the nav. The instance, the daemon's version,
+the contract generation, who is connected and when this connection's
+authorization runs out belong to **the account screen** — kept on screen always,
+they would be a string taking up the width for the many hours it decides
+nothing.
+
+**The reload stands in every shape.** A PWA added to the home screen has no
+reload of the browser's own, so without this one there are devices with no way
+to load the page again. **When the contract generation does not match, that
+button changes colour** — there is no band and no automatic reload, because what
+is on screen is not this page's to hide or throw away.
+
+**`stale` keeps both the screen and the URL.** A dropped line is retried while
+backing off; only a lost authorization (`auth_invalid`) raises a passkey over the
+middle of the screen. Taking it reconnects in place, and the workspace behind it
+never moved.
+
+**Arriving at a connected URL while not connected dials first.** Where that
+works the URL's own screen opens; the URL is rewritten to `/` only on a device
+with **no remembered address** (`ccmsg.endpoint` is the test) — such a device is
+nobody's yet. Where an address is remembered, the URL and the screen stay put
+whether the line is down or the refresh token is spent: losing a link somebody
+was sent to one failed request costs more than waiting.
 
 ## There are three disconnections, and they do three different things
 
@@ -282,13 +333,24 @@ disconnection does is a question of what is worth losing. There are three.
 |---|---|
 | **Nothing has been heard yet** (a first visit) | no list, no transcript, no mesh row, and an empty body: the bar alone says the state and offers the one way to connect (`src/ui/Disconnected.tsx`) |
 | **Nobody asked for it** (the network went, the instance left) | what was heard stays on screen, with a band saying it is no longer current. The next snapshot replaces the same rows |
-| **Someone pressed 切断** | the equivalent of logging out: everything held in memory goes (the lists, the transcript, the fold state, the access token). The preferences in localStorage stay |
+| **Someone pressed 切断** | everything held in memory goes (the lists, the transcript, the fold state, the access token). The refresh cookie and the remembered address stay, so 接続 comes back without a passkey |
+
+**Disconnecting and signing out are different things** (DR-0004 §2.6).
+Disconnecting is stepping away; signing out is getting off this device. The
+latter asks the contract's `auth.signout` to revoke the token family (the cookie
+is HttpOnly, so the reply is the only place it can be expired) and **clears every
+`ccmsg.` key of this origin by default**. There is one setting for people who
+want to keep something (off by default), and what it keeps is the preferences
+alone (see "localStorage keys name what they belong to"). They are not one thing
+because making them one leaves either somebody stepping away redoing a passkey
+every time, or somebody who meant to get off with their cookie still standing.
 
 The body carries neither an explanation nor a second button. The bar already
 says there is no connection and already offers the way to make one; a second
 place to press it only asks the reader which one is real. What stays in the body
-is the one line about a contract generation that does not match, because that is
-the one thing reconnecting cannot fix and the bar has nowhere to say "reload".
+is the one line about an enrolment URL this page cannot act on, which would
+otherwise read as a press that did nothing. A contract generation that does not
+match is not there — the standing reload says that by changing colour.
 
 Nothing is framed before it is heard, because that frame is an **empty list** —
 a list of no rows says "this host has no sessions" rather than "you are not
@@ -299,7 +361,7 @@ heard yet.
 The other way round, a drop does not empty the screen. This is carried around
 and read on the move, and losing the page at every gap in the signal loses too
 much: until the next snapshot overwrites them, the rows last heard are worth
-reading. **Nothing on a row says when it was heard**, so the band says it. What
+reading. **Nothing on a row says when it was heard**, so the mark in the nav says it. What
 is dropped is only what stops meaning anything — the connection's deadline, a
 notification that said something just happened, the note of a message that left
 an inbox undelivered.
@@ -581,15 +643,15 @@ Everything about the LLM gateway is decided by `hello`'s `capabilities`. Without
 `llm_usage` the quota op is never called; without `llm_status` or `llm_events`
 those topics are never subscribed to — asking an instance for what it does not
 have earns a refusal, and a refusal is not worth putting on screen. On an
-instance with no gateway in front of it, the entry in the connection bar is not
+instance with no gateway in front of it, the entry in the nav is not
 there either.
 
 The screen is in two layers.
 
-- **Always there**: the entry in the connection bar, coloured and marked only
+- **Always there**: the entry in the nav once connected, coloured and marked only
   when there is **a known problem** upstream (`llm.status`'s
   `overall.severity`). Healthy and unknown say nothing — a mark that is always
-  showing stops meaning anything by showing, and turning the bar red for
+  showing stops meaning anything by showing, and turning the mark red for
   "unknown" would let one provider that publishes no status page make the whole
   host look broken
 - **The detail** (`/usage`): the upstream services first and the quota after.
@@ -779,7 +841,7 @@ The subprotocol prefix the access token travels in (`ccmsg.token.`) and the `/au
 
 **The same base is what routes are read from and written with** (`src/base.ts`). A pathname has the base taken off before the URL grammar reads it, and a link has it put back on, so `/personal/s/<sid>/timeline` is the session `/s/<sid>/timeline` names under a build published at `/personal/`. An address outside the base is an unknown route: it is not a place this build answers for. The grammar itself (`src/route.ts`) stays base-free and takes one, so that what a link means does not depend on where the build happens to live.
 
-The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMSG_DEV_DAEMON`, `http://127.0.0.1:39847` by default). It stands where a reverse proxy stands in a deployment that serves both from one origin, which is the arrangement where a same-site cookie and a `localhost` relying party are had without a certificate. Developing against an instance on another origin needs no proxy: the endpoint is typed into the bar like any other.
+The dev server proxies `/ws`, `/auth`, `/mesh` and `/webhook` to a daemon (`CCMSG_DEV_DAEMON`, `http://127.0.0.1:39847` by default). It stands where a reverse proxy stands in a deployment that serves both from one origin, which is the arrangement where a same-site cookie and a `localhost` relying party are had without a certificate. Developing against an instance on another origin needs no proxy: the endpoint is typed into the connection screen like any other.
 
 **Where this page may connect is stated as a shape rather than as a list.** The build carries one CSP directive, `connect-src 'self' https: wss:` (the development build adds the loopback origins a daemon answers on). It is not an allowlist of instances: which instance is dialed is the person's to state, and a UI published independently of the instances it reaches would need a build per deployment and another one for every instance added — which is the thing publishing it separately exists to avoid. Nothing else is stated, and a policy with no `default-src` restricts only what it names.
 
@@ -803,7 +865,7 @@ the other free to break unseen. The images live at
 are drawn by **the same** platform, so a missing one of those fails where it is
 missing.
 
-**The whole comparison rests on the same picture being drawable twice**, which is why the disposable paths and ports are fixed (`test/visual/instance.ts`): the endpoint and the instance id on screen are derived from them, and a temp directory with a random suffix would write a different string every run. The instance's id is laid down before the daemon can make one, the transcript is a fixture with its instants written out, and the one place left — the stretch of the connection bar counting down to an expiry — is masked.
+**The whole comparison rests on the same picture being drawable twice**, which is why the disposable paths and ports are fixed (`test/visual/instance.ts`): the endpoint and the instance id on screen are derived from them, and a temp directory with a random suffix would write a different string every run. The instance's id is laid down before the daemon can make one, the transcript is a fixture with its instants written out, and the two places left — the account screen's expiry clock and the daemon's version — are masked.
 
 **A screen is drawn with the preferences at their defaults.** A test that moves one that is kept in `localStorage` — the width of the list, say — **puts it back** once it has checked that it was remembered: the browser context is shared with the tests that follow, so a preference left behind is baked into every baseline drawn after it, and the baselines then depend on what ran before them (running that file on its own no longer matches).
 
