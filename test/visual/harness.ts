@@ -397,7 +397,7 @@ export async function shot(
   options: { readonly animations?: "allow" | "disabled" } = {},
 ): Promise<void> {
   await fontsReady(page);
-  await listReady(page);
+  await listSettled(page);
   await stillness(page);
   await expect(page).toHaveScreenshot(name, {
     mask: [
@@ -444,8 +444,11 @@ export async function shot(
  * ハーネスの行はそこが立って初めて出揃う。立つ前に撮ると、行が届く前後のどちら
  * が写るかが走るたびに変わる。
  *
- * 一覧が出ていない画面 (設定・登録・狭い画面の本文) には待つものが無い。 */
-async function listReady(page: Page): Promise<void> {
+ * 一覧が出ていない画面 (設定・登録・狭い画面の本文) には待つものが無い。
+ *
+ * `shot()` は撮る前にこれを通るが、**行を選んでから撮る test は自分で待つ**
+ * — 「いちばん下の行」や「一覧の高さ」は、届き切る前だと別のものを指す。 */
+export async function listSettled(page: Page): Promise<void> {
   const list = page.locator(".pane-list");
   if ((await list.count()) === 0) return;
   await expect(list).toHaveAttribute("data-settled", "");

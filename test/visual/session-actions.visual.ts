@@ -1,4 +1,4 @@
-import { expect, shot, test } from "./harness.ts";
+import { expect, listSettled, shot, test } from "./harness.ts";
 
 /** 行の上でできること (留める / 改名 / 終了) の試作。
  *
@@ -7,6 +7,9 @@ import { expect, shot, test } from "./harness.ts";
 
 test("留めると一覧の先頭に来て、外すと戻る", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
+  // 行を選ぶ前に、一覧が届き切るのを待つ。「いちばん下の行」は届き切る前だと
+  // 別のセッションを指すので、留める相手が走行ごとに変わってしまう。
+  await listSettled(page);
   // セッションの行だけ (mesh の行にも `.row` を使っている)。
   const rows = page.locator(".row:has(.row-pin)");
   await expect(rows.first()).toBeVisible();
@@ -26,6 +29,7 @@ test("留めると一覧の先頭に来て、外すと戻る", async ({ ui: page
 
 test("終了は確認を開くまで — 決めるのはダイアログの中", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}`);
+  await listSettled(page);
   const row = page.locator(".row:has(.row-pin)").filter({ hasText: "束 0 を片付ける" }).first();
   await row.getByRole("button", { name: "終了" }).click();
 

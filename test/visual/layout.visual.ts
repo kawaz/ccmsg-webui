@@ -1,5 +1,5 @@
 import { STATUS_SID } from "./fixture.ts";
-import { expect, nothingOverflows, shot, test } from "./harness.ts";
+import { expect, listSettled, nothingOverflows, shot, test } from "./harness.ts";
 
 /** 一覧と本文の並べ方。
  *
@@ -104,6 +104,9 @@ test("一覧が窓より高くても、選んだ本文は末尾で止まる", as
   await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
   const list = page.locator(".pane-list");
   const main = page.locator(".pane-main");
+  // 高さを測る前に届き切るのを待つ。行が揃う前の一覧は窓に収まってしまい、
+  // 確かめたいことが起きない。
+  await listSettled(page);
   // 確かめたいことが起きる前提: 一覧は窓に収まらない。収まっている一覧では
   // 「一覧が高さを決める」こと自体が起きないので、assert は何も見ていない。
   const over = async (): Promise<number> =>
