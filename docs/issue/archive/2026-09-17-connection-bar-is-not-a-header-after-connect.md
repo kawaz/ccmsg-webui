@@ -1,6 +1,6 @@
 ---
 title: 接続バーは接続後は主役でなくなる (帯として居座らせない)
-status: open
+status: resolved
 category: design
 created: 2026-09-17T09:17:57+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-18T21:07:31+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["dr/DR-0004","implemented","v1.10.0: 接続後は帯なし、GlobalNav(状態の印/一覧/使用量/アカウント/設定/切断/ログアウト/読み込み直し常設)とGlobalFooter(endpoint極小)、世代ずれはReloadの色だけ、詳しい接続情報はaccount画面へ、設定は接続後のみ"]
 blocked_by:
 origin: kawaz
 ---
