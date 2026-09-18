@@ -3182,3 +3182,9 @@ select {
 .reauth .confirm-actions {
   justify-content: flex-end;
 }
+
+/* この接続そのものについて。読みたくなった人が読みに来る所なので、道にも
+   フッタにも出さず、アカウントの画面に置く (DR-0004 §2.4)。 */
+.connection-facts code {
+  overflow-wrap: anywhere;
+}

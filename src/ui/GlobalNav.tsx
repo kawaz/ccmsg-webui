@@ -1,6 +1,5 @@
 import type { ComponentChildren } from "preact";
 import { href } from "../base.ts";
-import { instanceLabel } from "../instance-label.ts";
 import { statusBadge } from "../llm/status-view.ts";
 import type { Route } from "../route.ts";
 import {
@@ -8,7 +7,6 @@ import {
   can,
   disconnect,
   endpoint,
-  hello,
   llmStatusReports,
   navigate,
   route,
@@ -155,12 +153,5 @@ export function GlobalNav() {
  * たくなった時にだけ読む 1 行になる。述べ直したければ切断してから — 繋いだまま
  * 住所を書き換える所を画面に出しておく理由が無い。 */
 export function GlobalFooter() {
-  const at = endpoint.value;
-  const greeted = hello.value;
-  return (
-    <p class="global-footer">
-      <span class="mono">{at ?? "(住所がありません)"}</span>
-      {greeted !== undefined && <span>{instanceLabel(greeted.instance, greeted.endpoint)}</span>}
-    </p>
-  );
+  return <p class="global-footer mono">{endpoint.value ?? "(住所がありません)"}</p>;
 }

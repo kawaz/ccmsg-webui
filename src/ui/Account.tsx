@@ -1,10 +1,13 @@
 import { signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import type { CredentialRecordPublic } from "@ccmsg/protocol";
+import { connectionExpiresAt, user } from "../auth/session.ts";
 import { instanceLabel } from "../instance-label.ts";
 import {
   account,
   accountProblem,
+  endpoint,
+  hello,
   readAccount,
   removeCredential,
   removeOwnership,
@@ -25,6 +28,56 @@ import { RelativeTime } from "./RelativeTime.tsx";
 /** 押した「外す」が本気かを確かめている行。id は 1 つだけ立つ。 */
 const confirming = signal<string | undefined>(undefined);
 
+/** 今の接続そのものについて (DR-0004 §2.4)。
+ *
+ * **接続後の状態の置き場はここ**で、画面の上の道ではない。道が持つのは「今どう
+ * なっているか」を 1 つの印で言うことだけで、どの instance の何版に、誰として、
+ * いつまで繋がっているかは、読みたくなった人が読みに来る所に置く — 常に出して
+ * おくと、ほとんどの時間なにも決めない文字列が画面の幅を取り続ける。 */
+function Connected() {
+  const greeted = hello.value;
+  const at = endpoint.value;
+  const until = connectionExpiresAt.value;
+  const who = user.value;
+  return (
+    <>
+      <h3>この接続</h3>
+      <dl class="auth-claims connection-facts">
+        <dt>繋ぎ先</dt>
+        <dd>
+          <code>{at ?? "(住所がありません)"}</code>
+        </dd>
+        {greeted !== undefined && (
+          <>
+            <dt>instance</dt>
+            <dd>{instanceLabel(greeted.instance, greeted.endpoint)}</dd>
+            <dt>版</dt>
+            <dd class="daemon-version">
+              daemon {greeted.version} / 契約世代 {greeted.protocol_version}
+            </dd>
+          </>
+        )}
+        {who !== undefined && (
+          <>
+            <dt>誰として</dt>
+            <dd>
+              <code>{who}</code>
+            </dd>
+          </>
+        )}
+        {until !== undefined && (
+          <>
+            <dt>この接続の期限</dt>
+            {/* 残りではなく時刻を出す。延長は勝手に起きるので、読む値打ちが
+                あるのは「その延長が期限を動かしているか」の方。 */}
+            <dd class="connection-until">{new Date(until).toLocaleTimeString()}</dd>
+          </>
+        )}
+      </dl>
+    </>
+  );
+}
+
 export function Account() {
   useEffect(() => {
     void readAccount();
@@ -37,6 +90,7 @@ export function Account() {
     <section class="section account">
       <h2>アカウント</h2>
       {accountProblem.value !== undefined && <p class="banner">{accountProblem.value}</p>}
+      <Connected />
       {held === undefined ? (
         <p class="empty">instance に聞いています…</p>
       ) : (
