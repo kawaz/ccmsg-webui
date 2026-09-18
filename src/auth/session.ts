@@ -95,6 +95,16 @@ export function isNoSession(cause: unknown): boolean {
   );
 }
 
+/** Whether a refusal means the instance was never reached.
+ *
+ * 回線が無いのと許可が切れたのは、人に頼むことが違う (DR-0004 §2.3): 届かない
+ * だけなら退がりながら待てば戻るので何も頼まず、許可が切れているなら passkey を
+ * もう一度頼むほかに進みようが無い。`fetch` が投げた時だけがこれで、instance が
+ * 答えた refusal はどれも届いている。 */
+export function isUnreachable(cause: unknown): boolean {
+  return cause instanceof AuthError && cause.code === "unreachable";
+}
+
 /** Whether asking for a passkey ended without one.
  *
  * The browser answers the same way whether the person waved the prompt away or

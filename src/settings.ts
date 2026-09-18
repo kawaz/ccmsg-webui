@@ -82,10 +82,14 @@ function isPreference(key: string): boolean {
  * しているべきではない。
  *
  * 残す設定を入れた時に残るのは、名前を作る所が好みだと名乗ったものだけ。認証・
- * 接続・セッションに属する名前はこの設定でも残らない。 */
-export function clearLocal(keepPreferences: boolean): void {
-  for (const key of localStore.keys()) {
+ * 接続・セッションに属する名前はこの設定でも残らない。
+ *
+ * 消す先を言えるのは、**どれを残すかの判定だけを確かめられるようにするため** —
+ * `Store` は元から差し替えられる形で持っている (書けない browser を空として
+ * 答えるのがその形) ので、判定のために新しい抽象は増えていない。 */
+export function clearLocal(keepPreferences: boolean, store: Store = localStore): void {
+  for (const key of store.keys()) {
     if (keepPreferences && isPreference(key)) continue;
-    localStore.remove(key);
+    store.remove(key);
   }
 }

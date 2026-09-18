@@ -65,13 +65,19 @@ import {
   holdSession,
   isNoSession,
   isSignInDeclined,
+  isUnreachable,
   needsRegistration,
   needsSignIn,
   tokenIsLive,
   user,
 } from "./auth/session.ts";
 import { TabShare } from "./auth/tab-share.ts";
-import { type ConnectionStatus, Connection } from "./connection.ts";
+import {
+  type ConnectionStatus,
+  Connection,
+  type TokenAnswer,
+  type TokenMissing,
+} from "./connection.ts";
 import { type FilesMemory, FilesView } from "./files/files-view.ts";
 import { FileWordIndex } from "./files/file-word-find.ts";
 import {
@@ -293,6 +299,25 @@ export const generationWarning = signal<string | undefined>(undefined);
  * だけ持つ — 回線が届かないなら退がりながら繋ぎ直すだけでよく、許可が切れて
  * いるなら人に passkey をもう一度頼むほかに進みようが無い。 */
 export const authLost = signal(false);
+
+/** 再認証の頼みを今出しているか (DR-0004 §2.4)。
+ *
+ * `authLost` と分けて持つのは、**事実と、それを今どう出しているかが別だから**。
+ * 許可が切れていることは人が閉じても変わらないが、重ねたものが閉じられないと
+ * `stale` の「読むことはできる」(§2.5) が成り立たない — 後ろは不活のままで、
+ * 切断もログアウトも読み込み直しも押せない端末が残る。閉じたら印から出し直す。 */
+export const reauthShowing = signal(false);
+
+/** 再認証の頼みを出し直す。許可が切れている時だけ意味を持つ。 */
+export function askReauth(): void {
+  if (authLost.peek()) reauthShowing.value = true;
+}
+
+/** 再認証の頼みを閉じる。**許可が切れている事実は下ろさない** — 下ろすと印から
+ * 出し直す道まで消える。 */
+export function dismissReauth(): void {
+  reauthShowing.value = false;
+}
 
 const peerSlots = signal<readonly Slot<readonly PeerInfo[]>[]>([]);
 const llmStatusSlots = signal<readonly Slot<LlmStatusData>[]>([]);
@@ -562,7 +587,7 @@ export const connection = new Connection({
       // **意図しない切断では、聞いたものを捨てない**。回線が切れただけの端末が
       // 画面まで空になるのは、持ち歩いて読む道具としては失いすぎで、次の
       // snapshot が同じ行を上書きするまでの間、最後に聞いた内容には読む価値が
-      // ある。古いことはバーと帯が言う (`Stale`)。
+      // ある。古いことは状態の印が言う (`StatusMark`)。
       //
       // 捨てるのはここで意味を失うものだけ。
       // 期限は「この接続がいつまで許されているか」なので、接続と一緒に消える。
@@ -677,7 +702,14 @@ export const connection = new Connection({
       }
     }
   },
-  authRequired() {
+  authRequired(why: TokenMissing) {
+    // **届かないのは、許可が切れたのとは違う** (DR-0004 §2.3)。頼むことが無いので
+    // 何も頼まず、接続が退がりながら掛け直すのを待つ — ここで passkey を頼むと、
+    // 電波の悪い所を歩いた人が、許可は切れていないのに認証を迫られる。
+    if (why === "unreachable") {
+      statusDetail.value = "instance に届きません。繋ぎ直しています…";
+      return;
+    }
     // Held while the socket was open and no longer accepted: the token ran out
     // on the far side, or the session was ended elsewhere. The passkey is not
     // asked for here — nobody pressed anything, and a browser refuses a passkey
@@ -690,6 +722,7 @@ export const connection = new Connection({
     // その場で繋ぎ直る。捨てるものがまだ無い姿でだけ認証の画面へ行く。
     if (listed.peek()) {
       authLost.value = true;
+      reauthShowing.value = true;
       return;
     }
     needsSignIn.value = true;
@@ -861,40 +894,46 @@ async function renewSession(at: string, reason: AuthRefreshReason): Promise<Auth
  * `renew` is the handshake saying the token was refused: the expiry held here
  * is then not the question, because the token belongs to the family and not to
  * this page, and asking the cookie is the only way to learn what stands. */
-async function accessToken(renew = false): Promise<string | undefined> {
-  if (!renew && tokenIsLive()) return access.peek()?.value;
+async function accessToken(renew = false): Promise<TokenAnswer> {
+  const standing = access.peek();
+  if (!renew && standing !== undefined && tokenIsLive()) return { token: standing.value };
   const at = endpoint.peek();
-  if (at === undefined) return undefined;
+  if (at === undefined) return { missing: "auth_invalid" };
   // What another tab has already settled on, before asking for a rotation of
   // this page's own: the token is the family's, so one tab's answer is every
   // tab's answer.
   const shared = tabs.fresh();
   if (shared !== undefined && shared.access.value !== access.peek()?.value) {
     holdSession(shared);
-    return shared.access.value;
+    return { token: shared.access.value };
   }
   try {
     const session = await renewSession(at, connectRefreshReason());
     // The person may have stated another instance while this was in flight. A
     // token says who, never where, so one minted for the instance just left
     // would be presented to the new one as if it were its own.
-    if (endpoint.peek() !== at) return undefined;
+    if (endpoint.peek() !== at) return { missing: "auth_invalid" };
     holdSession(session);
-    return access.peek()?.value;
+    return { token: session.access.value };
   } catch (cause) {
     // The endpoint being unreachable is not the session being over. Keeping
     // what is held lets the socket's own retry ride a daemon restart out
     // instead of turning it into a sign-in screen.
-    if (!isNoSession(cause) && renew && tokenIsLive()) {
+    const held = access.peek();
+    if (!isNoSession(cause) && renew && held !== undefined && tokenIsLive()) {
       authProblem.value = describeAuthError(cause);
-      return access.peek()?.value;
+      return { token: held.value };
     }
+    // **届かないことは、許可が切れたことではない** (DR-0004 §2.3)。持っているもの
+    // を手放すと、回線が戻った時に passkey からやり直すことになる — 期限を過ぎた
+    // token は次の refresh が取り直すので、手放す必要がそもそも無い。
+    if (isUnreachable(cause)) return { missing: "unreachable" };
     forgetSession();
     // A first visit has no cookie, and being told so reads as a failure of
     // something the person did. Only a refusal that is not simply "no session
     // here" is worth saying out loud.
     if (!isNoSession(cause)) authProblem.value = describeAuthError(cause);
-    return undefined;
+    return { missing: "auth_invalid" };
   }
 }
 
@@ -943,7 +982,7 @@ function openSocket(at: string | undefined = endpoint.peek()): void {
 /** Whether there is a session to open a socket with, asking the cookie when
  * memory has none. */
 async function haveSession(): Promise<boolean> {
-  return (await accessToken()) !== undefined;
+  return "token" in (await accessToken());
 }
 
 /** Connect, and authenticate on the way if that is what it takes.
@@ -958,9 +997,14 @@ export async function connect(): Promise<void> {
   wanted.value = true;
   needsSignIn.value = false;
   needsRegistration.value = false;
-  authLost.value = false;
   authProblem.value = undefined;
-  if ((await haveSession()) || (await signIn())) openSocket(at);
+  // 許可が切れているという事実も、重ねた頼みも、**通るまで下ろさない**。途中で
+  // 下ろすと、断られた時に頼みごと消えて、`stale` の画面から出し直す道が一度
+  // 閉じる (DR-0004 §2.3)。
+  if (!(await haveSession()) && !(await signIn())) return;
+  authLost.value = false;
+  reauthShowing.value = false;
+  openSocket(at);
 }
 
 /** Connect if it takes nothing from the person.
@@ -986,10 +1030,10 @@ export async function resume(): Promise<void> {
 
 /** 人が「切断」を押した時に手放すもの。
  *
- * ログアウトに相当する操作なので、**この画面がメモリに持っているものは全部
- * 捨てる** — 一覧も、読んでいた transcript も、畳みの開閉も、access token も。
- * 残すのは localStorage に書いてある人の好み (並び順・表示属性・下書き) だけ:
- * それは接続の産物ではなく、この人がこのブラウザに書いた設定。
+ * **instance が言っていたことは全部捨てる** — 一覧も、読んでいた transcript も、
+ * 畳みの開閉も、access token も。残すのは localStorage に書いてある人の好み
+ * (並び順・表示属性・下書き) と refresh cookie と憶えた住所で、「接続」を押せば
+ * passkey 無しで戻れる。降りる (`signOut`) はそのどれも残さない (§2.6)。
  *
  * 意図しない切断はこれを通らない (`status` の closed はここを呼ばない)。切れた
  * だけで持ち物まで消えるなら、電波の悪い所を歩いた人は毎回ログインし直すことに
@@ -999,6 +1043,7 @@ export function disconnect(): void {
   needsSignIn.value = false;
   needsRegistration.value = false;
   authLost.value = false;
+  reauthShowing.value = false;
   authProblem.value = undefined;
   connection.close();
   peerSlots.value = [];
@@ -1046,6 +1091,22 @@ export function disconnect(): void {
  * **向こうが答えなくても手元は消す**。降りると決めた人の端末に跡が残る方が悪く、
  * family が生きていることは次に繋いだ時にまた降りれば済む。届かなかったことは
  * 言葉にして残す — 黙って消すと、別のタブがまだ繋がることの説明が付かない。 */
+/** 降りた端末のメモリから、instance のセッションを名指しているものを落とす。
+ *
+ * `clearLocal` が消すのは書いてある方だけで、**読み込みの時に 1 度だけ読んだ写し
+ * はメモリに残る** — 同じタブで次の人が入ると、一覧が前の人の留めで始まり、留めを
+ * 1 つ動かせば消したはずの名前が前の値ごと書き戻る。好みではないものだけをここで
+ * 落とす: どれも「どのセッションを追いかけているか」で、降りた人のもの。 */
+function forgetWhatNamedSessions(): void {
+  pinned.value = new Set();
+  unkilled.value = new Set();
+  listCollapsed.value = new Set();
+  listCursor.value = undefined;
+  listFilter.value = "";
+  listFilterOpen.value = false;
+  selectedItem.value = undefined;
+}
+
 export async function signOut(): Promise<void> {
   const at = endpoint.peek();
   let refused: string | undefined;
@@ -1058,6 +1119,7 @@ export async function signOut(): Promise<void> {
   }
   disconnect();
   clearLocal(keepsPreferences());
+  forgetWhatNamedSessions();
   // 憶えた住所も消えたので、次に立つのはこのページ自身の住所が入ったトップ
   // (§2.7 の「憶えた住所が無い」端末)。
   endpoint.value = endpointFromLocation(location.origin, BASE);
@@ -1089,10 +1151,16 @@ export async function signIn(): Promise<boolean> {
     needsSignIn.value = false;
     needsRegistration.value = false;
     authLost.value = false;
+    reauthShowing.value = false;
     return true;
   } catch (cause) {
     wanted.value = false;
-    needsSignIn.value = true;
+    // **一覧を持っている間は、断られても画面を捨てない** (DR-0004 §2.3)。重ねた
+    // 再認証を人が取り消すのは「今はやらない」であって、読んでいたものを捨てて
+    // よいという意思ではない — 姿は `stale` のままで、頼みは印から出し直せる。
+    const keeping = listed.peek();
+    needsSignIn.value = !keeping;
+    authLost.value = keeping;
     // Declined or unregistered: registering is the way in, and this is the
     // moment it becomes worth saying. Anything else is the instance's own
     // words, which say what happened instead.

@@ -29,7 +29,17 @@ const TOKEN_PROTOCOL = "ccmsg.token.";
  * thinks of its own copy's expiry, it is to go and get another one. Held tokens
  * are the family's rather than this page's, so a page can be holding one that is
  * unexpired and no longer standing, and its own clock cannot tell it so. */
-export type TokenSource = (renew: boolean) => Promise<string | undefined>;
+export type TokenSource = (renew: boolean) => Promise<TokenAnswer>;
+
+/** 提示するものが無い時の、その理由 (DR-0004 §2.3)。
+ *
+ * **回線が無いのと許可が切れたのは別のこと**。届かないだけなら退がりながら待てば
+ * 戻るので、人には何も頼まない。許可が切れているなら passkey をもう一度頼むほか
+ * に進みようが無く、それは timer が起こせることではない。 */
+export type TokenMissing = "unreachable" | "auth_invalid";
+
+/** 提示できるものか、提示できない理由か。 */
+export type TokenAnswer = { readonly token: string } | { readonly missing: TokenMissing };
 
 /** The one place a connection to an instance is made and kept.
  *
@@ -50,10 +60,11 @@ export interface ConnectionEvents {
   status(status: ConnectionStatus, detail?: string): void;
   greeted(hello: HelloResult): void;
   topic(message: TopicMessage): void;
-  /** There is nothing left to present, so this connection stops rather than
-   * dials: the door opens by authenticating, and what happens next is the
-   * page's to decide. */
-  authRequired(): void;
+  /** There is nothing left to present. **Why there is nothing travels with it**
+   * (DR-0004 §2.3): a door that opens by authenticating is the page's to raise
+   * a passkey for, and an instance that cannot be reached is not a door at all —
+   * this connection keeps dialling for that one and says so. */
+  authRequired(why: TokenMissing): void;
   /** The contract's generation and this build's do not agree, or the instance
    * does not know an op this build calls. There is no compatibility path: the
    * page says so and the person reloads a build that matches. */
@@ -99,6 +110,7 @@ export class Connection {
   #retryTimer: ReturnType<typeof setTimeout> | undefined;
   #stopped = false;
   #renewed = false;
+  #listening = false;
 
   constructor(events: ConnectionEvents) {
     this.#events = events;
@@ -108,6 +120,7 @@ export class Connection {
    * another endpoint, it drops the old one first. */
   connect(url: string, token: TokenSource): void {
     this.#stopped = false;
+    this.#listen();
     if (this.#retryTimer !== undefined) clearTimeout(this.#retryTimer);
     this.#retryTimer = undefined;
     const previous = this.#socket;
@@ -128,7 +141,16 @@ export class Connection {
     this.#retryTimer = undefined;
     this.#socket?.close();
     this.#socket = undefined;
+    globalThis.removeEventListener?.("online", this.#returned);
+    this.#listening = false;
     this.#events.status("idle");
+  }
+
+  /** 回線が戻ったことを聞いておく。繋ぐと決めた時に 1 度だけ。 */
+  #listen(): void {
+    if (this.#listening) return;
+    globalThis.addEventListener?.("online", this.#returned);
+    this.#listening = true;
   }
 
   /** Subscribe, and stay subscribed: the set is replayed after a reconnection,
@@ -175,18 +197,24 @@ export class Connection {
     const source = this.#token;
     if (url === undefined || source === undefined || this.#stopped) return;
     this.#events.status("connecting");
-    const token = await source(renew);
+    const answer = await source(renew);
     if (this.#stopped) return;
-    // Nothing to present. Dialling anyway would be refused, and retrying that
-    // is a busy loop against a door that opens by authenticating instead: this
-    // connection stops here, and the next attempt is the one the page makes
-    // once it holds a session again.
-    if (token === undefined) {
+    if (!("token" in answer)) {
+      this.#events.authRequired(answer.missing);
+      // 届かないだけなら止まらない (DR-0004 §2.3)。止めると、回線が戻っても人が
+      // 押すまで繋ぎ直さない — 電波の悪い所を歩いた端末が、戻った後もずっと
+      // 切れたままになる。
+      if (answer.missing === "unreachable") {
+        this.#later(renew);
+        return;
+      }
+      // 提示するものが無く、passkey でしか開かない。掛け直しは断られるだけなの
+      // で、この接続はここで止まる: 次に掛けるのは、session を持ち直した頁。
       this.#stopped = true;
       this.#events.status("idle");
-      this.#events.authRequired();
       return;
     }
+    const token = answer.token;
     // A browser cannot put a header on a handshake, so the access token travels
     // as a subprotocol value (daemon §3.1). The plain name beside it is what
     // the instance selects when it has a choice.
@@ -238,11 +266,30 @@ export class Connection {
       void this.#open(true);
       return;
     }
+    this.#later(refused);
+  }
+
+  /** Dial again after backing off, doubling the wait to a ceiling. */
+  #later(renew: boolean): void {
     this.#retryTimer = setTimeout(() => {
-      void this.#open(refused);
+      this.#retryTimer = undefined;
+      void this.#open(renew);
     }, this.#retryMs);
     this.#retryMs = Math.min(this.#retryMs * 2, RETRY_MAX_MS);
   }
+
+  /** 回線が戻ったと browser が言った。
+   *
+   * 待っている時刻より確かな合図なので、残りを待たずに掛け直す。繋がっている
+   * 時も、止まっている時も (passkey でしか開かない door は回線では開かない)
+   * 何もしない。 */
+  #returned = (): void => {
+    if (this.#stopped || this.#socket !== undefined || this.#retryTimer === undefined) return;
+    clearTimeout(this.#retryTimer);
+    this.#retryTimer = undefined;
+    this.#retryMs = RETRY_MIN_MS;
+    void this.#open();
+  };
 
   async #greet(): Promise<void> {
     try {

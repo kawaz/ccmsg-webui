@@ -2118,21 +2118,6 @@ select {
   }
 }
 
-/* 出ているものが「最後に聞いた内容」であることを言う帯。行の側には、いつの
-   ものかが書いていない。 */
-.stale-band {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--warning-fg);
-  border-radius: var(--radius);
-  background: var(--warning-surface);
-  color: var(--warning-fg);
-}
-
 /* 訳がまだ全部は届いていない、と言う 1 行。段落ごとに届くので、出ている本文は
    「訳した段落 + まだ原文の段落」が混ざった姿になる。 */
 .tl-translating {
@@ -3142,6 +3127,16 @@ select {
 
 .status-mark.open {
   color: var(--success-fg);
+}
+
+/* 許可が切れている間だけ、印は押せる所になる (DR-0004 §2.4)。見た目は印のまま
+   — ボタンに見せると、接続後の道が 1 つ増えたように読める。 */
+button.status-mark {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--danger-fg);
+  cursor: pointer;
 }
 
 .status-mark.closed {

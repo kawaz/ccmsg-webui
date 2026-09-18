@@ -1,4 +1,4 @@
-import { authLost, enrolment, phase } from "../state.ts";
+import { enrolment, phase, reauthShowing } from "../state.ts";
 import { ConnectionBar } from "./ConnectionBar.tsx";
 import { Disconnected } from "./Disconnected.tsx";
 import { Enrolment } from "./Enrolment.tsx";
@@ -57,10 +57,12 @@ export function App() {
     case "stale":
       // 一度立った本体は、回線が切れても認証が切れても消さない。回線なら退がり
       // ながら繋ぎ直すだけで、許可が切れている時だけ人に passkey を頼む (§2.4)。
+      // 頼みは閉じられる — 閉じても許可が切れている事実は下りず、状態の印から
+      // 出し直せる (§2.5 の「読むことはできる」)。
       return (
         <div class="app">
           <Shell />
-          {authLost.value && <Reauth />}
+          {reauthShowing.value && <Reauth />}
         </div>
       );
   }
