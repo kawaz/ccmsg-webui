@@ -272,24 +272,77 @@ describe("why a refresh is being asked for", () => {
 
 describe("what to call the device being registered", () => {
   test("a phone is named by itself", () => {
-    expect(defaultDeviceLabel("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")).toBe(
-      "iPhone",
-    );
+    expect(
+      defaultDeviceLabel({
+        userAgent:
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+        platform: "iPhone",
+        maxTouchPoints: 5,
+      }),
+    ).toBe("iPhone");
   });
 
   test("a desktop is named with the browser, because several are in use at once", () => {
     expect(
-      defaultDeviceLabel(
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
-      ),
+      defaultDeviceLabel({
+        userAgent:
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
+        platform: "MacIntel",
+        maxTouchPoints: 0,
+        statedPlatform: "macOS",
+      }),
     ).toBe("Mac Chrome");
-    expect(defaultDeviceLabel("Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/130.0")).toBe(
-      "Windows Firefox",
-    );
+    expect(
+      defaultDeviceLabel({
+        userAgent: "Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/130.0",
+        platform: "Win32",
+        maxTouchPoints: 0,
+      }),
+    ).toBe("Windows Firefox");
+    expect(
+      defaultDeviceLabel({
+        userAgent:
+          "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36",
+        platform: "Linux armv8l",
+        maxTouchPoints: 5,
+        statedPlatform: "Android",
+      }),
+    ).toBe("Android Chrome");
+  });
+
+  test("an iPad calls itself a Mac, and the touch screen is what says otherwise", () => {
+    // iPadOS の Safari は UA も platform も Macintosh を名乗る。分かれ目は指の
+    // 数で、Mac は 0 を返す。
+    expect(
+      defaultDeviceLabel({
+        userAgent:
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+        platform: "MacIntel",
+        maxTouchPoints: 5,
+      }),
+    ).toBe("iPad");
+    // 自分の名前を言える browser では、そちらを先に見る (綴りは "macOS")。
+    expect(
+      defaultDeviceLabel({
+        userAgent:
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
+        platform: "MacIntel",
+        maxTouchPoints: 5,
+        statedPlatform: "macOS",
+      }),
+    ).toBe("iPad");
+    // UA が自分で iPad と書いている時 (desktop 表示でない頁) はそのまま。
+    expect(
+      defaultDeviceLabel({
+        userAgent: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) Version/18.0 Safari/604.1",
+        platform: "iPad",
+        maxTouchPoints: 5,
+      }),
+    ).toBe("iPad");
   });
 
   test("something unrecognised still gets a name a person can rewrite", () => {
-    expect(defaultDeviceLabel("nothing familiar")).toBe("この端末");
+    expect(defaultDeviceLabel({ userAgent: "nothing familiar" })).toBe("この端末");
   });
 });
 

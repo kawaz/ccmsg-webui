@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { defaultDeviceLabel } from "../auth/device-label.ts";
+import { defaultDeviceLabel, thisDevice } from "../auth/device-label.ts";
 import { authProblem } from "../auth/session.ts";
 import type { Enrolment as Held } from "../auth/enrolment-link.ts";
 import { completeEnrolment, dismissEnrolment, enrolment } from "../state.ts";
@@ -33,7 +33,7 @@ function EnrolmentForm({ held }: { readonly held: Held }) {
   const claims = held.claims;
   const creating = claims.purpose === "create_user";
   const code = useSignal("");
-  const label = useSignal(defaultDeviceLabel(navigator.userAgent));
+  const label = useSignal(defaultDeviceLabel(thisDevice(navigator)));
   const name = useSignal(claims.display_name ?? "");
   const working = useSignal(false);
   const elsewhere = claims.origin !== location.origin;
