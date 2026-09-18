@@ -92,13 +92,21 @@ test("ログアウトは family を失効させ、この端末の覚えも残さ
     Object.keys(localStorage).filter((one) => one.startsWith("ccmsg.")),
   );
   expect(before).toContain("ccmsg.endpoint");
+  // この頁が読み込み直されたことを後で言えるようにしておく。メモリに残っている
+  // 写し (留めたセッション・絞り込み・選んでいた 1 通) が次の人に残らないのは、
+  // 消して回るからではなく**頁が立ち上がり直すから** (§2.6)。
+  await page.evaluate(() => {
+    document.title = "降りる前の頁";
+  });
 
   // 押す所から起こす。取り返しが付かない側なので、一度確かめてから。
   await page.getByRole("button", { name: "ログアウト" }).click();
   await page.locator("dialog.confirm").getByRole("button", { name: "ログアウトする" }).click();
 
   // トップに戻り、繋ぐ所だけが出ている。
-  await expect(page.getByRole("button", { name: "接続" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "接続", exact: true })).toBeVisible();
+  // 同じ頁のままではない: 降りるは読み込み直しで終わる。
+  expect(await page.title()).not.toBe("降りる前の頁");
   await expect(page).toHaveURL(new RegExp(`^${instance.endpoint}$`));
   await expect(page.locator(".row")).toHaveCount(0);
   // `ccmsg.` の付くこの origin の名前は 1 つも残らない (設定は既定 off)。
@@ -109,7 +117,7 @@ test("ログアウトは family を失効させ、この端末の覚えも残さ
   // cookie も失効している: 読み込み直しても勝手には繋がらない (`resume` が
   // 提示するものを持たない)。
   await page.reload();
-  await expect(page.getByRole("button", { name: "接続" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "接続", exact: true })).toBeVisible();
   await expect(page.locator(".status-mark.open")).toBeHidden();
   await page.context().close();
 });

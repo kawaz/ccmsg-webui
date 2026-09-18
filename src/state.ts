@@ -1091,20 +1091,20 @@ export function disconnect(): void {
  * **向こうが答えなくても手元は消す**。降りると決めた人の端末に跡が残る方が悪く、
  * family が生きていることは次に繋いだ時にまた降りれば済む。届かなかったことは
  * 言葉にして残す — 黙って消すと、別のタブがまだ繋がることの説明が付かない。 */
-/** 降りた端末のメモリから、instance のセッションを名指しているものを落とす。
+/** 降りたことを次の読み込みへ渡す所 (DR-0004 §2.6)。
  *
- * `clearLocal` が消すのは書いてある方だけで、**読み込みの時に 1 度だけ読んだ写し
- * はメモリに残る** — 同じタブで次の人が入ると、一覧が前の人の留めで始まり、留めを
- * 1 つ動かせば消したはずの名前が前の値ごと書き戻る。好みではないものだけをここで
- * 落とす: どれも「どのセッションを追いかけているか」で、降りた人のもの。 */
-function forgetWhatNamedSessions(): void {
-  pinned.value = new Set();
-  unkilled.value = new Set();
-  listCollapsed.value = new Set();
-  listCursor.value = undefined;
-  listFilter.value = "";
-  listFilterOpen.value = false;
-  selectedItem.value = undefined;
+ * **降りるは読み込み直しで終わる**ので、届かなかったという 1 行は頁をまたぐ必要
+ * がある。手元には何も残さないと決めた後なので、渡せるのは URL の fragment だけ
+ * — instance へは送られず、読んだ所で消える。 */
+const SIGNED_OUT = "#signed-out=";
+
+/** 降りた直後の読み込みなら、その 1 行を引き取る。URL からは消す。 */
+export function takeSignOutWord(): void {
+  const hash = location.hash;
+  if (!hash.startsWith(SIGNED_OUT)) return;
+  const refused = decodeURIComponent(hash.slice(SIGNED_OUT.length));
+  history.replaceState(null, "", location.pathname + location.search);
+  authProblem.value = `この端末からは降りましたが、instance に失効を頼めませんでした (${refused})。別のタブが繋がったままのことがあります。`;
 }
 
 export async function signOut(): Promise<void> {
@@ -1119,16 +1119,16 @@ export async function signOut(): Promise<void> {
   }
   disconnect();
   clearLocal(keepsPreferences());
-  forgetWhatNamedSessions();
-  // 憶えた住所も消えたので、次に立つのはこのページ自身の住所が入ったトップ
-  // (§2.7 の「憶えた住所が無い」端末)。
-  endpoint.value = endpointFromLocation(location.origin, BASE);
   tabs.moved();
-  navigate({ at: "sessions" });
-  authProblem.value =
-    refused === undefined
-      ? undefined
-      : `この端末からは降りましたが、instance に失効を頼めませんでした (${refused})。別のタブが繋がったままのことがあります。`;
+  // **最後に頁を読み込み直す** (DR-0004 §2.6)。降りた跡が残らないとは「この画面が
+  // 最初から立ち上がる」ことで、メモリに残っている写し (留めたセッション、絞り
+  // 込み、選んでいた 1 通…) を消して回る一覧を別に持たずに済む — 一覧を持つと、
+  // 値が増えた時にその一覧だけが古くなる。好みが戻るのは残す設定を入れた時だけ
+  // で、それは localStorage に残ったものを読み直した結果。
+  const top = href({ at: "sessions" });
+  location.replace(
+    refused === undefined ? top : `${top}${SIGNED_OUT}${encodeURIComponent(refused)}`,
+  );
 }
 
 /** Prove a passkey and hold what it minted.

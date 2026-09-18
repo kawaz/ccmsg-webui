@@ -1,7 +1,7 @@
 import { render } from "preact";
 import "./app.css";
 import { watchEnrolmentLinks } from "./auth/enrolment-link.ts";
-import { adoptLocation, enrolment, holdEnrolment, resume } from "./state.ts";
+import { adoptLocation, enrolment, holdEnrolment, resume, takeSignOutWord } from "./state.ts";
 import { applySaved } from "./settings-section.ts";
 import "./theme.ts";
 import "./actions/keys.ts";
@@ -11,6 +11,10 @@ import { listenForKeys } from "./ui/Scope.tsx";
 // 覚えてあるものを `:root` に書いてから描く。選んでいない分は app.css のままで
 // 立つので、ここが書くのは人が決めた項だけ。section が増えてもここは増えない。
 applySaved();
+
+// 降りた直後の読み込みなら、届かなかったという 1 行がここで引き取られる
+// (DR-0004 §2.6)。降りるは読み込み直しで終わるので、渡せる場所が URL しかない。
+takeSignOutWord();
 
 // An enrolment link may have brought a token in the fragment — on arrival, or
 // into a tab that is already open.
