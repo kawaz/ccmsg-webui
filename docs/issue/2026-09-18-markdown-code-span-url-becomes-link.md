@@ -27,8 +27,10 @@ origin: kawaz
 
 kawaz からの報告 (2026-09-18)。直すこと: code span の中身が整形済みの http(s) URL 1 つだけ (空白なし、`{}` 等のテンプレ文字なし) なら、code の見た目のまま `<a href>` にする (既存の fuzzy file link / リンクの扱いと同じ target)。v1 (claude-ccmsg) にも同じ issue がある。
 
+kawaz 2026-09-18: テンプレ文字の例外は不要。code span の中身も本文と同じ URL 判定 (既存の linkify の規則) に通すだけ。
+
 ## 受け入れ条件
 
 - [ ] code で書かれた URL がクリックで開く
-- [ ] テンプレ文字列 (`{}` 等を含むもの) はリンクにならない
+- [ ] code span の中身も本文と同じ linkify 規則で判定される (テンプレ文字専用の除外ロジックを別途作らない)
 - [ ] visual test に 1 例
