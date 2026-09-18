@@ -82,6 +82,27 @@ function UsageLink() {
   );
 }
 
+/** 自分の姿へ行く道。
+ *
+ * 一覧を受け取っている間だけ出る。向こうは instance に聞いて初めて何かが出る
+ * 画面なので、繋がっていない時の入口は「押しても空の画面」にしかならない。 */
+function AccountLink() {
+  if (!listed.value) return null;
+  return (
+    <a
+      href={href({ at: "account" })}
+      title="自分の passkey と、持っている instance"
+      onClick={(event: MouseEvent) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        navigate({ at: "account" });
+      }}
+    >
+      アカウント
+    </a>
+  );
+}
+
 /** 設定へ行く道。
  *
  * バーは繋がっていない時も出ているので、この入口も常に居る — 向こうの画面が
@@ -204,6 +225,7 @@ export function ConnectionBar() {
       </button>
       <SessionsToggle />
       <UsageLink />
+      <AccountLink />
       <SettingsLink />
       {user.value !== undefined && (
         <span class="meta connection-who" title={user.value}>

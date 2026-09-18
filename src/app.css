@@ -1709,6 +1709,57 @@ select {
   margin: 0;
 }
 
+/* アカウントの画面: 自分の passkey と、持っている instance。認証の画面と同じ
+   読ませ方 (行を離す) で、そこに一覧が 2 つ乗る。 */
+.account {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account h3 {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 1 行は「何であるか」を上に、手掛かりを下に、外す所を末尾に。狭い所では
+   積む — 行が横に溢れるより、押す所が下に回る方が読める。 */
+.account-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.account-list li > .account-name {
+  flex-basis: 100%;
+  font-weight: 600;
+}
+
+.account-list li > button,
+.account-confirm {
+  margin-inline-start: auto;
+}
+
+.account-confirm {
+  display: flex;
+  gap: 8px;
+}
+
 /* ---- 端末 ---- */
 
 /* 端末は gateway の画面そのもの。枠だけこちらで用意し、中身には触らない。 */

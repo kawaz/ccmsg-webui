@@ -68,6 +68,10 @@ export type Route =
   /** 色の見え方。instance に何も聞かないので、`/` の直下に居て、繋がって
    * いなくても立つ (DR-0001 §2.6)。 */
   | { readonly at: "settings" }
+  /** 自分の姿。人と、その passkey と、持っている instance (契約 DR-0030 §8)。
+   * 設定の隣ではなく別の道に居る — 設定が instance に何も聞かない画面である
+   * のに対し、こちらは instance に**聞かないと何も出ない**。 */
+  | { readonly at: "account" }
   /** 端末 1 つ。名前は `<scheme>:<handle>` で、scheme がどの端末管理の見た
    * ものかを言う。セッションの下ではなく `/` の直下に居る — 端末はセッション
    * の持ち物ではなく、セッションが終わっても残る。 */
@@ -165,6 +169,7 @@ export function parseRoute(path: string, search = "", base = "/"): Route {
   if (parts.length === 1 && parts[0] === "usage") return { at: "usage" };
   if (parts.length === 1 && parts[0] === "terminals") return { at: "terminals" };
   if (parts.length === 1 && parts[0] === "settings") return { at: "settings" };
+  if (parts.length === 1 && parts[0] === "account") return { at: "account" };
   if (parts.length === 2 && parts[0] === "terminal") {
     const id = terminalId(parts[1] as string);
     return id === undefined ? { at: "unknown", path } : { at: "terminal", id };
@@ -210,6 +215,8 @@ export function routePath(route: Route, base = "/"): string {
       return `${prefix}terminals`;
     case "settings":
       return `${prefix}settings`;
+    case "account":
+      return `${prefix}account`;
     case "terminal":
       return `${prefix}terminal/${encodeURIComponent(route.id)}`;
     case "session": {

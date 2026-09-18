@@ -69,6 +69,14 @@ describe("the URL grammar", () => {
     expect(parseRoute("/settings/colour").at).toBe("unknown");
   });
 
+  // 自分の姿は人のもので、どの instance のものでもない (契約 DR-0030 §1)。
+  // 設定と同じく根の直下に居るが、立つには instance に聞く必要がある。
+  test("a person's own account is an address of its own", () => {
+    expect(parseRoute("/account")).toEqual({ at: "account" });
+    expect(routePath({ at: "account" })).toBe("/account");
+    expect(parseRoute("/account/passkeys").at).toBe("unknown");
+  });
+
   // handle の綴りは端末管理のもので、どの scheme があるかは instance が答える。
   // 文法が見るのは `<scheme>:<handle>` の形だけ。
   test("a segment that names no terminal is not an address", () => {
@@ -163,6 +171,7 @@ describe("the grammar under a base", () => {
         { at: "terminals" },
         { at: "terminal", id: "hyoui:%17" },
         { at: "settings" },
+        { at: "account" },
       ] as const) {
         const printed = routePath(route, base);
         const cut = printed.indexOf("?");
