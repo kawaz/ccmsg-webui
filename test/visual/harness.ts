@@ -1,4 +1,4 @@
-import { expect, test as base, type Page } from "@playwright/test";
+import { type Browser, expect, test as base, type Page } from "@playwright/test";
 import {
   BULK_SID,
   DUP_SID,
@@ -38,6 +38,7 @@ export interface Fixtures {
   ui: Page;
   phone: Page;
   usage: Page;
+  settings: Page;
 }
 
 export const test = base.extend<object, Fixtures>({
@@ -145,6 +146,22 @@ export const test = base.extend<object, Fixtures>({
     { scope: "worker" },
   ],
   ui: [
+    async ({ browser, instance }, use) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await addAuthenticator(page);
+      const { url, code } = await instance.passkey();
+      await page.goto(url);
+      await register(page, code);
+      await use(page);
+      await context.close();
+    },
+    { scope: "worker" },
+  ],
+  // 設定を触るブラウザ。**共有の `ui` と分ける** — 設定の test は覚えたものを
+  // 読み込み直して確かめるので、頁を揺らし、色まで保存する。共有の頁でやると
+  // 「後に撮る絵ぜんぶ」がその色で焼き込まれ、基準画像が走った順番に依存する。
+  settings: [
     async ({ browser, instance }, use) => {
       const context = await browser.newContext();
       const page = await context.newPage();
@@ -334,6 +351,22 @@ async function addAuthenticator(page: Page): Promise<void> {
       automaticPresenceSimulation: true,
     },
   });
+}
+
+/** 自分の passkey と自分の cookie を持つ、使い捨ての browser。
+ *
+ * 共有の `ui` と分け合えない test のためのもの: ログアウトも family の失効も
+ * **その browser が二度と繋がらない状態**を作るので、後に走る画面と同じ文脈で
+ * 起こすと、壊れたのがどの test かを言えなくなる。登録はここで済ませるので、
+ * 返ってくるのは既に繋がっている頁。 */
+export async function ownBrowser(browser: Browser, instance: Instance): Promise<Page> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await addAuthenticator(page);
+  const { url, code } = await instance.passkey();
+  await page.goto(url);
+  await register(page, code);
+  return page;
 }
 
 /** Give this browser an authenticator holding nothing.

@@ -252,10 +252,14 @@ test("file-word-bubble", async ({ ui: page, instance }) => {
 /** 設定の画面。section の一覧で、今は色 1 つ — 組を選ぶ所と、触った結果を
  * 覚えるかどうかを決める所がある。画面自身が選んだ色で立っているので、見本は
  * 要らない。 */
-test("settings", async ({ ui: page, instance }) => {
+test("settings", async ({ settings: page, instance }) => {
   // **繋がっている画面から入る**。この画面は instance に何も聞かないが、入口は
   // 接続後にしか無い (DR-0004 §2.5) — 繋ぐ前の人に出す設定は、出した分だけ
   // 「繋ぐ」以外の道を増やす。
+  //
+  // 共有の `ui` ではなく設定用のブラウザを使うのは、下の 4 つ目が読み込み直しを
+  // 繰り返し、色まで保存するから — 共有の頁を揺らすと、後に走る画面が何を写すか
+  // まで変わる。
   await page.goto(instance.endpoint);
   await connected(page);
   await page.getByRole("link", { name: "設定" }).click();
@@ -277,7 +281,7 @@ test("settings", async ({ ui: page, instance }) => {
 
 /** 詳細を開いた所。基本に出ていない入力がここに並ぶ。表示例は基本でも詳細でも
  * 同じものが横に居る — 何を触っていても、効いている所が見えたままになる。 */
-test("settings-detail", async ({ ui: page, instance }) => {
+test("settings-detail", async ({ settings: page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
   await page.locator("details.theme-advanced > summary").click();
   await expect(page.getByRole("slider", { name: "危険 (danger) の色相" })).toBeVisible();
@@ -291,7 +295,7 @@ test("settings-detail", async ({ ui: page, instance }) => {
  * 選ぶ組はその face の方に合わせる。**名前付きのテーマは face を持つ**ので
  * (DR-0001 §2.11)、dark の絵で Solarized Light を選ぶと画面が light に切り替わり、
  * 2 つの face で同じ絵を撮ることになる。 */
-test("settings-changed", async ({ ui: page, instance }, info) => {
+test("settings-changed", async ({ settings: page, instance }, info) => {
   await page.goto(`${instance.endpoint}settings`);
   const named = info.project.name === "dark" ? "Solarized Dark" : "Solarized Light";
   await page.getByRole("radio", { name: named }).check();
@@ -310,7 +314,7 @@ test("settings-changed", async ({ ui: page, instance }, info) => {
 
 /** 覚えるのは押した時だけ、ということ。絵は撮らない — ここで見たいのは**読み
  * 込み直した先に何が残っているか**で、それは画面の形には出ない。 */
-test("settings-keeps-and-forgets", async ({ ui: page, instance }) => {
+test("settings-keeps-and-forgets", async ({ settings: page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
   const open = async () => {
     await page.locator("details.theme-advanced > summary").click();
