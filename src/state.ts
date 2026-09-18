@@ -208,7 +208,15 @@ export const endpoint = signal<string | undefined>(firstEndpoint());
  * lists and what was being read are another instance's and mean nothing here. */
 export function setEndpoint(next: string): boolean {
   if (!isEndpoint(next)) return false;
-  if (next === endpoint.peek()) return true;
+  if (next === endpoint.peek()) {
+    // 綴りが同じでも、**覚えることは起きる**。欄に最初から入っているのはこの
+    // ページ自身の住所という推測で、同じ文字列を人が述べた (or 登録がそう
+    // 名乗った) こととは別のこと — §2.7 が「この端末はもう誰かのものか」を
+    // 読むのはこの覚えの有無なので、書かないと、instance が UI ごと配って
+    // いる置き方で登録した端末が、いつまでも誰のものでもないままになる。
+    localStore.set(ENDPOINT_KEY, next);
+    return true;
+  }
   disconnect();
   endpoint.value = next;
   localStore.set(ENDPOINT_KEY, next);
