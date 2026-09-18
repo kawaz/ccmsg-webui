@@ -5,6 +5,7 @@ import { instanceLabel } from "../instance-label.ts";
 import { statusBadge } from "../llm/status-view.ts";
 import { href } from "../base.ts";
 import {
+  account,
   can,
   connect,
   disconnect,
@@ -200,10 +201,12 @@ function EndpointField() {
  * its own and dials an endpoint that may be another site. What
  * is left to do is stop and start it, which is one button: it says the thing
  * pressing it does, and what it is doing now is the word beside the dot. Who is
- * connected is answered by a passkey and shown beside it — as the head of the
- * id, which is what a person has here: the whole of it is sixteen random bytes
- * and names nobody (contract DR-0030 §1), and the name they read themselves by
- * is on the account screen the link beside this one opens. */
+ * connected is answered by a passkey and shown beside it: the name the person
+ * reads themselves by where that has been read (`auth.account.read`), and the
+ * head of their id until then. The id is sixteen random bytes and names nobody
+ * (contract DR-0030 §1), so it is what stands in rather than what is wanted —
+ * and the bar does not ask for the name on its own account, the account screen
+ * behind the link beside this one being where that question belongs. */
 export function ConnectionBar() {
   const state = status.value;
   const on = wanted.value;
@@ -229,7 +232,7 @@ export function ConnectionBar() {
       <SettingsLink />
       {user.value !== undefined && (
         <span class="meta connection-who" title={user.value}>
-          {user.value.slice(0, 8)}
+          {account.value?.user.display_name ?? user.value.slice(0, 8)}
           {connectionExpiresAt.value !== undefined &&
             ` / 期限 ${untilWords(connectionExpiresAt.value)}`}
         </span>

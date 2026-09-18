@@ -963,6 +963,9 @@ export function disconnect(): void {
   inboxSlots.value = [];
   inboxRows.clear();
   departedMessages.value = [];
+  // 自分の姿も instance が言っていたこと。次に繋ぐ人が同じ人とは限らない。
+  account.value = undefined;
+  accountProblem.value = undefined;
   forgetSession();
 }
 
