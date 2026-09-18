@@ -39,15 +39,14 @@ id は **スコープの綴り + 操作の綴り** で組む (`timeline.`、`ses
 ```
 app
 ├ 未接続
-│ ├ 接続の帯 (ConnectionBar)         endpoint 入力 + 接続 + 認証
-│ ├ 登録 (Register)
+│ ├ 接続の帯 (ConnectionBar)         endpoint 入力 + 接続
+│ ├ 登録 (Enrolment)
 │ ├ 認証 (SignIn)
 │ └ 一覧を聞く前 (Disconnected)
 └ 接続後 (Shell)
-  ├ 設定 (Settings)
-  ├ グローバルフッター               endpoint の極小表示
-  ├ 状態の小部品 (各画面内)          接続状態を示す絵文字 / アイコン
-  ├ 知らせ (Stale / Toast / 世代ずれの帯)
+  ├ グローバルの道 (GlobalNav)       他の画面への入口 + 状態の小部品 (StatusMark) + 読み込み直し (Reload)
+  ├ グローバルフッター (GlobalFooter) endpoint の極小表示
+  ├ 知らせ (Toast / 再認証のダイアログ Reauth)
   └ workspace (Panes: 接続後の作業画面)
     ├ サイドバー (pane-list)          出す / 出さないが切り替わる
     │ └ セッションリスト (SessionList)
@@ -57,6 +56,7 @@ app
     └ メインコンテンツ (pane-main / Main)
       ├ tl (Timeline) / files (Files) / 状態 (Status) / 端末 (TerminalPanel)
       ├ run の分岐 (Runs) / 端末の一覧 (Terminals) / 使用量 (Usage)
+      ├ 設定 (Settings) / アカウント (Account)
       └ FAB                         どこからでも開くプロンプト入力欄
 
 tl
@@ -65,11 +65,9 @@ tl
   └ tl ツールバー  検索のボタン、上下のボタン
 ```
 
-**設定 (Settings) は「接続後」の子で、未接続には設定を置かない**。キーバインドのような使い方の設定は instance につながっていることが前提になるものが多い。instance に何も聞かない設定 (言語、light / dark) も未接続には出さない — 繋ぐ前の画面に「繋ぐ」以外の道を増やさないため (DR-0004 §2.5)。多言語を世に出す時に、置き場ごと考え直す。
+**設定 (Settings) は「接続後」の子で、未接続には設定を置かない**。URL が名指す画面なので、居る所は workspace のメインコンテンツ (`Main`)。キーバインドのような使い方の設定は instance につながっていることが前提になるものが多い。instance に何も聞かない設定 (言語、light / dark) も未接続には出さない — 繋ぐ前の画面に「繋ぐ」以外の道を増やさないため (DR-0004 §2.5)。多言語を世に出す時に、置き場ごと考え直す。
 
-**接続の帯 (ConnectionBar) は「未接続」の子で、接続前の主役**。endpoint 入力・接続・認証をまとめて担う。**接続後は帯として存在しない** — endpoint の表示はグローバルフッターに極小フォントで出し、接続状態は各画面に散る絵文字 / アイコンの小部品になる。
-
-ただし**今の `App.tsx` では、設定と登録を開くと帯ごと画面が置き換わる** (`route.at === "settings"` は `<Settings />` だけを返す)。この食い違いは、帯を無くす方向で解消する ([issue](../issue/2026-09-17-connection-bar-is-not-a-header-after-connect.md))。
+**接続の帯 (ConnectionBar) は「未接続」の子で、接続前の主役**。endpoint 入力と接続を担う。**接続後は帯として存在しない** — endpoint の表示はグローバルフッターに極小フォントで出し、接続状態は道の中の小部品 1 つになる。どちらの根が立つかは `phase` が答える (DR-0004 §2.5)。
 
 **一覧はセッションの内側ではなく兄弟**。サイドバーとメインコンテンツは `workspace` の下で並んでいて、一覧が立っているかどうかはセッションを選んでいるかと関係が無い。id の綴り (§2.1) もこの木をなぞる — `app.` / `session-list.` / `timeline.` は、木の節の名前であって分類ではない。
 
