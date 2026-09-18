@@ -3107,3 +3107,78 @@ select {
   color: var(--fg-muted);
   font-style: italic;
 }
+
+/* 目に出さず、耳にだけ出す語。印だけでは何も言わないので、読み上げにはその印が
+   何のことかを添える。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 接続後の道 (DR-0004 §2.4)。**帯ではない** — 住所も接続のボタンもここには
+   無く、あるのは他の画面への道と状態の小部品と読み込み直しだけ。だから囲いも
+   背景も持たず、行の高さだけを取る。 */
+.global-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/* 接続状態の小部品。語ではなく印なのは場所を取らないため。 */
+.status-mark {
+  flex: none;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--fg-muted);
+}
+
+.status-mark.open {
+  color: var(--success-fg);
+}
+
+.status-mark.closed {
+  color: var(--danger-fg);
+}
+
+/* 常設の読み込み直し。ホーム画面に追加した PWA にはブラウザの再読み込みが
+   無いので、これが唯一の手になる。 */
+.reload {
+  margin-left: auto;
+  flex: none;
+  padding: 4px 9px;
+  line-height: 1;
+}
+
+/* 契約の世代が食い違った印。姿でも帯でもなく、既にある押す所の色が変わる —
+   画面に出ているものを、この画面の判断で隠したり読み込み直したりしない。 */
+.reload.outdated {
+  color: var(--warning-fg);
+  border-color: var(--warning-fg);
+  background: var(--warning-surface);
+}
+
+/* 繋いでいる先。ほとんど気にしない情報なので、下端に極小で置く。 */
+.global-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  flex: none;
+  color: var(--fg-muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+/* 認証が切れて繋ぎ直せない時に重なるもの。閉じる道を持たないので、確認の器と
+   違って取り消しのボタンが無い。 */
+.reauth .confirm-actions {
+  justify-content: flex-end;
+}

@@ -24,6 +24,12 @@ export interface Action {
 
 /** 今この画面にあるアクションぜんぶ。並びは DR-0003 §2.2 の木の順。 */
 export const ACTIONS: readonly Action[] = [
+  // 画面ぜんぶ。読み込み直しはどの姿にも居り、残る 2 つは接続後だけ
+  // (DR-0004 §2.5)。
+  { id: "app.reload", title: "読み込み直す" },
+  { id: "app.disconnect", title: "切断する" },
+  { id: "app.sign-out", title: "ログアウトする", destructive: true },
+
   // 区画をまたぐ移動 (workspace が担当)。押す所を持たない — 押す所を作ると、
   // 押した時点でそこがフォーカスを持ってしまい、目的の「手を離さず辿る」が
   // 消える (§2.4)。
