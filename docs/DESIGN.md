@@ -341,9 +341,11 @@ latter asks the contract's `auth.signout` to revoke the token family (the cookie
 is HttpOnly, so the reply is the only place it can be expired) and **clears every
 `ccmsg.` key of this origin by default**. There is one setting for people who
 want to keep something (off by default), and what it keeps is the preferences
-alone (see "localStorage keys name what they belong to"). They are not one thing
-because making them one leaves either somebody stepping away redoing a passkey
-every time, or somebody who meant to get off with their cookie still standing.
+alone (see "localStorage keys name what they belong to"). **The local side is cleared whether or not the far side answers** — a device
+somebody decided to get off is the worse place for a trace to stay, and what did
+not go through is left as one line of words. They are not one thing because
+making them one leaves either somebody stepping away redoing a passkey every
+time, or somebody who meant to get off with their cookie still standing.
 
 The body carries neither an explanation nor a second button. The bar already
 says there is no connection and already offers the way to make one; a second
