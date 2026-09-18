@@ -12,8 +12,8 @@
    ここに無い mask 対象 (`.dump-path` / `.launch-cwd`) は、箱の幅が入れ物で
    決まっていて中の文字に依らない。 */
 
-.connection-who,
-.app-bar .footer,
+.connection-until,
+.daemon-version,
 .hit-when,
 .run-pid,
 .run-when,
@@ -25,13 +25,13 @@
   white-space: nowrap;
 }
 
-/* 誰が繋いでいるか と 期限の時刻。時刻は走らせた時が入る。 */
-.connection-who {
-  width: 236px;
+/* この接続の期限。走らせた時刻そのもの。 */
+.connection-until {
+  width: 100px;
 }
 
 /* daemon の版。別リポの release ごとに文字数が変わる。 */
-.app-bar .footer {
+.daemon-version {
   width: 300px;
 }
 

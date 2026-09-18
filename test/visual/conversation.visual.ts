@@ -1,11 +1,11 @@
 import { SID } from "./fixture.ts";
-import { expect, test } from "./harness.ts";
+import { connected, expect, test } from "./harness.ts";
 
 /** 話しかける所の手触り。絵ではなく、打った文字がどうなるかを見る。 */
 
 test("受け付けられたら入力欄は空になり、結果が 1 行出る", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  await expect(page.locator(".app-bar")).toContainText("接続済み");
+  await connected(page);
   const box = page.locator(".composer textarea");
 
   // Enter はその場に改行を入れる (送らない)。

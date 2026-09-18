@@ -1,6 +1,6 @@
 import { fromBase64Url, toBase64Url } from "../../src/auth/base64url.ts";
 import { AGENT_ID, OTHER_SID, SID } from "./fixture.ts";
-import { emptyAuthenticator, expect, shot, test } from "./harness.ts";
+import { connected, emptyAuthenticator, expect, shot, test } from "./harness.ts";
 
 /** What the screens look like, screen by screen.
  *
@@ -96,8 +96,8 @@ test("sessions", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
   await expect(page.getByRole("button", { name: /topic の畳み方/ })).toBeVisible();
-  // 設定への入口は繋がっている時も居る。向こうの画面が instance に何も聞かない
-  // ので、居てよい (DR-0001 §2.6)。
+  // 設定への入口は**接続後にだけ**居る (DR-0004 §2.5)。繋ぐ前の画面に「繋ぐ」
+  // 以外の道を増やさないため、未接続の帯には無い。
   await expect(page.getByRole("link", { name: "設定" })).toBeVisible();
   await shot(page, "sessions.png");
 });
@@ -203,7 +203,7 @@ test("notification", async ({ ui: page, instance }) => {
   // 待つ — 最後の 1 つだけを待つと、手前の段が遅れた時に、何を待っていたのかを
   // 言わずに落ちる。接続が立っていることは下の送り直しの前提でもある (立って
   // いない所へ送っても届く先が無い)。
-  await expect(page.locator(".app-bar")).toContainText("接続済み");
+  await connected(page);
   await expect(page.getByRole("heading", { name: /transcript — / })).toBeVisible();
   await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
   // 送って、出るまで送り直す。`notify` は**保持されない** topic なので、購読が
@@ -252,14 +252,12 @@ test("file-word-bubble", async ({ ui: page, instance }) => {
 /** 設定の画面。section の一覧で、今は色 1 つ — 組を選ぶ所と、触った結果を
  * 覚えるかどうかを決める所がある。画面自身が選んだ色で立っているので、見本は
  * 要らない。 */
-test("settings", async ({ page, instance }) => {
-  // **登録していないブラウザで入る**。この画面は instance に何も聞かないので
-  // 繋がっていなくても立ち (DR-0001 §2.6)、帯の入口も繋ぐ前から居る。設定は
-  // 色だけの画面ではなくなったので、入口の語も「設定」。
-  //
-  // 共有の `ui` を使わないのは、下の 3 つ目が読み込み直しを繰り返すから —
-  // 共有の頁を揺らすと、後に走る画面が何を写すかまで変わる。
+test("settings", async ({ ui: page, instance }) => {
+  // **繋がっている画面から入る**。この画面は instance に何も聞かないが、入口は
+  // 接続後にしか無い (DR-0004 §2.5) — 繋ぐ前の人に出す設定は、出した分だけ
+  // 「繋ぐ」以外の道を増やす。
   await page.goto(instance.endpoint);
+  await connected(page);
   await page.getByRole("link", { name: "設定" }).click();
   await expect(page).toHaveURL(new RegExp("/settings$"));
   await expect(page.getByRole("heading", { name: "色", exact: true })).toBeVisible();
@@ -279,7 +277,7 @@ test("settings", async ({ page, instance }) => {
 
 /** 詳細を開いた所。基本に出ていない入力がここに並ぶ。表示例は基本でも詳細でも
  * 同じものが横に居る — 何を触っていても、効いている所が見えたままになる。 */
-test("settings-detail", async ({ page, instance }) => {
+test("settings-detail", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
   await page.locator("details.theme-advanced > summary").click();
   await expect(page.getByRole("slider", { name: "危険 (danger) の色相" })).toBeVisible();
@@ -293,7 +291,7 @@ test("settings-detail", async ({ page, instance }) => {
  * 選ぶ組はその face の方に合わせる。**名前付きのテーマは face を持つ**ので
  * (DR-0001 §2.11)、dark の絵で Solarized Light を選ぶと画面が light に切り替わり、
  * 2 つの face で同じ絵を撮ることになる。 */
-test("settings-changed", async ({ page, instance }, info) => {
+test("settings-changed", async ({ ui: page, instance }, info) => {
   await page.goto(`${instance.endpoint}settings`);
   const named = info.project.name === "dark" ? "Solarized Dark" : "Solarized Light";
   await page.getByRole("radio", { name: named }).check();
@@ -312,7 +310,7 @@ test("settings-changed", async ({ page, instance }, info) => {
 
 /** 覚えるのは押した時だけ、ということ。絵は撮らない — ここで見たいのは**読み
  * 込み直した先に何が残っているか**で、それは画面の形には出ない。 */
-test("settings-keeps-and-forgets", async ({ page, instance }) => {
+test("settings-keeps-and-forgets", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}settings`);
   const open = async () => {
     await page.locator("details.theme-advanced > summary").click();

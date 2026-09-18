@@ -364,11 +364,11 @@ export async function register(page: Page, code: string): Promise<void> {
  * when the window closes. Its window is an hour, so the fraction of it that
  * passes between two runs' shots is far below one pixel of arc.
  *
- * Two of the three are in the connection bar, and none is about a screen:
+ * Two of them are on the account screen, and none is about a screen:
  *
- * - `.meta` carries who this browser is and **how long its access lasts**, and
- *   the second half of that counts down
- * - `.footer` names the **daemon's version**, which belongs to another
+ * - `.connection-until` is **when this connection's authorization runs out**,
+ *   which is a clock reading that moves while the picture is being taken
+ * - `.daemon-version` names the **daemon's version**, which belongs to another
  *   repository's release cadence — left uncovered, every ccmsg release would
  *   redraw all of these baselines while nothing about the page had changed
  * - `.host` on a mesh row is the **machine this ran on**, which is the one
@@ -401,8 +401,8 @@ export async function shot(
   await stillness(page);
   await expect(page).toHaveScreenshot(name, {
     mask: [
-      page.locator(".app-bar .meta"),
-      page.locator(".app-bar .footer"),
+      page.locator(".connection-until"),
+      page.locator(".daemon-version"),
       page.locator(".host"),
       // 走っているものの経過時間。走っている限り増え続けるので、絵にすると
       // 撮った瞬間が写る。
@@ -435,6 +435,14 @@ export async function shot(
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });
+}
+
+/** 話し相手が居ること。
+ *
+ * 接続後の画面に帯は無いので (DR-0004 §2.4)、それを言うのは道の中の小部品
+ * 1 つになる。語ではなく class で読むのは、印が言うのも色と形だから。 */
+export async function connected(page: Page): Promise<void> {
+  await expect(page.locator(".status-mark.open")).toBeVisible();
 }
 
 /** 一覧が「届くべきものを受け取り切った」と言うまで待つ。
