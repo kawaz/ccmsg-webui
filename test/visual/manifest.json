@@ -1,5 +1,5 @@
 {
-  "webui_version": "1.8.0",
+  "webui_version": "1.9.0",
   "screens": {
     "account": {
       "darwin/dark": "24a5b15f60424175ffbd023c1e635f654a6734f336ff44d6ebe8c332a37b0ab1",
@@ -110,6 +110,10 @@
       "darwin/light": "0d7ac62b873cc06c0e836d505e94f0e8b29278ab03e9e87e9aa75760e8b37f06",
       "linux/dark": "8618ef0c1dac49da23385823d67a3c43857f71efcb8ece8fca134d2ece763088",
       "linux/light": "659cee44bbe3a5d893dc5a474ac68c1f511c771f415295fc08951b0d3115f1c7"
+    },
+    "register-expired": {
+      "darwin/dark": "ac20ebee45781798a9daaf5428a12290a477735ff7d3a8edbca97c9fac05ef99",
+      "darwin/light": "708f0e1d3605679e654768004aa2867ca4acadca8d9e80acc4e3a4bf0b58cfba"
     },
     "runs-choice": {
       "darwin/dark": "081531c3ed0ef61411a4e936adc32721aa75837a5858e5944b1c5f0cde0a2426",

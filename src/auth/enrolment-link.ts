@@ -54,15 +54,26 @@ const UNUSABLE = "この URL は使えません。CLI で発行し直してく�
  * passed over. The one exception is `#register=`, which this contract does not
  * speak: somebody holding one was handed a URL and opened it, and silence would
  * leave them pressing it again, so it meets the same words as any other URL
- * that cannot be used. */
-export function parseEnrolmentFragment(hash: string): EnrolmentLink | undefined {
+ * that cannot be used.
+ *
+ * A token whose `expires_at` has gone by is refused here rather than at the
+ * form: the issuer would refuse it anyway, and the page already holds what says
+ * so, so there is no reason to have somebody name a device and type six digits
+ * first. It is read for that alone — the instance still checks the signature
+ * and the deadline itself, and a clock this page could be wrong about does not
+ * let anything through that the issuer would not. */
+export function parseEnrolmentFragment(
+  hash: string,
+  now: number = Date.now(),
+): EnrolmentLink | undefined {
   const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
   const token = params.get("enroll");
   if (token === null || token === "") {
     return params.get("register") === null ? undefined : { refused: UNUSABLE };
   }
   const claims = readClaims(token);
-  return claims === undefined ? { refused: UNUSABLE } : { token, claims };
+  if (claims === undefined || claims.expires_at <= now) return { refused: UNUSABLE };
+  return { token, claims };
 }
 
 /** The address bar, as far as an enrolment link needs it. */

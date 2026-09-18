@@ -1,3 +1,4 @@
+import { fromBase64Url, toBase64Url } from "../../src/auth/base64url.ts";
 import { AGENT_ID, OTHER_SID, SID } from "./fixture.ts";
 import { emptyAuthenticator, expect, shot, test } from "./harness.ts";
 
@@ -59,6 +60,37 @@ test("register", async ({ ui: page, instance }) => {
   await page.getByRole("button", { name: "やめる" }).click();
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
 });
+
+/** 期限の切れた登録 URL を開いた所。フォームは立たず、使えない URL の帯だけが
+ * 出る — 期限切れであることは言わない (契約 issue
+ * `registration-url-checked-before-the-form`)。
+ *
+ * 登録していないブラウザで開く。これを開く人はまだこの instance の誰でもなく、
+ * 帯が出るのもその画面 (`App` の一覧を一度も聞いていない姿)。 */
+test("register-expired", async ({ page, instance }) => {
+  const { url } = await instance.passkey();
+  await page.goto(expired(url));
+  await expect(page.getByRole("heading", { name: "passkey を登録する" })).toHaveCount(0);
+  await expect(page.getByText("この URL は使えません")).toBeVisible();
+  await shot(page, "register-expired.png");
+});
+
+/** 同じ登録 URL の、期限だけが過ぎたもの。署名は触らない — この頁は署名を読ま
+ * ず、期限を読んで断るのが見たいことなので、発行されたままの token の claims を
+ * 書き換えるのが一番近い。 */
+function expired(url: string): string {
+  const [page, hash] = url.split("#enroll=");
+  if (page === undefined || hash === undefined) throw new Error(`登録 URL ではありません: ${url}`);
+  const [header, body, signature] = hash.split(".");
+  if (body === undefined) throw new Error(`token ではありません: ${hash}`);
+  const claims = JSON.parse(new TextDecoder().decode(fromBase64Url(body))) as Record<
+    string,
+    unknown
+  >;
+  claims["expires_at"] = 1;
+  const spent = toBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
+  return `${page}#enroll=${String(header)}.${spent}.${String(signature)}`;
+}
 
 test("sessions", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);

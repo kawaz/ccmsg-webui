@@ -191,6 +191,20 @@ describe("the enrolment link", () => {
     // The spelling this contract does not speak. Silence would leave whoever
     // opened it pressing the link again.
     expect(refusalOf(parseEnrolmentFragment(`#register=${token(CLAIMS)}`))).toBe(nonsense);
+    // 期限の切れた URL も同じ帯。理由を区別しない。
+    expect(refusalOf(parseEnrolmentFragment(`#enroll=${token(CLAIMS)}`, CLAIMS.expires_at))).toBe(
+      nonsense,
+    );
+  });
+
+  test("期限が切れていればフォームは立たない", () => {
+    const before = enrolmentOf(
+      parseEnrolmentFragment(`#enroll=${token(CLAIMS)}`, CLAIMS.expires_at - 1),
+    );
+    expect(before.claims.jti).toBe("one");
+    expect(
+      refusalOf(parseEnrolmentFragment(`#enroll=${token(CLAIMS)}`, CLAIMS.expires_at + 1)),
+    ).toContain("使えません");
   });
 
   test("a fragment naming no enrolment is not one", () => {
