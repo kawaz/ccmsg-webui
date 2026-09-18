@@ -224,7 +224,7 @@ describe("who a tab is coordinating with", () => {
   });
 
   test("a tab that dials another instance coordinates under that one's name", () => {
-    // The endpoint is the person's to state and to restate (contract DR-0029),
+    // The endpoint is the person's to state and to restate,
     // and two instances are not one session: a token of the first is nothing to
     // the second, so the name a tab listens on moves with what it is dialing.
     let at = "http://h/";
@@ -245,7 +245,7 @@ describe("who a tab is coordinating with", () => {
   });
 
   test("a token settled on at one instance is not answered with at another", () => {
-    // A token says who, never where (contract DR-0029). What one instance
+    // A token says who, never where (contract DR-0030 §5). What one instance
     // minted would open the next one's socket if this tab answered with it, so
     // moving on is what makes it unavailable — not its expiry, which has not
     // arrived.

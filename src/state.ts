@@ -171,9 +171,10 @@ const CAPABILITY_TOPICS: readonly (readonly [Capability, TopicName])[] = [
 
 /** The instance this page is dialing: a base URL the person states.
  *
- * Not where this page came from. A web UI is published at a URL of its own and
- * the instance it reaches is named separately — a credential is made against
- * both, and a person may open one UI at several instances (contract DR-0029).
+ * Not where this page came from. This page is published at an origin of its own
+ * and the instance it reaches is named separately — the two are compared with
+ * nothing, and a person may open one page at several instances (contract
+ * DR-0030).
  * What is offered first is this page's own address, which is right where an
  * instance serves the UI under its own endpoint and is only a starting value
  * anywhere else.
@@ -968,10 +969,10 @@ export function disconnect(): void {
 /** Prove a passkey and hold what it minted.
  *
  * No relying party is named: a passkey answers for the domain of the page
- * asking, which is the web UI it was made at — the credential is held to that
- * UI and to the instance being dialed alike (daemon DR-0001 §2.3, contract DR-0029).
- * Answers whether there is a session now; what raises a screen
- * is the refusal, which is where what the person can do next is known. */
+ * asking, which is the origin it was made at — and which instance its holder
+ * may enter is not its question at all (contract DR-0030 §2). Answers whether
+ * there is a session now; what raises a screen is the refusal, which is where
+ * what the person can do next is known. */
 export async function signIn(): Promise<boolean> {
   const at = endpoint.peek();
   if (at === undefined) return false;

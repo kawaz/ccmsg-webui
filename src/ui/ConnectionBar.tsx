@@ -147,7 +147,7 @@ function untilWords(at: number): string {
 /** どの instance に繋ぐか。
  *
  * この画面はどこに publish されていてもよく、繋ぐ先はそれとは別の site で
- * ありうる (契約 DR-0029)。だから住所は**人が述べるもの**で、既定で入って
+ * ありうる (契約 DR-0030)。だから住所は**人が述べるもの**で、既定で入って
  * いるのはこのページ自身の住所 — instance が UI ごと配っている置き方では
  * それが正しく、それ以外では出発点にすぎない。
  *
@@ -196,8 +196,8 @@ function EndpointField() {
 
 /** What this connection is, in one line.
  *
- * The instance is stated here, because a web UI is published at a URL of its
- * own and dials an endpoint that may be another site (contract DR-0029). What
+ * The instance is stated here, because this page is published at an origin of
+ * its own and dials an endpoint that may be another site. What
  * is left to do is stop and start it, which is one button: it says the thing
  * pressing it does, and what it is doing now is the word beside the dot. Who is
  * connected is answered by a passkey and shown beside it — as the head of the
