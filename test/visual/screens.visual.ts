@@ -70,6 +70,21 @@ test("sessions", async ({ ui: page, instance }) => {
   await shot(page, "sessions.png");
 });
 
+// 自分の姿。設定と違って instance に聞いて出るので、繋がっている画面からしか
+// 行けない (契約 DR-0030 §8)。
+test("account", async ({ ui: page, instance }) => {
+  await page.goto(instance.endpoint);
+  await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
+  await page.getByRole("link", { name: "アカウント" }).click();
+  await expect(page.getByRole("heading", { name: "アカウント" })).toBeVisible();
+  // 3 段が揃って初めて 1 枚の絵になる: 人と、その passkey と、持っている
+  // instance。登録したばかりのこの browser の行がそこに居る。
+  await expect(page.getByRole("heading", { name: "passkey" })).toBeVisible();
+  await expect(page.getByText("visual runner")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "持っている instance" })).toBeVisible();
+  await shot(page, "account.png");
+});
+
 test("timeline", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
   await expect(page.getByText("畳んだ値の読み方")).toBeVisible();

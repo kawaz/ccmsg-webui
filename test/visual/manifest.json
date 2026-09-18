@@ -1,6 +1,10 @@
 {
   "webui_version": "1.8.0",
   "screens": {
+    "account": {
+      "darwin/dark": "01dc249441b3f017892da26fea5832d58e3c608988737172ef5d9b796f306cfc",
+      "darwin/light": "a5edb58ddc0629eba1f9d1498e76208d8ac7043719d811bf108ff97585b38f3d"
+    },
     "actions-chosen-message": {
       "darwin/dark": "96ef21e13dc79bf18640e894cac199e56116f869ca06ad94b6ba8c7e44133c57",
       "darwin/light": "559839f4d9928f584e49543c5dc755be149dad255550a43c661d23b2675a4d01"
@@ -102,8 +106,8 @@
       "linux/light": "0886d32354bc82ad4813a273ce74e47b08bb6b338bc2653de4916cd7cd07c6b5"
     },
     "register": {
-      "darwin/dark": "f0457f604f1ad49f60099b1ba353f8fed3e81f483891927fe2d68762ddf66968",
-      "darwin/light": "2c90ed36cd7ccae7b2c7b8b31eb1106d986791a2c31354ee386c95f7e5ed0326",
+      "darwin/dark": "fb47e3f6e999285fa37e568a97a10c4df5a0d630c15156758f0c41798b2ca45f",
+      "darwin/light": "14a36af706ead84d15aaa1975ad2d717f00944fa662bea9502e6fc0c21be8f63",
       "linux/dark": "8618ef0c1dac49da23385823d67a3c43857f71efcb8ece8fca134d2ece763088",
       "linux/light": "659cee44bbe3a5d893dc5a474ac68c1f511c771f415295fc08951b0d3115f1c7"
     },
@@ -184,8 +188,8 @@
       "darwin/light": "ba9c7819ff3a85ff297205e5853a9d88d1ebd1991a7becbb098c3b768a9f9071"
     },
     "sign-in": {
-      "darwin/dark": "d0bccab09e2eaca66a8f9451ce1a8794b9742d87f66018b4c107eb15ce089e13",
-      "darwin/light": "673c843002dd8f5adf1ad20f38690c3792580f025357dc359e0435b86f3c52d9",
+      "darwin/dark": "561a24b11e2d7c2cc803ad7fcaf3c44eb7d25fbfbfbeb5e2e9826a5fff79ed0a",
+      "darwin/light": "fcd34976d5c87dfef45fa74550b903ee8e86984279667bde8f9eeede71198cfb",
       "linux/dark": "e091f4b1fc78f86b0592c6c218a2d4838fe9d988d64e375908a2891e375c8709",
       "linux/light": "50e9163997e9cd1bee4f0296b9f918c0d8cfdb41041846e7fea3eccb627a28a0"
     },

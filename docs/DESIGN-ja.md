@@ -6,9 +6,9 @@
 
 このリポジトリが持つのは **契約の読み手 1 つ**。daemon が push するものを畳んで見せ、人の操作を op に変えて送る。ドメインの語彙 (セッションとは何か、分類はどう決まるか、topic はどう畳むか) は全て契約側にあり、ここには置かない。
 
-このページは **自分の URL で publish される** 静的サイト (契約 `WebUi`) で、繋ぐ先は別の URL で publish された instance (契約 `Endpoint`)。daemon が 1 つの proxy の後ろで UI ごと配っている置き方では同じホストになり、それ以外では別の site になる。**1 つではなく 2 つの URL であること**が設計の起点で、次の 3 つがそこから出る。
+このページは **自分の origin で publish される** 静的サイトで、繋ぐ先は自分の URL で publish された instance (契約 `Endpoint`)。daemon が 1 つの proxy の後ろで UI ごと配っている置き方では同じホストになり、それ以外では別の site になる。**1 つではなく 2 つの住所であること**が設計の起点で、次の 3 つがそこから出る。
 
-- **繋ぐ先は述べるもので、推測しない**。接続バーで打ち、次の訪問まで覚える。このページ自身の住所は、入力欄に最初から入っている値にすぎない (`src/auth/endpoint.ts`)。credential は 2 つの URL を名指し、それぞれ別の問いに答える — どの instance に入ってよいか、どのページから来てよいか (契約 DR-0029)
+- **繋ぐ先は述べるもので、推測しない**。接続バーで打ち、次の訪問まで覚える。このページ自身の住所は、入力欄に最初から入っている値にすぎない (`src/auth/endpoint.ts`)。2 つを突き合わせることは無い — passkey が答えるのは「どの origin で作られたか」だけで、どの instance に入ってよいかは所有 record が答える (契約 DR-0030)
 - **入口の許可は passkey**。誰が来たかに答えるのは access token で、origin の許可集合は無い (下記「人の認証」)
 - **世代が違えば話さない**。互換経路は持たず、リロードを促す (契約「版と互換」)
 
@@ -631,26 +631,35 @@ composer が有効なのは、**どれかの run に届くセッション**だ�
 
 ## 人の認証 (passkey)
 
-正本は daemon の DR-0001。ここに書くのは **ページが何をどこに持つか**だけ。
+正本は daemon の DR-0001 と契約の DR-0030。ここに書くのは **ページが何をどこに持つか**だけ。
 
 | もの | 置き場 | 理由 |
 |---|---|---|
 | access token | **ページのメモリだけ** (`src/auth/session.ts`) | WS を開ける秘密。store に置けば、この origin で走る全ての script が読める |
 | refresh token | **httpOnly cookie** (ページからは読めない) | 読み書きするのは instance で、ページは「送られること」しか関与しない |
-| endpoint | **`localStorage`** (`ccmsg.endpoint`)、接続バーで人が述べる | この画面は自分の URL で publish され、繋ぐ先は別の site でありうる (契約 DR-0029)。配られた住所は最初に入っている推測で、instance が UI ごと配っている置き方ではそれが正しい |
-| passkey の relying party | **どこにも持たない** (webui から導く) | credential は webui で作られ、その relying party は webui のホスト (`rpIdOf`) = このページのドメイン。`credentials.get()` には渡さず、登録時だけ `rpIdOf(claims.webui)` を渡す (どの webui を許したかを言うのはリンクだから) |
+| 今ここに居る人 | **ページのメモリだけ** (`user`、契約の `UserId`) | いくつの instance に届いていても人は 1 人で 1 つの値。しかもそれは WebAuthn の user handle そのもので、別に導いた名前ではない (契約 DR-0030 §1) |
+| endpoint | **`localStorage`** (`ccmsg.endpoint`)、接続バーで人が述べる | この画面は自分の origin で publish され、繋ぐ先は別の site でありうる。配られた住所は最初に入っている推測で、instance が UI ごと配っている置き方ではそれが正しい |
+| passkey の relying party | **どこにも持たない** (`location` から読む) | credential は origin で作られ、その relying party はその origin のホスト (契約 DR-0030 §2) = このページのドメイン。`credentials.get()` には渡さず、`credentials.create()` にもリンクの値ではなく**このページのホスト**を渡す — ブラウザがどのみち断る値から ceremony を組み立てる理由が無い |
 
-**endpoint はページの出所ではない。** webui と instance は credential が結び付く 2 つの URL で、答える問いが違う — endpoint は「どの instance に入ってよいか」、webui は「どのページから来てよいか」(契約 DR-0029)。だから繋ぐ先は接続バーで人が述べ、次の訪問まで覚える。別の instance を述べることは切断そのもの — セッションも一覧も transcript も、それが来た instance のものだから。`/auth/*` への要求は全て `credentials: "include"` で出す。instance がこのページと同じ site でも別の site でも、refresh cookie を運ぶのはこれ (契約 DR-0028)。instance が照合するヘッダ (`Origin`、`Sec-Fetch-Site`) はブラウザが書くもので、ページからは述べられない。
+**endpoint はページの出所ではないし、2 つを突き合わせもしない。** passkey が答えるのは「どのページから来てよいか」だけで、「どの instance に入ってよいか」は別の record が答える (契約 DR-0030 §§2–3)。だからここで作った passkey 1 本でその人が持つ instance 全部に届き、繋ぐ先は接続バーで人が述べて次の訪問まで覚える。別の instance を述べることは切断そのもの — セッションも一覧も transcript も、それが来た instance のものだから。`/auth/*` への要求は全て `credentials: "include"` で出す。instance がこのページと同じ site でも別の site でも、refresh cookie を運ぶのはこれ (契約 DR-0028)。instance が照合するヘッダ (`Origin`、`Sec-Fetch-Site`) はブラウザが書くもので、ページからは述べられない。
 
 流れは 3 つに分かれ、入口は全て endpoint の `/auth/*` (`src/auth/client.ts`)。endpoint は末尾 `/` の base URL なので、route はその後ろに継ぐだけで引ける (`<endpoint>auth/<name>`、WS は `<endpoint>ws`)。scheme は書き換えない — WS も upgrade する HTTP 要求なので、`https:` のまま `new WebSocket()` に渡す (DR-0001 §2.7)。
 
-- **登録**: `#register=<token>` を持って来た時だけ (`src/auth/register-link.ts`)。claims は表示のためだけに読む (署名を検証できるのは発行 instance だけ)。**6 桁のコードは URL に無い** ので入力させる — URL とコードが別経路で届くことが、URL が漏れても登録にならない根拠。リンクは **2 つの URL** を名指す — 開く先の webui (ceremony を走らせるページであり、passkey が仕舞われるドメイン) と、登録する先の endpoint (ceremony を POST する先であり、成功したら繋ぎに行く instance)。自分の webui 以外で開かれたリンクはその旨を言う — ブラウザが誰にも手の打てない言葉で ceremony を断る前に。ceremony が走りようのない webui を名指すリンク (契約 `WebUi` が許すのは `https` と、ブラウザが信頼する loopback 名の `http` だけで、IP リテラルは不可) も、黙って何もしないのではなく**その語彙で断る**。接続バーが受けるのはより広い `Endpoint` — instance は平の HTTP でも IP リテラルでも繋ぎに行ける。狭い規則に縛られるのは credential を作るページだけ。端末ラベルは UA から埋めて人が書き換える (`src/auth/device-label.ts`)。fragment は読み込み時と `hashchange` の両方で読む — 既に開いているタブで登録リンクを開くと変わるのは fragment だけだから
-- **認証**: 「接続」を 1 回押すと、持っている access token → refresh cookie → passkey の順に、そのまま最後まで進む。**押し直させない** — passkey を訊けるのは人が押した直後だけなので、繋ぐことと認証することを 1 回の押下の中で続ける。読み込み直後に走るのは人手の要らない所までで (cookie があれば繋ぎ、無ければ「接続」だけの画面で待つ)、認証の話はまだ出さない。passkey が無い / 断られた**その時点で**登録の案内を出す — 登録は端末から始まるので、passkey を持っている人に先に見せるものではない。credential は名指ししない (resident な passkey が user handle で答え、誰かを引くのは instance の仕事)。求めるのは **この画面でこの instance に登録した passkey** で、別の webui や別の endpoint は別の登録になる
+- **登録 (enrolment)**: `#enroll=<token>` を持って来た時だけ (`src/auth/enrolment-link.ts`)。claims は表示のためだけに読む (署名を検証できるのは発行 instance だけ)。**6 桁のコードは URL に無い** ので入力させる — URL とコードが別経路で届くことが、URL が漏れても登録にならない根拠。リンクは 2 つのうちどちらをするかを名乗る (契約 DR-0030 §4)。`create_user` は**人を作る** — claims が運ぶ handle に対して passkey を作り、認証器に見せるアカウント名は、URL の推測が既に入っている欄で**本人が決める**。その値は `name` と `displayName` の両方に渡す (passkey manager が保存して一覧に出すのは前者)。`add_owner` は**instance を渡す** — 既に持っている passkey で assert するだけで、作りも改名もしない。claims が名指すのは **origin と endpoint で、何かを決めるのは前者だけ** — origin は人が送られた先であり ceremony が成立してよい唯一の場所なので、別の所で開かれたリンクはその旨を先に言う (ブラウザが誰にも手の打てない言葉で断る前に)。endpoint は答えを POST する先で、何とも突き合わせない (LB の住所でもよい)。接続バーが受けるのはより広い `Endpoint` — instance は平の HTTP でも IP リテラルでも繋ぎに行ける。狭い `Origin` に縛られるのは ceremony を走らせるページだけ。端末ラベルは UA から埋めて人が書き換える (`src/auth/device-label.ts`)。fragment は読み込み時と `hashchange` の両方で読む — 既に開いているタブでリンクを開くと変わるのは fragment だけだから。**使えない URL の断り文句は 1 つ** (使用済み・期限切れ・発行元不明・古い契約の綴り) — どれだったかを言うことは「その URL は本物だった」を言うことでもある (契約 issue `registration-url-checked-before-the-form`)
+- **認証**: 「接続」を 1 回押すと、持っている access token → refresh cookie → passkey の順に、そのまま最後まで進む。**押し直させない** — passkey を訊けるのは人が押した直後だけなので、繋ぐことと認証することを 1 回の押下の中で続ける。ボタンの隣では、認証の画面が出ている間だけ、この origin の passkey を**ブラウザ自身の入力候補**に立てておく (`mediation: "conditional"`、`autocomplete="username webauthn"` の欄にぶら下げる) — 久しぶりに来た人が「どのボタンか」を思い出さずに済む形。画面が消えれば候補も下ろす (立てっぱなしの問い合わせは、立てた部品より長く生き残る)。読み込み直後に走るのは人手の要らない所までで (cookie があれば繋ぎ、無ければ「接続」だけの画面で待つ)、認証の話はまだ出さない。passkey が無い / 断られた**その時点で**登録の案内を出す — 登録は端末から始まるので、passkey を持っている人に先に見せるものではない。credential は名指ししない (resident な passkey が user handle で答え、誰かを引くのは instance の仕事)。求めるのは **この origin で作った passkey** で、それはその人が持つ instance 全部に効く
 - **期限の延長**: `hello` の `auth_expires_at` が接続の期限。残り 10% で `/auth/refresh` → 同じ接続の上で `auth.extend`。**繋ぎ直さない** — 数時間ごとに画面が瞬く理由が無い
 
 再接続のたびに token を「取りに行く」形にしてある (`Connection` は値ではなく `TokenSource` を持つ)。切れた接続の向こう側で token が期限切れになっていても、その 1 箇所が refresh に落ちるだけで、他はそれを知らない。handshake を拒否された時も同じ口に「取り直し」として落ちる — 持っている token は family のものでページのものではないので、ページが読む期限は「まだ通用するか」を何も語らない。取れなければ**その場で止まる** — 開かない扉を叩き続けても開くのは認証だけなので、繋ぎ直さずに passkey の画面を出し、次に繋ぎに行くのは人が押した時になる。
 
 接続バーのボタンは**繋いでいるつもりかどうか**を言う (`wanted`)。隣の状態語は socket が今していることで、再接続の途中は「切断」と「接続中」を行き来する — 意思と状態を分けて持つのが、押した通りのことが起きる形になる。
+
+## アカウントは 3 段で 1 枚の絵
+
+`/account` は人が自分の姿を読み返す所 (`src/ui/Account.tsx`、契約 `auth.account.read`)。出るのは **その人・その人に答える passkey・持っている instance** の 3 段。1 枚にまとめるのは問いが 1 つだから — 「この行は自分のものか、外してよいか」に、passkey だけを見ても、instance だけを見ても答えが出ない。
+
+画面を開いた時と、何かを外した後に聞き直す。訪問をまたいで持たない — これらの record は他の instance も書くので、ページが抱えた絵は「もう過ぎたかどうかを自分では判らない瞬間」の写しになる。**外せない行を決めるのは instance** (`auth_in_use`: 今つないでいる instance と、その接続を開いた passkey) で、この画面が二度目の答えを持つことはしない — 先回りしてボタンを殺すと、instance の答えとずれる経路がそこにできる。外す操作は 2 回押させる。取り返しは付くが、戻すには CLI のある端末か別の origin の browser まで歩くことになるから。passkey を足す線上の形はまだ無いので (契約 issue `passkey-list-for-people`)、発行する CLI のコマンドを案内する。
+
+設定の画面と違い、こちらは **instance に聞く**ので繋がっている間しか立たない。色の隣の section ではなく自分の住所を持つのはそれが理由 (DR-0002)。
 
 ## 同じセッションのタブは一緒に refresh する
 
@@ -662,7 +671,7 @@ composer が有効なのは、**どれかの run に届くセッション**だ�
 - handshake を拒否された時は、まず他のタブが配った最新の token を試してから refresh に落ちる
 - Web Locks API が無い環境では各タブが自分で refresh する。これは協調が改善している側の挙動であって前提ではない — 別々に refresh しても収束するのは instance 側の据え置きによる
 
-名前には **endpoint と sub** を含める (`ccmsg.auth.refresh:<endpoint>:<sub>`、`ccmsg.auth:<endpoint>:<sub>`)。理由は下の localStorage のキー規律と同じで、1 つの origin が複数の endpoint を、1 つの endpoint が複数の人を持ちうるから。まだ認証していないタブは sub を知らないので、分かるまでは endpoint だけで聞く。
+名前には **endpoint と人** を含める (`ccmsg.auth.refresh:<endpoint>:<user>`、`ccmsg.auth:<endpoint>:<user>`)。理由は下の localStorage のキー規律と同じで、1 つの origin が複数の endpoint を、1 つの endpoint が複数の人を持ちうるから。まだ認証していないタブは誰なのかを知らないので、分かるまでは endpoint だけで聞く。
 
 ## localStorage のキー規律
 
@@ -695,9 +704,9 @@ access token を運ぶ subprotocol の接頭辞 (`ccmsg.token.`) と `/auth/*` �
 
 dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon (`CCMSG_DEV_DAEMON`、既定 `http://127.0.0.1:39847`) に proxy する。両方を 1 つの origin から配る置き方の reverse proxy と同じ位置に立たせるため。証明書なしで same-site cookie と `localhost` の relying party が得られるのがこの形。別 origin の instance を相手に開発する時は proxy は要らない — 他と同じように endpoint をバーに打てばよい。
 
-**どこへ繋いでよいかは、一覧ではなく形で述べる。** 成果物は CSP の directive を 1 つだけ持つ (`connect-src 'self' https: wss:`、dev ビルドは daemon が答える loopback origin を足す)。instance の許可リストではない — 繋ぐ先は人が述べるもので、繋ぐ先とは独立に publish される UI に許可リストを焼くと、配る場所ごとに、instance を足すたびにビルドが要る。それは UI を別に publish する目的そのものを壊す (契約 DR-0029)。他は何も述べない。`default-src` を持たない policy は、名指したものだけを縛る。
+**どこへ繋いでよいかは、一覧ではなく形で述べる。** 成果物は CSP の directive を 1 つだけ持つ (`connect-src 'self' https: wss:`、dev ビルドは daemon が答える loopback origin を足す)。instance の許可リストではない — 繋ぐ先は人が述べるもので、繋ぐ先とは独立に publish される UI に許可リストを焼くと、配る場所ごとに、instance を足すたびにビルドが要る。それは UI を別に publish する目的そのものを壊す。他は何も述べない。`default-src` を持たない policy は、名指したものだけを縛る。
 
-帰結を 1 つ明記しておく: **別 origin の平の HTTP の instance は、述べられるが繋がらない。** 入力欄が受けるのは契約 `Endpoint` がそれを許すからで、policy は運ばない。それで失うものは無い — refresh cookie は `Secure` で、webui は `https` か loopback 名でなければならない (`WebUi`) ので、そういう instance はそもそも誰も認証できない。
+帰結を 1 つ明記しておく: **別 origin の平の HTTP の instance は、述べられるが繋がらない。** 入力欄が受けるのは契約 `Endpoint` がそれを許すからで、policy は運ばない。それで失うものは無い — refresh cookie は `Secure` なので、そういう instance はそもそもセッションを運べない。
 
 vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-vite` は使っていない: 提供するのは prefresh の HMR で、そのために Babel のツールチェーン全体が依存に入る。JSX の変換自体は esbuild が同じ出力を出す。HMR が要るようになったら preset を入れる判断に戻る。
 

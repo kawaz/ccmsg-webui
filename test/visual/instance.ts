@@ -53,7 +53,7 @@ export interface Instance {
   readonly cwd: string;
   /** 使い捨ての端末管理が答える一覧の置き場。走り出した後に書かれる。 */
   readonly terminalListing: string;
-  /** One registration: the URL that opens the register screen, and the six
+  /** One enrolment: the URL that opens the enrolment screen, and the six
    * digits the terminal shows beside it. */
   passkey(): Promise<{ url: string; code: string }>;
   /** One line from a session to whoever is watching, which is what the page
@@ -207,10 +207,9 @@ export async function startInstance(): Promise<Instance> {
   );
   // Where this instance is **published**, which is not where it listens: the
   // dev server below stands where a reverse proxy stands and carries `/ws` and
-  // `/auth/*` to the port above. A registration URL may only name the endpoint
-  // the instance is published at, and the web UI it sends a person to defaults
-  // to that same URL — which here is one address, because this arrangement
-  // serves both from one origin (contract DR-0029).
+  // `/auth/*` to the port above. An enrolment URL names the endpoint its answer
+  // is posted to and the origin the person is sent to — which here is one
+  // address, because this arrangement serves both from one origin.
   writeFileSync(
     join(configDir, "endpoints.json"),
     `${JSON.stringify([{ id: INSTANCE_ID, endpoint: `http://localhost:${String(PAGE_PORT)}/` }], null, 2)}\n`,
@@ -339,17 +338,19 @@ export async function startInstance(): Promise<Instance> {
     llmEvent,
     stop,
     passkey: async () => {
+      // The person is sent to the origin the page is served from, and the
+      // answer is posted to the endpoint — one address here, since this
+      // arrangement serves both from one origin.
       const said = (await cli(env, [
-        "daemon",
-        "passkey",
-        "add",
-        home,
-        endpoint,
+        "user",
+        "create",
+        "--origin",
+        `http://localhost:${String(PAGE_PORT)}`,
         "--name",
         "visual",
       ])) as { url?: string; code?: string };
       if (typeof said.url !== "string" || typeof said.code !== "string") {
-        throw new Error(`passkey add の答えが読めません: ${JSON.stringify(said)}`);
+        throw new Error(`user create の答えが読めません: ${JSON.stringify(said)}`);
       }
       return { url: said.url, code: said.code };
     },
