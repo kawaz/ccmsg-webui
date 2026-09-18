@@ -45,3 +45,7 @@ CI の `redraw_baselines` と `just visual-accept` は `bun x playwright test --
 ## 追記: 2026-09-16 (member 色の導入時)
 
 吹き出しの色が変わった timeline / translate / conversation は閾値 0.002 を下回って `just visual-accept` (`--update-snapshots` の changed 動作) では基準に入らず、設定画面の 4 枚しか書き換わらなかった。`playwright test --update-snapshots=all` で全面的に書き直して解消。色だけの変更は今の閾値では検出も更新もされない、の 2 例目。
+
+## 追記: 2026-09-18 (DR-0004 の再認証ダイアログ)
+
+再認証ダイアログに「閉じる」ボタン 1 個を足した変更で `reauth.png` の基準画像が閾値 0.002 (1280x800 で約 2048px) に飲まれ、`just visual-accept` (= `--update-snapshots` の changed 動作) でも更新されなかった。基準画像は「閉じる」が無い古い絵のまま pass していた。基準画像 2 枚 (darwin/light, darwin/dark の `reauth.png`) を rm してから撮り直して正した。ボタン 1 個分が飲まれる 3 例目で、要素の有無は DOM の assert で守る方針の根拠が増えた (今回の visual test は dialog 内のボタンを role で押す assert を併せて持っている)。
