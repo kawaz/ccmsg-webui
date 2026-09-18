@@ -3,7 +3,6 @@ import { sessionsSplitKey } from "../layout/panes.ts";
 import { ScrollerContext } from "../layout/scroller.ts";
 import {
   dismissToast,
-  generationWarning,
   hello,
   listSettled,
   navigate,
@@ -13,30 +12,25 @@ import {
   toggleSessionsOpen,
 } from "../state.ts";
 import { Confirm } from "./Confirm.tsx";
-import { ConnectionBar } from "./ConnectionBar.tsx";
-import { Stale } from "./Disconnected.tsx";
+import { GlobalFooter, GlobalNav } from "./GlobalNav.tsx";
 import { Main } from "./Main.tsx";
 import { SessionList } from "./SessionList.tsx";
 import { Pane, standOn, useAction, useScope } from "./Scope.tsx";
 import { Splitter, useSplitWidth } from "./Splitter.tsx";
 
-/** 繋がっている時の画面の**組み立て**。
+/** 接続後の画面の**組み立て** (DR-0004 §2.4)。
  *
- * 持つのは並べ方だけ — 上のバー、画面ぜんぶに掛かる知らせ (通知と世代ずれ)、
- * そして 2 ペイン。何を読むかも、どの画面を出すかも持たない (前者は各画面、
+ * 持つのは並べ方だけ — 上の道 (`GlobalNav`)、直近の通知、2 ペイン、下端の住所。
+ * **帯は無い**: 接続状態は道の中の小部品が言い、契約の世代のずれは常設の読み
+ * 込み直しの色が言う。何を読むかも、どの画面を出すかも持たない (前者は各画面、
  * 後者は `Main`)。 */
 export function Shell() {
   return (
     <>
-      <ConnectionBar />
-      <Stale />
+      <GlobalNav />
       <Toast />
-      {generationWarning.value !== undefined && (
-        <p class="banner">
-          {generationWarning.value} — この画面を再読み込みしてください (互換経路はありません)。
-        </p>
-      )}
       <Panes />
+      <GlobalFooter />
       <Confirm />
     </>
   );

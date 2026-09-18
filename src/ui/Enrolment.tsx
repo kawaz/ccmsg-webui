@@ -2,7 +2,7 @@ import { useSignal } from "@preact/signals";
 import { defaultDeviceLabel, thisDevice } from "../auth/device-label.ts";
 import { authProblem } from "../auth/session.ts";
 import type { Enrolment as Held } from "../auth/enrolment-link.ts";
-import { completeEnrolment, dismissEnrolment, enrolment } from "../state.ts";
+import { completeEnrolment, dismissEnrolment } from "../state.ts";
 
 /** What an enrolment link opens on.
  *
@@ -21,8 +21,7 @@ import { completeEnrolment, dismissEnrolment, enrolment } from "../state.ts";
  * the person was sent and the only place the passkey may be made or presented.
  * The endpoint beside it is where the answer is posted and is held to nothing
  * (contract DR-0030 §4), so it is shown as what it is. */
-export function Enrolment() {
-  const held = enrolment.value;
+export function Enrolment({ held }: { readonly held: Held | undefined }) {
   // The form is a component of its own so that what a person typed belongs to
   // the link they typed it for: another link is another key, and the fields
   // start from what it says rather than from what the last one left.

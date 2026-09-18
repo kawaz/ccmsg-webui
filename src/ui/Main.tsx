@@ -10,6 +10,7 @@ import { Terminal, Terminals } from "./Terminals.tsx";
 import { TerminalPanel } from "./TerminalPanel.tsx";
 import { Timeline } from "./Timeline.tsx";
 import { Account } from "./Account.tsx";
+import { Settings } from "./Settings.tsx";
 import { Usage } from "./Usage.tsx";
 
 /** 右のペインの中身: **URL が名指すもの**。
@@ -93,6 +94,7 @@ export function Main() {
       {at.at === "sessions" && <Nothing />}
       {at.at === "usage" && <Usage />}
       {at.at === "account" && <Account />}
+      {at.at === "settings" && <Settings />}
       {at.at === "terminals" && <Terminals />}
       {at.at === "terminal" && <Terminal id={at.id} />}
       {at.at === "session" && <Session at={at} />}
