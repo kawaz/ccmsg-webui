@@ -4,7 +4,9 @@
  * 開いているかどうかはこのブラウザの好みなので、instance では分けない — 同じ人が
  * 同じ画面で同じ広さを使う。 */
 
-const OPEN_STORAGE = "ccmsg.layout.sessions-open";
+import { keepOnSignOut } from "../settings.ts";
+
+const OPEN_STORAGE = keepOnSignOut("ccmsg.layout.sessions-open");
 
 /** 一覧の幅を覚える鍵。`split-width.ts` と同じ規律で instance ごとに分ける —
  * 1 つのブラウザが複数の instance に届き、広さの好みは相手ごとに違う。 */

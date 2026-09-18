@@ -1,5 +1,5 @@
 import { type Oklch, srgb } from "./color/oklch.ts";
-import { localStore } from "./settings.ts";
+import { keepOnSignOut, localStore } from "./settings.ts";
 import { holdSection, type Preset, type Section } from "./settings-section.ts";
 
 /** 人が色について選べること、そのぜんぶ。
@@ -392,7 +392,7 @@ export function wordFor(name: string): string {
  * 端末ではそちらを読む。**読むだけ**で、書くのは文書の側だけ — 次に保存した
  * 時点で新しい場所に移る。 */
 const SECTION = "colour";
-const FORMER = "ccmsg.theme";
+const FORMER = keepOnSignOut("ccmsg.theme");
 
 function readColour(held: unknown): Theme {
   if (held !== undefined) return parseTheme(held);

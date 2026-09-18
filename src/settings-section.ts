@@ -1,5 +1,5 @@
 import { computed, type ReadonlySignal, signal, type Signal } from "@preact/signals";
-import { localStore } from "./settings.ts";
+import { keepOnSignOut, localStore } from "./settings.ts";
 
 /** 設定は **section の集合**で、section は入力の組。
  *
@@ -15,7 +15,7 @@ import { localStore } from "./settings.ts";
  *
  * 文書を 1 つにするのは、section が増えても鍵が増えないため — 鍵が section の
  * 数だけ増えると、消すのも移すのも section の一覧を知っている誰かが要る。 */
-const DOCUMENT = "ccmsg.settings";
+const DOCUMENT = keepOnSignOut("ccmsg.settings");
 
 function readDocument(): Record<string, unknown> {
   let held: unknown;

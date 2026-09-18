@@ -15,7 +15,7 @@ import { Endpoint, isValid } from "@ccmsg/protocol";
  * connection bar, and the address of this page is only the first guess offered
  * to them, for the deployment where the instance serves the UI itself. */
 
-const ROUTES = ["challenge", "register", "enroll", "assert", "refresh"] as const;
+const ROUTES = ["challenge", "register", "enroll", "assert", "refresh", "signout"] as const;
 export type AuthRoute = (typeof ROUTES)[number];
 
 export function authUrl(endpoint: string, route: AuthRoute): string {

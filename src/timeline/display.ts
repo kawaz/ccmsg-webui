@@ -1,4 +1,5 @@
 import type { TranscriptSubject } from "@ccmsg/protocol";
+import { keepOnSignOut } from "../settings.ts";
 
 /** 型ごとの表示属性 — その型の item を画面のどこに、どこまで開いて出すか。
  *
@@ -162,8 +163,10 @@ export function displayRows(face: DisplayFace, observed: Iterable<string>): read
  * instance のどのセッションを見ているかの都合ではない。instance を名前に入れる
  * と、同じ人が別の instance を開いた時に読み方を決め直すことになる。面で分かれ
  * るのは、main と worker で読む理由そのものが違うから。 */
+const DISPLAY = keepOnSignOut("ccmsg.timeline.display:");
+
 export function displayStorageKey(subject: Subject): string {
-  return `ccmsg.timeline.display:${subject}`;
+  return `${DISPLAY}${subject}`;
 }
 
 /** 型名として読めるもの。契約の `TranscriptItemType` と同じ形。 */

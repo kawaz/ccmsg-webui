@@ -10,8 +10,8 @@ import type {
 import { bufferOf, toBase64Url } from "./base64url.ts";
 import { type AuthRoute, authUrl } from "./endpoint.ts";
 
-/** The five HTTP routes an instance answers before a connection exists, and the
- * two calls to the authenticator that sit between them.
+/** The HTTP routes an instance answers outside a connection, and the two calls
+ * to the authenticator that sit between them.
  *
  * Nothing here holds a token: what these produce is handed to the caller, and
  * where a session is kept is `session.ts`. */
@@ -267,4 +267,17 @@ export async function refreshSession(
   reason: AuthRefreshReason,
 ): Promise<AuthSession> {
   return (await post(endpoint, "refresh", { reason })) as unknown as AuthSession;
+}
+
+/** End the token family this browser's refresh cookie names (contract
+ * `auth.signout`).
+ *
+ * Nothing is stated, for the reason a refresh states no token: the cookie
+ * already names the family, and a caller that could state it is a caller that
+ * could read it. Nothing comes back either — what the call is for happens
+ * beside it, the reply being the only place a HttpOnly cookie can be expired.
+ * A page that cleared its own side and left the family standing would sign the
+ * person out of nothing, since another tab holding the cookie keeps connecting. */
+export async function signOutSession(endpoint: string): Promise<void> {
+  await post(endpoint, "signout", {});
 }
