@@ -5,6 +5,8 @@ import type {
   AuthRefreshReason,
   AuthRegisterArgs,
   AuthSession,
+  AuthSignoutArgs,
+  AuthSignoutResult,
   EnrollClaims,
 } from "@ccmsg/protocol";
 import { bufferOf, toBase64Url } from "./base64url.ts";
@@ -278,6 +280,7 @@ export async function refreshSession(
  * beside it, the reply being the only place a HttpOnly cookie can be expired.
  * A page that cleared its own side and left the family standing would sign the
  * person out of nothing, since another tab holding the cookie keeps connecting. */
-export async function signOutSession(endpoint: string): Promise<void> {
-  await post(endpoint, "signout", {});
+export async function signOutSession(endpoint: string): Promise<AuthSignoutResult> {
+  const nothing: AuthSignoutArgs = {};
+  return (await post(endpoint, "signout", nothing)) as unknown as AuthSignoutResult;
 }
