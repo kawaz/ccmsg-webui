@@ -50,6 +50,7 @@ import {
   enrolInstance,
   refreshSession,
   registerPasskey,
+  signOutSession,
 } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
 import { endpointFromLocation, isEndpoint, socketUrl } from "./auth/endpoint.ts";
@@ -86,10 +87,12 @@ import {
   waitingCounts,
 } from "./conversation/inbox.ts";
 import { oversizeReason } from "./frame-limit.ts";
+import { isConnected, type Phase, phaseOf } from "./phase.ts";
+import { keepsPreferences } from "./signout-keep.ts";
 import { describeRefusal } from "./refusal.ts";
 import type { Route } from "./route.ts";
 import { formatSessionsOpen, parseSessionsOpen, sessionsOpenKey } from "./layout/panes.ts";
-import { localStore } from "./settings.ts";
+import { clearLocal, keepOnSignOut, localStore } from "./settings.ts";
 import {
   answeringSids,
   errorsBySid,
@@ -143,10 +146,16 @@ type LlmStatusData = Static<typeof LlmStatusFrame>["data"];
 type LlmRequestsData = Static<typeof LlmRequestsFrame>["data"];
 type TerminalsData = Static<typeof TerminalsFrame>["data"];
 
-const SORT_KEY_STORAGE = "ccmsg.sessions.sort";
+/** 並べ方の好み。instance もセッションも名前に入らない — 一覧を何順で読むかは
+ * この人の読み方で、相手ごとに決め直すものではない。 */
+const SORT_KEY_STORAGE = keepOnSignOut("ccmsg.sessions.sort");
 /** 留めたセッション。**このブラウザの覚え**で、instance には送らない — 「今
  * 追いかけている仕事」は人ごとに違い、同じ instance を見ている他の人の一覧を
- * 動かす理由が無い。 */
+ * 動かす理由が無い。
+ *
+ * 好みとしては残さない (`keepOnSignOut` を通さない): 名前には sid が入らないが、
+ * **値が名指しているのは instance のセッション**なので、降りた端末に残せば、
+ * 次にそこを使う人の一覧が他人の仕事で始まる。 */
 const PINNED_STORAGE = "ccmsg.sessions.pinned";
 
 /** The topics this build stands on: what the session list is made of, plus the
@@ -269,6 +278,13 @@ export const hello = signal<HelloResult | undefined>(undefined);
 /** Set once the instance and this build disagree about the contract. There is
  * no path back: the page asks for a reload rather than degrading. */
 export const generationWarning = signal<string | undefined>(undefined);
+
+/** 一覧を持ったまま、向こうに繋がせてもらえなくなったか (DR-0004 §2.4)。
+ *
+ * `stale` が「なぜ切れているか」を姿として分けないので、重ねるものを選ぶために
+ * だけ持つ — 回線が届かないなら退がりながら繋ぎ直すだけでよく、許可が切れて
+ * いるなら人に passkey をもう一度頼むほかに進みようが無い。 */
+export const authLost = signal(false);
 
 const peerSlots = signal<readonly Slot<readonly PeerInfo[]>[]>([]);
 const llmStatusSlots = signal<readonly Slot<LlmStatusData>[]>([]);
@@ -657,10 +673,18 @@ export const connection = new Connection({
     // Held while the socket was open and no longer accepted: the token ran out
     // on the far side, or the session was ended elsewhere. The passkey is not
     // asked for here — nobody pressed anything, and a browser refuses a passkey
-    // that no gesture is behind — so what is raised is the screen offering it.
+    // that no gesture is behind — so what is raised is the way to offer it.
     wanted.value = false;
-    needsSignIn.value = true;
     needsRegistration.value = false;
+    // **一覧を持っている姿では、許可が切れても読んでいたものを捨てない**
+    // (DR-0004 §2.3)。許可が向こうで切れたという事実は同じでも、それを理由に
+    // 画面を消す必要は無い — 人に頼むのは passkey をもう一度だけで、通れば
+    // その場で繋ぎ直る。捨てるものがまだ無い姿でだけ認証の画面へ行く。
+    if (listed.peek()) {
+      authLost.value = true;
+      return;
+    }
+    needsSignIn.value = true;
     authProblem.value = "接続が許可されませんでした。passkey で認証し直してください。";
   },
   generationMismatch(reason) {
@@ -875,6 +899,26 @@ async function accessToken(renew = false): Promise<string | undefined> {
  * pressing the button always do the other thing from what it says. */
 export const wanted = signal(false);
 
+/** 画面ぜんぶのうち、どの姿で立つか (DR-0004 §2.1)。
+ *
+ * **代入されるものではない**。遷移の引き金はどれもこの module の signal の変化
+ * そのものなので、導く (§2.2) — 代入する形にすると同じ事実が 2 か所に住み、
+ * 遷移を書き忘れた経路で姿が固まったまま動かなくなる。規則そのものは
+ * `src/phase.ts` で、ここはそこへ材料を渡す 1 行。 */
+export const phase = computed<Phase>(() =>
+  phaseOf({
+    enrolling: enrolment.value !== undefined,
+    needsSignIn: needsSignIn.value,
+    listed: listed.value,
+    open: status.value === "open",
+    greeting: status.value === "greeting",
+    wanted: wanted.value,
+  }),
+);
+
+/** 一覧が立っている姿か。DR-0003 §2.2 の木の根はこれを読む (§2.5)。 */
+export const connected = computed<boolean>(() => isConnected(phase.value));
+
 /** Open the socket under this page's endpoint and subscribe to what the list
  * needs. Called with a session in hand: what to do when there is none is
  * decided before this, where the person's press is still live. */
@@ -906,6 +950,7 @@ export async function connect(): Promise<void> {
   wanted.value = true;
   needsSignIn.value = false;
   needsRegistration.value = false;
+  authLost.value = false;
   authProblem.value = undefined;
   if ((await haveSession()) || (await signIn())) openSocket(at);
 }
@@ -917,9 +962,18 @@ export async function connect(): Promise<void> {
  * to connect. Nothing about authenticating is said yet — there is nothing to
  * say until an attempt has been made. */
 export async function resume(): Promise<void> {
-  if (endpoint.peek() === undefined || !(await haveSession())) return;
-  wanted.value = true;
-  openSocket();
+  if (endpoint.peek() !== undefined && (await haveSession())) {
+    wanted.value = true;
+    openSocket();
+    return;
+  }
+  // 繋げなかった。**URL はその人が受け取ったもの**で、この画面が勝手に書き換えて
+  // よいものではない (DR-0004 §2.7) — 受け取ったリンクが一度の通信の失敗で
+  // 失われるのは高く付く。捨ててよいのは、憶えた住所が無い端末だけ: そこはまだ
+  // 誰のものでもないので、接続後の URL を出したままにしても出せるものが無い。
+  if (localStore.get(ENDPOINT_KEY) === undefined && route.peek().at !== "sessions") {
+    navigate({ at: "sessions" }, { replace: true });
+  }
 }
 
 /** 人が「切断」を押した時に手放すもの。
@@ -936,6 +990,7 @@ export function disconnect(): void {
   wanted.value = false;
   needsSignIn.value = false;
   needsRegistration.value = false;
+  authLost.value = false;
   authProblem.value = undefined;
   connection.close();
   peerSlots.value = [];
@@ -969,6 +1024,43 @@ export function disconnect(): void {
   forgetSession();
 }
 
+/** この端末から降りる (DR-0004 §2.6)。
+ *
+ * 切断との違いは**後に残るもの**。切断は socket を閉じるだけで、refresh cookie
+ * も憶えた住所も残るので「接続」を押せば passkey 無しで戻れる。降りるのは
+ * そのどれも残さないことで、戻るには passkey からやり直す。
+ *
+ * **向こうに頼むのが先**。契約の `auth.signout` が token family を失効させ、その
+ * 応答が refresh cookie を期限切れにする — cookie は HttpOnly でこの画面からは
+ * 消せないので、手元だけ消しても cookie を持った別のタブが繋がり続ける (契約
+ * DR-0030 §5)。
+ *
+ * **向こうが答えなくても手元は消す**。降りると決めた人の端末に跡が残る方が悪く、
+ * family が生きていることは次に繋いだ時にまた降りれば済む。届かなかったことは
+ * 言葉にして残す — 黙って消すと、別のタブがまだ繋がることの説明が付かない。 */
+export async function signOut(): Promise<void> {
+  const at = endpoint.peek();
+  let refused: string | undefined;
+  if (at !== undefined) {
+    try {
+      await signOutSession(at);
+    } catch (cause) {
+      refused = describeAuthError(cause);
+    }
+  }
+  disconnect();
+  clearLocal(keepsPreferences());
+  // 憶えた住所も消えたので、次に立つのはこのページ自身の住所が入ったトップ
+  // (§2.7 の「憶えた住所が無い」端末)。
+  endpoint.value = endpointFromLocation(location.origin, BASE);
+  tabs.moved();
+  navigate({ at: "sessions" });
+  authProblem.value =
+    refused === undefined
+      ? undefined
+      : `この端末からは降りましたが、instance に失効を頼めませんでした (${refused})。別のタブが繋がったままのことがあります。`;
+}
+
 /** Prove a passkey and hold what it minted.
  *
  * No relying party is named: a passkey answers for the domain of the page
@@ -988,6 +1080,7 @@ export async function signIn(): Promise<boolean> {
     holdSession(session);
     needsSignIn.value = false;
     needsRegistration.value = false;
+    authLost.value = false;
     return true;
   } catch (cause) {
     wanted.value = false;
