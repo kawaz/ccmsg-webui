@@ -71,6 +71,14 @@ describe("順番そのものが裁定", () => {
     expect(at({ needsSignIn: true, wanted: true })).toBe("authenticating");
   });
 
+  test("`needsSignIn` は一覧より先に読まれるので、一覧がある間は立ててはいけない", () => {
+    // 順番そのものが裁定 (§2.2) なので、規則の側では一覧より認証が勝つ。だから
+    // **重ねた再認証が断られても `needsSignIn` を立てない**のが材料を書く側の
+    // 責務で (§2.3 の「重ねた再認証が断られた」)、立てた瞬間に読んでいたものが
+    // 消えることをここに置いておく。
+    expect(at({ needsSignIn: true, listed: true, open: true })).toBe("authenticating");
+  });
+
   test("一覧を持っている姿では、許可が切れても画面を捨てない", () => {
     // 人に頼むのは passkey をもう一度だけで、姿は `stale` のまま (§2.3)。
     // `authRequired` は `wanted` を下ろすので、そこも合わせて確かめる。
@@ -99,7 +107,7 @@ describe("木の根は姿が答える", () => {
 describe("姿を決める signal を読むのは App.tsx だけ", () => {
   /** 姿を決める材料そのもの。中身を出すために読む値 (`status` で語を選ぶ、
    * `listSettled` で空かどうかを言う) はここに入らない。 */
-  const DECIDERS = ["enrolment", "needsSignIn", "listed", "phase", "connected"];
+  const DECIDERS = ["enrolment", "needsSignIn", "listed", "wanted", "phase", "connected"];
 
   const dir = new URL("../src/ui/", import.meta.url).pathname;
 

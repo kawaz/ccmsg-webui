@@ -1,4 +1,4 @@
-import { type Browser, expect, test as base, type Page } from "@playwright/test";
+import { type Browser, type CDPSession, expect, test as base, type Page } from "@playwright/test";
 import {
   BULK_SID,
   DUP_SID,
@@ -341,7 +341,7 @@ async function pinClock(page: Page, at: number): Promise<void> {
 async function addAuthenticator(page: Page): Promise<void> {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("WebAuthn.enable");
-  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+  const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
     options: {
       protocol: "ctap2",
       transport: "internal",
@@ -351,6 +351,22 @@ async function addAuthenticator(page: Page): Promise<void> {
       automaticPresenceSimulation: true,
     },
   });
+  authenticators.set(page, { cdp, id: authenticatorId });
+}
+
+/** どの頁の認証器か。**断られた時に何が起きるか**を撮るには、その browser の
+ * 認証器そのものに断らせる必要がある。 */
+const authenticators = new WeakMap<Page, { readonly cdp: CDPSession; readonly id: string }>();
+
+/** この browser の認証器から passkey を取り上げる。
+ *
+ * 人が求めを取り消した時と、頁から見えるものは同じ (`NotAllowedError`) — browser
+ * は「無い」と「断られた」を言い分けない。ここで作れるのは**断られた側の道**で、
+ * 一覧を持ったまま断られた時に画面が残るかを確かめるのに要る。 */
+export async function forgetPasskeys(page: Page): Promise<void> {
+  const held = authenticators.get(page);
+  if (held === undefined) throw new Error("この頁には認証器がありません");
+  await held.cdp.send("WebAuthn.clearCredentials", { authenticatorId: held.id });
 }
 
 /** 自分の passkey と自分の cookie を持つ、使い捨ての browser。

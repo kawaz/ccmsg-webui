@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Connection, type ConnectionStatus } from "../src/connection.ts";
+import {
+  Connection,
+  type ConnectionStatus,
+  type TokenAnswer,
+  type TokenMissing,
+} from "../src/connection.ts";
 
 /** What a refused handshake does, and what dialling again does to the socket
  * that was already there.
@@ -61,21 +66,26 @@ const events = {
   status(_status: ConnectionStatus, _detail?: string): void {},
   greeted(): void {},
   topic(): void {},
-  authRequired(): void {},
+  authRequired(_why: TokenMissing): void {},
   generationMismatch(): void {},
 };
 
-/** The token source records what it was asked and answers in order. */
-function source(answers: (string | undefined)[]): {
+/** The token source records what it was asked and answers in order. A plain
+ * string is a token; anything else is the reason there is none. */
+function source(answers: (string | TokenMissing)[]): {
   asked: boolean[];
-  next: (renew: boolean) => Promise<string | undefined>;
+  next: (renew: boolean) => Promise<TokenAnswer>;
 } {
   const asked: boolean[] = [];
+  const held = new Set<string>(["unreachable", "auth_invalid"]);
   return {
     asked,
     next: (renew: boolean) => {
       asked.push(renew);
-      return Promise.resolve(answers[asked.length - 1]);
+      const answer = answers[asked.length - 1] ?? "auth_invalid";
+      return Promise.resolve(
+        held.has(answer) ? { missing: answer as TokenMissing } : { token: answer },
+      );
     },
   };
 }
@@ -154,15 +164,13 @@ describe("a refused handshake is answered by renewing the token, once", () => {
     // on that would be a busy loop against a door that authenticating opens.
     // The attempt ends here rather than backing off: what comes next is the
     // person authenticating, which is not something a timer brings about.
-    const token = source(["stale", undefined]);
+    const token = source(["stale", "auth_invalid"]);
     const said: ConnectionStatus[] = [];
-    let asked = 0;
+    const asked: TokenMissing[] = [];
     const connection = new Connection({
       ...events,
       status: (status: ConnectionStatus) => said.push(status),
-      authRequired: () => {
-        asked += 1;
-      },
+      authRequired: (why: TokenMissing) => asked.push(why),
     });
     connection.connect("ws://instance.example/ws", token.next);
     await settle();
@@ -170,13 +178,44 @@ describe("a refused handshake is answered by renewing the token, once", () => {
     await settle();
 
     expect(token.asked).toEqual([false, true]);
-    expect(asked).toBe(1);
+    expect(asked).toEqual(["auth_invalid"]);
     expect(said.at(-1)).toBe("idle");
 
     // And stays stopped: no backoff behind it dialling again on its own.
     await new Promise((done) => setTimeout(done, 600));
     expect(FakeSocket.instances.length).toBe(1);
-    expect(asked).toBe(1);
+    expect(asked).toEqual(["auth_invalid"]);
+    connection.close();
+  });
+
+  test("届かないだけなら止まらず、戻ったら自分で繋ぎ直す", async () => {
+    // 回線が無いのと許可が切れたのは、人に頼むことが違う (DR-0004 §2.3)。止めると
+    // 回線が戻っても人が押すまで繋ぎ直さないので、電波の悪い所を歩いた端末が
+    // 戻った後も切れたままになる。
+    const token = source(["unreachable", "unreachable", "standing"]);
+    const said: ConnectionStatus[] = [];
+    const asked: TokenMissing[] = [];
+    const connection = new Connection({
+      ...events,
+      status: (status: ConnectionStatus) => said.push(status),
+      authRequired: (why: TokenMissing) => asked.push(why),
+    });
+    connection.connect("ws://instance.example/ws", token.next);
+    await settle();
+
+    // 掛けてもいない (提示するものが無い)。止まってもいない。
+    expect(FakeSocket.instances.length).toBe(0);
+    expect(asked).toEqual(["unreachable"]);
+    expect(said).not.toContain("idle");
+
+    // 退がりながら掛け直し、戻った所で socket が開く。
+    await new Promise((done) => setTimeout(done, 1800));
+    expect(asked).toEqual(["unreachable", "unreachable"]);
+    expect(FakeSocket.instances.length).toBe(1);
+    expect((FakeSocket.instances[0] as FakeSocket).protocols).toEqual([
+      "ccmsg.v1",
+      "ccmsg.token.standing",
+    ]);
     connection.close();
   });
 });

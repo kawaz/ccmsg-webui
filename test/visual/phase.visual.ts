@@ -1,6 +1,14 @@
 import type { Page } from "@playwright/test";
 import { SID } from "./fixture.ts";
-import { connected, expect, listSettled, ownBrowser, shot, test } from "./harness.ts";
+import {
+  connected,
+  expect,
+  forgetPasskeys,
+  listSettled,
+  ownBrowser,
+  shot,
+  test,
+} from "./harness.ts";
 
 /** 許可が変わった時に画面がどうなるか (DR-0004)。
  *
@@ -8,10 +16,10 @@ import { connected, expect, listSettled, ownBrowser, shot, test } from "./harnes
  * ことも、その browser が二度と繋がらない状態を作るので、共有の頁でやると後に
  * 走る画面まで巻き込む (`ownBrowser`)。
  *
- * 失効は instance に本当に頼む — daemon は family を落とすと同時に、その人が
- * 開いている接続も閉じる (daemon `auth.signout`)。だから socket を落とす小細工は
- * 要らず、起きるのは本物の順番そのもの: 接続が閉じ、繋ぎ直しの handshake が
- * 断られ、画面が `stale` のまま passkey を頼む。 */
+ * 失効は instance に本当に頼む — family の失効はその family の接続を閉じる
+ * (契約 DR-0030 §5)。だから socket を落とす小細工は要らず、起きるのは本物の順番
+ * そのもの: 接続が閉じ、繋ぎ直しの handshake が断られ、画面が `stale` のまま
+ * passkey を頼む。 */
 
 /** この browser の refresh cookie が名指す family を失効させる。
  *
@@ -42,13 +50,34 @@ test("許可が切れたら、画面を残したまま passkey を頼む", async
 
   await endFamily(page, instance.endpoint);
 
-  // 姿は `stale` のまま。帯は出ず、重なるのは passkey の 1 枚だけ。
-  await expect(page.locator("dialog.reauth")).toBeVisible();
-  await expect(page.locator(".stale-band")).toHaveCount(0);
+  // 姿は `stale` のまま。重なるのは passkey の 1 枚だけ。
+  const dialog = page.locator("dialog.reauth");
+  await expect(dialog).toBeVisible();
   // 後ろの workspace は最初から動いていない — 読んでいた transcript も、URL も。
   await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/s/${SID}/timeline$`));
   await shot(page, "reauth.png");
+
+  // **断られても画面は捨てない** (§2.3 の「重ねた再認証が断られた」)。認証器から
+  // passkey を取り上げると、人が求めを取り消した時と同じ答えが返る。
+  await forgetPasskeys(page);
+  await dialog.getByRole("button", { name: "passkey で認証", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/s/${SID}/timeline$`));
+  // 認証の画面へは行っていない (そこには繋ぐ所しかない)。
+  await expect(page.getByRole("button", { name: "接続", exact: true })).toBeHidden();
+
+  // **閉じられる**。閉じた後は `stale` の画面が読め、後ろの道にも届く (§2.5)。
+  await dialog.getByRole("button", { name: "閉じる" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
+  await expect(page.getByRole("button", { name: "ログアウト" })).toBeEnabled();
+  await shot(page, "reauth-closed.png");
+
+  // 閉じても許可が切れている事実は下りないので、状態の印から出し直せる。
+  await page.locator("nav button.status-mark").click();
+  await expect(dialog).toBeVisible();
   await page.context().close();
 });
 

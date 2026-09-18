@@ -23,13 +23,13 @@
     },
     "conversation": {
       "darwin/dark": "2ae8344dc117718449bd3b39a223eb63201ad3af2defbf9a3bf6abeec266685c",
-      "darwin/light": "84684a1a132a4e276bf9dafdd1c9020afe8f0c0d918a808713d7b7aedf5bfe36",
+      "darwin/light": "1fa9c31c212f6551aa858015d6a00666a98dac661b77e7764c624eb379638513",
       "linux/dark": "531859a04c16b5eadb5b7b7b36a77a7d5560131aab57a5418ed32347b64f5d65",
       "linux/light": "69a0ea8d50122d17ef87f9d2ffc5f8491869cb19422bf5e5de6fa2ad8448cf42"
     },
     "file-word-bubble": {
       "darwin/dark": "0cceeb790889369dab880c399c38ef5597cf0d829792218851f047b54db3be4d",
-      "darwin/light": "10fc9e3fe939a30093540ef7899b131056486bb175d5a5ee76527cd64d957674",
+      "darwin/light": "af52ea1b9b0d452b2bee9aaff899c06b932f138a0072da350d241c9dc4bd3005",
       "linux/dark": "28bfb85b7b28f39c21bcda81691a1b31dd6e6e239ef031264cd75e8ee3ead952",
       "linux/light": "1add1091a1e1ad8592217de099e0cde29f5cd45de44a0ae4f35b26121e174ac8"
     },
@@ -106,8 +106,12 @@
       "linux/light": "0886d32354bc82ad4813a273ce74e47b08bb6b338bc2653de4916cd7cd07c6b5"
     },
     "reauth": {
-      "darwin/dark": "26efe9835f46d0e4e14065436302a993d3abebe601ae273eae6425c50b744432",
-      "darwin/light": "86a37b06d11cf1e77837d22159e89c08619eb4c4208cadf89714bd5f43a47425"
+      "darwin/dark": "8c283f4e93603a5ce7c5a032c98eaa0817263c119bb3537acba3221ac5e37d2c",
+      "darwin/light": "dd39be81067bf9d9824af81276d6a3847bbe0ee5e4f3a41ab173d5e14e8e5f8d"
+    },
+    "reauth-closed": {
+      "darwin/dark": "d1c4fdbc59b8a588a99266db7ebc3469ac03ede46311507ddddc9e434d409f02",
+      "darwin/light": "701831cb30350070168bfc8a9af2687ef8178e036cdd5ce3bafa82c260e2afe8"
     },
     "register": {
       "darwin/dark": "68adfccdf93b9cc51406a995cbaa6fe91eb9eda6ed664d8d5f0cdf120013a79b",
@@ -244,20 +248,20 @@
       "linux/light": "bea6fe87cabf3c73a5d6ec8cb83b7f71c910be899d967da2ad57c50d0c604044"
     },
     "timeline-fold-open": {
-      "darwin/dark": "0d9400e3afd105d6d3cf2e32ecf64b1fb54e4c40b2869f613f3ae9a86fbb30c0",
-      "darwin/light": "e9bdbc4db7a757bb1b1ff810cad4d4f55d6d5fc6cceede7d725a1ac153f59f09",
+      "darwin/dark": "e05fdd3f2054d4d4a25289e0b84a8cce7ec63c153136fd3140414a9899260558",
+      "darwin/light": "9fe0c8156663a0d3c7a65ae12b6fca5df880d7a0330aed9843b602982ff59cff",
       "linux/dark": "ecaaf56540e435c9ceca452ca9f7e8360505852e97b5d5fd93069f5923d5ef6c",
       "linux/light": "a38e05c546b3ed8e8d4476e14797982767e6c44b2279bff0bf74f6b7348815b6"
     },
     "timeline-raw-record": {
-      "darwin/dark": "9db7d4665e7e5c3731a2ca3da99efe5134af3da8fbdde538149add257c8112ab",
+      "darwin/dark": "37748200d89d196424ca116c9a8b4611526d9eab757d5db81c5bf2b6a6c19d00",
       "darwin/light": "fc46470133c3cdb10784a95a1d7a34c1dee646dcf4529e26f13dee045fe8e0d9",
       "linux/dark": "5675a54cc84c9de06f682df273a1da001924ccaf05ea96d17aa07318e4a2a74b",
       "linux/light": "74a5b8700103f19280c62d7d8b5dbddfad22ecbef4a8136aa7b03ffa0ccb9f87"
     },
     "timeline-search": {
-      "darwin/dark": "9f1f0a70a64a39c2a7b95fca3ac3a47040dba524d16e99541210dde1f3d2bffb",
-      "darwin/light": "ccf609749cc806d2a4ca354bb4a42f1dcb59c984dd14ea30d1f6ebed14787a7c",
+      "darwin/dark": "e627da7310de6517cb436ac5ebac0eb69b5616536a0fc0b9067117bd518b9b96",
+      "darwin/light": "d3299851663656b56b98bb7784e51123e6b4b654cc862d09e6f71ca688945a0f",
       "linux/dark": "f910055ff2eb91594c864d459f93e953bbe0e1ea0ad984b7e0072dd3e4b6af32",
       "linux/light": "6342a6788c92cf57bfcbf5a4c58b03b2b5ed9c26babb2ce6c0f3d21569f2bee5"
     },

@@ -124,14 +124,14 @@ test("回線が切れただけなら、聞いたものは印付きで残る", as
   // 人は何も押していない。端末が網から外れただけ。
   down = true;
   drop?.();
-  // 帯は出ない (DR-0004 §2.4) — 切れていることを言うのは道の中の小部品で、
-  // 画面はそのまま立っている。
+  // 切れていることを言うのは道の中の小部品だけで (DR-0004 §2.4)、画面はそのまま
+  // 立っている。回線が切れただけなので passkey も頼まれない (§2.3)。
   await expect(page.locator(".status-mark.open")).toBeHidden();
-  await expect(page.locator(".stale-band")).toHaveCount(0);
+  await expect(page.locator("dialog.reauth")).toHaveCount(0);
   // 行は残ったまま: 切れただけの端末から、最後に聞いた内容まで消さない。
   await expect(page.locator(".row").first()).toBeVisible();
 
-  // 網が戻れば、繋ぎ直した snapshot が同じ行を置き換えて帯が消える。
+  // 網が戻れば、繋ぎ直した snapshot が同じ行を置き換えて印が戻る。
   down = false;
   await expect(page.locator(".status-mark.open")).toBeVisible({ timeout: 30_000 });
   await expect(page.locator(".row").first()).toBeVisible();
