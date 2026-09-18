@@ -1,13 +1,13 @@
 import type { ComponentType } from "preact";
 import { useEffect } from "preact/hooks";
-import { href } from "../base.ts";
 import type { SectionFace } from "../settings-section.ts";
-import { navigate } from "../state.ts";
 import { keys } from "../actions/keys.ts";
+import { signOutKeep } from "../signout-keep.ts";
 import { colour } from "../theme.ts";
 import { ColourInputs } from "./ColourInputs.tsx";
 import { KeyBindings } from "./KeyBindings.tsx";
 import { ColourPreview } from "./ColourPreview.tsx";
+import { SignOutKeepInput } from "./SignOutKeep.tsx";
 import { SettingDecide, SettingPresets } from "./setting-parts.tsx";
 
 /** 設定の画面。
@@ -16,8 +16,8 @@ import { SettingDecide, SettingPresets } from "./setting-parts.tsx";
  * 時にここが受け取るのは 1 行で、組・差の印・「戻す」・保存は section を問わ
  * ない部品が既に持っている。
  *
- * この画面は instance に何も聞かない。だから繋がっていなくても、サインインして
- * いなくても立つ (DR-0001 §2.6)。
+ * この画面は instance に何も聞かないが、**入れるのは接続後だけ** (DR-0004
+ * §2.5) — 繋ぐ前の人に出す設定は、出した分だけ「繋ぐ」以外の道を増やす。
  *
  * 触ることは**試すこと**で、覚えるのは「保存」を押した時だけ (§2.7)。離れれば
  * 試したものは消えるので、どこまで戻せるかを気にせず動かせる。 */
@@ -44,6 +44,11 @@ const SECTIONS: readonly Listed[] = [
     store: keys,
     note: "既定では 1 つも結ばれていません — 結ぶまで、この画面はどの打鍵も奪いません。ブラウザの手を奪う組み合わせは、何が失われるかを言ってから通します。ブラウザがページに渡さない打鍵は、設定できても効かないことをその場で言います。",
     Inputs: KeyBindings,
+  },
+  {
+    store: signOutKeep,
+    note: "ログアウトはこの端末から降りることなので、既定では跡を残しません。残すのは読み方の好みだけで、認証・接続・セッションに属するものはこの設定でも残りません。",
+    Inputs: SignOutKeepInput,
   },
 ];
 
@@ -79,23 +84,10 @@ export function Settings() {
   );
 
   return (
-    <div class="app">
-      <div class="bar app-bar">
-        <a
-          href={href({ at: "sessions" })}
-          onClick={(event: MouseEvent) => {
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-            event.preventDefault();
-            navigate({ at: "sessions" });
-          }}
-        >
-          ← 一覧
-        </a>
-        <span>設定</span>
-      </div>
+    <>
       {SECTIONS.map((one) => (
         <SectionPanel key={one.store.id} {...one} />
       ))}
-    </div>
+    </>
   );
 }
