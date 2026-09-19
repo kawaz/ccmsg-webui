@@ -3292,3 +3292,77 @@ button.status-mark {
 .global-menu > button {
   text-align: start;
 }
+
+/* メニューの 1 行。押す所として横いっぱいに広がり、左揃えで読む。 */
+.menu-row {
+  display: block;
+  width: 100%;
+  text-align: start;
+}
+
+.menu-row.on {
+  border-color: var(--brand-fg);
+  color: var(--brand-fg);
+}
+
+/* このセッションに効く操作 (セッションのヘッダ)。危ないものが常時出ていないよう
+   メニューに畳む — 行に並べていた時と違い、効く先は開いている 1 つだけ。 */
+.session-menu-open {
+  flex: none;
+  margin-inline-start: auto;
+  padding: 2px 8px;
+  line-height: 1;
+  anchor-name: --session-menu-open;
+}
+
+.session-menu {
+  position: fixed;
+  position-anchor: --session-menu-open;
+  inset: auto;
+  inset-block-start: anchor(bottom);
+  inset-inline-end: anchor(right);
+  margin-block-start: 4px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 12em;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}
+
+.session-menu:popover-open {
+  display: flex;
+}
+
+/* 並び順。アイコン 1 つで、今の並びは名前と tooltip が言う。 */
+.sort-open {
+  flex: none;
+  padding: 4px 9px;
+  line-height: 1;
+  anchor-name: --sort-open;
+}
+
+.sort-menu {
+  position: fixed;
+  position-anchor: --sort-open;
+  inset: auto;
+  inset-block-start: anchor(bottom);
+  inset-inline-start: anchor(left);
+  margin-block-start: 4px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 10em;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}
+
+.sort-menu:popover-open {
+  display: flex;
+}

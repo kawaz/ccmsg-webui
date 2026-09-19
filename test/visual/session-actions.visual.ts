@@ -1,6 +1,6 @@
 import { expect, listSettled, settledOrder, shot, test } from "./harness.ts";
 
-/** 行の上でできること (留める / 改名 / 終了) の試作。
+/** 行の上でできること (留める) と、開いているセッションに効くこと (終了)。
  *
  * 名前が `screens` の後ろに来るのは順番のため — 留めると一覧の並びが変わるので、
  * 一覧を撮る側より後ろに居る。 */
@@ -30,12 +30,23 @@ test("留めると一覧の先頭に来て、外すと戻る", async ({ ui: page
   await expect(rows.first().locator(".name")).not.toHaveText(name);
 });
 
+/** 終了はセッションのヘッダのメニューから (DR-0004 §2.4)。**行には置かない** —
+ * 辿っている最中の行に危ない押す所がずっと出ていることになる。 */
 test("終了は確認を開くまで — 決めるのはダイアログの中", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}`);
   await listSettled(page);
   await settledOrder(page);
+  // 行には留めるしか無い。
   const row = page.locator(".row:has(.row-pin)").filter({ hasText: "束 0 を片付ける" }).first();
-  await row.getByRole("button", { name: "終了" }).click();
+  await expect(row.getByRole("button", { name: "セッションを終了する" })).toHaveCount(0);
+
+  await row.locator(".name").click();
+  await expect(page.getByRole("heading", { name: /transcript — / })).toBeVisible();
+  await page.getByRole("button", { name: "このセッションの操作" }).click();
+  const menu = page.locator("#session-menu");
+  await expect(menu).toBeVisible();
+  await shot(page, "session-menu.png");
+  await menu.getByRole("button", { name: "セッションを終了する", exact: true }).click();
 
   // 危ないアクションの責務は確認を開くまで (DR-0003 §2.8)。開いた確認は区画
   // ひとつで、既定のボタンは取り消す方。
@@ -47,7 +58,23 @@ test("終了は確認を開くまで — 決めるのはダイアログの中", 
   // 閉じるのはブラウザの持ち物 (`Escape`)。閉じれば何も起きていない。
   await page.keyboard.press("Escape");
   await expect(confirm).toHaveCount(0);
-  await expect(row.getByRole("button", { name: "終了" })).toBeVisible();
+});
+
+/** 並び順はアイコン 1 つで、押すと選択肢が重なって出る (DR-0004 §2.4)。 */
+test("並び順はアイコンから開いて選ぶ", async ({ ui: page, instance }) => {
+  await page.goto(instance.endpoint);
+  await listSettled(page);
+  // 据え置きの選択肢は無く、今の並びはアイコンが言う。
+  await expect(page.getByRole("combobox", { name: /並び/ })).toHaveCount(0);
+  const open = page.getByRole("button", { name: /^並び: / });
+  await expect(open).toBeVisible();
+  await open.click();
+  const menu = page.locator("#sort-menu");
+  await expect(menu).toBeVisible();
+  await shot(page, "session-sort.png");
+  await menu.getByRole("button", { name: "接続した順" }).click();
+  await expect(menu).toBeHidden();
+  await expect(page.getByRole("button", { name: "並び: 接続した順" })).toBeVisible();
 });
 
 /** 改名は `terminal` の能力を持つ instance にだけ出る (instance が端末に打鍵を

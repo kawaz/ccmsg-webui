@@ -14,6 +14,7 @@ import { Terminal, Terminals } from "./Terminals.tsx";
 import { TerminalPanel } from "./TerminalPanel.tsx";
 import { Timeline } from "./Timeline.tsx";
 import { Account } from "./Account.tsx";
+import { SessionMenu } from "./SessionMenu.tsx";
 import { Settings } from "./Settings.tsx";
 import { Usage } from "./Usage.tsx";
 
@@ -68,6 +69,9 @@ function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
           {TAB_LABELS[one]}
         </a>
       ))}
+      {/* このセッションに効く操作はここ。一覧の行ではなく、開いている所に置く
+          (DR-0004 §2.4)。 */}
+      <SessionMenu sid={sid} />
     </nav>
   );
 }

@@ -46,9 +46,9 @@ describe("起動は内側から外へ登る", () => {
   test("印の付いたアクションは、できない時に上へ流さず止まる", () => {
     const log: string[] = [];
     const { workspace, list } = tree();
-    workspace.handle("session-list.kill", handler(log, "workspace"));
-    list.handle("session-list.kill", handler(log, "list", false));
-    expect(run("session-list.kill", list)).toBe("stopped");
+    workspace.handle("session.kill", handler(log, "workspace"));
+    list.handle("session.kill", handler(log, "list", false));
+    expect(run("session.kill", list)).toBe("stopped");
     expect(log).toEqual([]);
   });
 
@@ -78,9 +78,9 @@ describe("押せるかは起こす所と同じ判定から出る", () => {
   test("印の付いたアクションは、内側ができない時点で押せない", () => {
     const log: string[] = [];
     const { workspace, list } = tree();
-    workspace.handle("session-list.kill", handler(log, "workspace"));
-    list.handle("session-list.kill", handler(log, "list", false));
-    expect(canRun("session-list.kill", list)).toBe(false);
+    workspace.handle("session.kill", handler(log, "workspace"));
+    list.handle("session.kill", handler(log, "list", false));
+    expect(canRun("session.kill", list)).toBe(false);
   });
 });
 

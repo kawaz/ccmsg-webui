@@ -75,12 +75,18 @@ export const ACTIONS: readonly Action[] = [
   { id: "session-list.open-search", title: "クイックフィルタを開く" },
   // **クイックフィルタとは別**。こちらは一覧に無いものを取りに行く (§2.2)。
   { id: "session-list.search-offline", title: "動いていないセッションを探す" },
-  { id: "session-list.rename", title: "セッションを改名する" },
   { id: "session-list.pin", title: "一覧の先頭に留める / やめる" },
   { id: "session-list.new", title: "新しいセッションを始める" },
-  { id: "session-list.kill", title: "セッションを終了する", destructive: true },
-  { id: "session-list.kill-force", title: "セッションを強制終了する", destructive: true },
-  { id: "session-list.forget", title: "失われたセッションを削除する", destructive: true },
+  // 並び順は**アイコン 1 つ**から開く (一覧に据え置く選択肢は場所を取りすぎる)。
+  { id: "session-list.sort", title: "並び順を選ぶ" },
+
+  // 開いているセッション 1 つに効くもの。**対象は URL が名指すセッション**で、
+  // 一覧のカーソルではない — 担当を名乗るのはメインコンテンツの節で、押す所は
+  // そのセッションのヘッダにある (一覧の行には置かない、DR-0004 §2.4)。
+  { id: "session.rename", title: "セッションを改名する" },
+  { id: "session.kill", title: "セッションを終了する", destructive: true },
+  { id: "session.kill-force", title: "セッションを強制終了する", destructive: true },
+  { id: "session.forget", title: "失われたセッションを削除する", destructive: true },
 
   // tl 本体 / 選択中のメッセージ
   { id: "timeline.select-message", title: "メッセージを選ぶ" },

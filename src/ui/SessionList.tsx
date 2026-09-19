@@ -1,4 +1,4 @@
-import { computed, useSignal } from "@preact/signals";
+import { computed } from "@preact/signals";
 import { keepInViewVertically } from "../layout/scroller.ts";
 import { useEffect, useRef } from "preact/hooks";
 import {
@@ -17,7 +17,6 @@ import { SessionSearch } from "./SessionSearch.tsx";
 import { instanceLabel } from "../instance-label.ts";
 import {
   groupPeers,
-  isLost,
   sessionLabel,
   type SessionSection,
   listStanding,
@@ -28,15 +27,11 @@ import {
 } from "../sessions.ts";
 import { listUnits, stepCursor, unitAt, unitKey } from "../sessions-cursor.ts";
 import { cacheRingStyle, sessionCacheWindows } from "../llm/cache-ring.ts";
-import { describeRefusal } from "../refusal.ts";
 import {
   agents,
   answering,
-  askFirst,
-  forgetLostSession,
   instances,
   can,
-  killSession,
   listCollapsed,
   listCursor,
   listFilter,
@@ -45,13 +40,10 @@ import {
   launcherOpen,
   offlineSearchOpen,
   llmRequests,
-  markUnkilled,
   navigate,
   peers,
   pinned,
   waitingBySid,
-  renameSession,
-  renaming,
   togglePinned,
   toggleListSection,
   sessionErrors,
@@ -60,7 +52,6 @@ import {
   startingRuns,
   status,
   terminalIdOfSession,
-  unkilled,
 } from "../state.ts";
 import { actionOf } from "../actions/catalogue.ts";
 import { run } from "../actions/tree.ts";
@@ -93,19 +84,63 @@ function groupTitle(section: SessionSection, count: number): string {
   return `${SESSION_SECTION_LABELS[section]} (${String(count)})`;
 }
 
-/** セッション 1 つに効くアクションの担当。
+/** 並び順。**アイコン 1 つ**で、押すと選択肢が重なって出る (DR-0004 §2.4)。
  *
- * **同じ組を 2 か所が名乗る** (DR-0003 §2.3): 行の中では自分の行を対象に、区画の
- * 上ではカーソルの行を対象に。押す所は行の中に居るので内側 (= その行) に当たり、
- * 打鍵は区画から登るのでカーソルの行に当たる — 押した所とキーで別の行が対象に
- * なることがない。
+ * 選択肢を一覧の上に据え置くと、行を読む場所を常に取り上げることになる — 並び順は
+ * 決めたら当分変えないものなので、出しっぱなしにする理由が無い。**今の並びは
+ * アイコンが言う** (`title` と読み上げの名前) ので、開かなくても分かる。
  *
- * 終了・強制終了・削除は `destructive` の印付き。呼ばれたら確認を開くまでが
- * 責務で (§2.8)、段階を行が持つことはもう無い。 */
-function useSessionActions(peerOf: () => PeerInfo | undefined) {
-  const ask = (action: string, note: string, go: () => void): void => {
-    askFirst({ action, note, go });
-  };
+ * 開くこと自体はアクション (打鍵からも開ける)。中の選択は部品の中で閉じる操作で、
+ * キーの一覧に「並びを日付にする」が並んでいたら変になる (DR-0003 §2.6)。 */
+function SortPick() {
+  const box = useRef<HTMLDivElement>(null);
+  const said = SORT_LABELS[sortKey.value];
+  useAction("session-list.sort", {
+    enabled: () => true,
+    run: () => {
+      box.current?.togglePopover();
+    },
+  });
+  return (
+    <>
+      <Act
+        action="session-list.sort"
+        class="sort-open"
+        icon="⇅"
+        label={`並び: ${said}`}
+        title={`並び: ${said}`}
+      />
+      <div ref={box} id="sort-menu" class="sort-menu" popover="auto">
+        {SORT_KEYS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            class={key === sortKey.value ? "menu-row on" : "menu-row"}
+            aria-pressed={key === sortKey.value}
+            onClick={() => {
+              if (isSortKey(key)) setSortKey(key);
+              box.current?.hidePopover();
+            }}
+          >
+            {SORT_LABELS[key]}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** 一覧の並びに効く操作の担当 (DR-0003 §2.3)。
+ *
+ * **同じ組を 2 か所が名乗る**: 行の中では自分の行を対象に、区画の上ではカーソルの
+ * 行を対象に。押す所は行の中に居るので内側 (= その行) に当たり、打鍵は区画から
+ * 登るのでカーソルの行に当たる — 押した所とキーで別の行が対象になることがない。
+ *
+ * ここに居るのは**留めること**だけ。改名も終了も削除も「そのセッションに効く」
+ * 操作で、一覧の並びの話ではないので、開いているセッションのヘッダが持つ
+ * (`session.*`、`SessionMenu.tsx`)。留めるだけが残るのは、**留めるが並びを
+ * 動かす操作**だから — 対象は「一覧のこの行」で、開いている 1 つではない。 */
+function usePinAction(peerOf: () => PeerInfo | undefined) {
   useAction("session-list.pin", {
     enabled: () => peerOf() !== undefined,
     run: () => {
@@ -113,132 +148,25 @@ function useSessionActions(peerOf: () => PeerInfo | undefined) {
       if (peer !== undefined) togglePinned(peer.sid);
     },
   });
-  useAction("session-list.rename", {
-    // 改名は端末に打鍵を送ってもらう操作なので、端末を持つ instance でだけ。
-    enabled: () => peerOf() !== undefined && can("terminal"),
-    run: () => {
-      renaming.value = peerOf()?.sid;
-    },
-  });
-  useAction("session-list.kill", {
-    enabled: () => peerOf() !== undefined,
-    run: () => {
-      const sid = peerOf()?.sid;
-      if (sid === undefined) return;
-      ask(
-        "session-list.kill",
-        "このセッションに終了を頼みます。消えなかった時だけ、強い方を選べるようになります。",
-        () => {
-          killSession(sid, false)
-            .then((said) => {
-              // 消えなかったのは失敗ではなく、次に何を選ぶかの材料 (契約)。
-              markUnkilled(sid, !said.terminated);
-            })
-            .catch(() => {
-              markUnkilled(sid, false);
-            });
-        },
-      );
-    },
-  });
-  useAction("session-list.kill-force", {
-    // 強い方は**人が 1 度普通に頼んでから**選ぶもの (契約)。
-    enabled: () => {
-      const peer = peerOf();
-      return peer !== undefined && unkilled.value.has(peer.sid);
-    },
-    run: () => {
-      const sid = peerOf()?.sid;
-      if (sid === undefined) return;
-      ask(
-        "session-list.kill-force",
-        "強い方は transcript を書き切る機会ごと奪います。書きかけの行は残りません。",
-        () => {
-          killSession(sid, true)
-            .then((said) => {
-              markUnkilled(sid, !said.terminated);
-            })
-            .catch(() => {
-              /* 断られたことは行のままで分かる (次の snapshot が来る)。 */
-            });
-        },
-      );
-    },
-  });
-  useAction("session-list.forget", {
-    enabled: () => {
-      const peer = peerOf();
-      return peer !== undefined && isLost(peer, Date.now());
-    },
-    run: () => {
-      const sid = peerOf()?.sid;
-      if (sid === undefined) return;
-      ask("session-list.forget", "instance がこのセッションを忘れます。一覧から消えます。", () => {
-        void forgetLostSession(sid);
-      });
-    },
-  });
 }
 
 /** 行の中の押す所。押す所は**アクションを起こす 1 行**で、することの中身は
- * アクションの側にある (§2.4)。 */
+ * アクションの側にある (§2.4)。
+ *
+ * 行に残るのは**留める**だけ。改名・終了・削除は開いているセッションのヘッダに
+ * 移した (DR-0004 §2.4) — 行に並べると、辿っている最中の行に危ない押す所が
+ * ずっと出ていることになる。 */
 function RowActions({ peer }: { peer: PeerInfo }) {
-  const draft = useSignal("");
-  const problem = useSignal<string | undefined>(undefined);
   const held = pinned.value.has(peer.sid);
-  const stuck = unkilled.value.has(peer.sid);
-  useSessionActions(() => peer);
-
-  const rename = (): void => {
-    const title = draft.value.trim();
-    renaming.value = undefined;
-    if (title === "") return;
-    renameSession(peer.sid, title).catch((cause: unknown) => {
-      problem.value = describeRefusal(cause);
-    });
-  };
-
-  if (renaming.value === peer.sid) {
-    return (
-      <input
-        class="row-rename"
-        type="text"
-        autoFocus
-        value={draft.value === "" ? sessionLabel(peer) : draft.value}
-        aria-label="新しい名前"
-        onInput={(event) => {
-          draft.value = event.currentTarget.value;
-        }}
-        onKeyDown={(event: KeyboardEvent) => {
-          if (event.key === "Enter") rename();
-          if (event.key === "Escape") renaming.value = undefined;
-        }}
-        onBlur={rename}
-      />
-    );
-  }
+  usePinAction(() => peer);
   return (
-    <>
-      <Act
-        action="session-list.pin"
-        class="row-pin"
-        title={held ? "留めるのをやめる" : "一覧の先頭に留める"}
-      >
-        {held ? "★" : "☆"}
-      </Act>
-      {can("terminal") && <Act action="session-list.rename">改名</Act>}
-      <Act action="session-list.kill">終了</Act>
-      {stuck && (
-        <Act
-          action="session-list.kill-force"
-          class="row-danger"
-          title="普通に頼んでも消えなかった。強い方は transcript を書き切る機会を奪う"
-        >
-          消えない — 強制終了
-        </Act>
-      )}
-      {problem.value !== undefined && <span class="meta">{problem.value}</span>}
-    </>
+    <Act
+      action="session-list.pin"
+      class="row-pin"
+      title={held ? "留めるのをやめる" : "一覧の先頭に留める"}
+    >
+      {held ? "★" : "☆"}
+    </Act>
   );
 }
 
@@ -339,7 +267,6 @@ function PeerRow({
         )}
         {at !== undefined && <span class="meta">{when(at)}</span>}
         <span class="meta mono">{peer.instance}</span>
-        {isLost(peer, now) && <Act action="session-list.forget">削除</Act>}
       </div>
     </Holder>
   );
@@ -478,7 +405,7 @@ function ListActions({
   const scope = useScope();
   // 区画の上では、行に効くアクションの対象は**カーソルの行**。行の中の同じ
   // アクション (その行が対象) は内側に居るので、押す所には行の方が当たる。
-  useSessionActions(() => cursorPeer);
+  usePinAction(() => cursorPeer);
   const here = (): ReturnType<typeof unitAt> => unitAt(units, listCursor.value);
   const move = (step: 1 | -1): void => {
     const to = stepCursor(units, listCursor.value, step);
@@ -606,21 +533,7 @@ export function SessionList() {
         }}
       />
       <div class="bar">
-        <label for="sort">並び</label>
-        <select
-          id="sort"
-          value={sortKey.value}
-          onChange={(event) => {
-            const picked = event.currentTarget.value;
-            if (isSortKey(picked)) setSortKey(picked);
-          }}
-        >
-          {SORT_KEYS.map((key) => (
-            <option key={key} value={key}>
-              {SORT_LABELS[key]}
-            </option>
-          ))}
-        </select>
+        <SortPick />
         <Act action="session-list.open-search" class="bar-link" title="今並んでいるものを絞る">
           絞る
         </Act>
