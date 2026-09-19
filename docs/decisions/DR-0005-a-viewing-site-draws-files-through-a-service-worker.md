@@ -1,0 +1,169 @@
+# DR-0005: ファイルは別の site が Service Worker 越しに描く
+
+Status: Accepted
+Date: 2026-09-19
+
+ここに書くのは**なぜそう決めたか / 何を捨てたか**。画面ぜんぶの姿は [DR-0004](DR-0004-one-state-machine-decides-what-the-screen-is.md)、操作の器は [DR-0003](DR-0003-an-action-is-what-a-key-and-a-button-both-reach.md)。
+
+§6 は**裁定の記録**、§7 は**まだ解けていない問い**。§7 が残っているので、実装はそこを解いてから。
+
+## 1. 背景
+
+### 1.1 今、ファイルはどう見えているか
+
+`src/ui/Files.tsx` は木と中身の 2 枚で、中身の側が描けるのは**文字だけ**。
+
+| ファイル | 今どうなるか |
+|---|---|
+| テキスト | 行番号付きで出る。markdown は「原文 / プレビュー」を切り替えられる |
+| 大きなテキスト | 途中で切れ、「`file.read` は続きを求める引数を持たないので、この先はここからは読めません」と出る |
+| 画像・PDF・動画・書庫 | `binary` が真。**中身は一切届かない** ("バイナリファイルです" と出るだけ) |
+
+契約の `FileReadResult` が `content: string` / `binary: boolean` で、`binary` の時は本文を送らないと決めているため (`@ccmsg/protocol` `src/control/files.ts`)。
+
+### 1.2 何が要るか
+
+人が見たいのは、セッションの手元にある**スクリーンショット・図・PDF・ビルドした HTML**で、これらは**ブラウザが素で描ける**。自前で描き直す道具を webui に積む話ではなく、**ブラウザに渡す**話。
+
+渡し方は 1 つしか無い — そのファイルが、**URL を持つ**こと。`<img src>` も `<iframe src>` も `<video src>` も、指せるのは URL だけ。
+
+### 1.3 なぜ webui の中では描けないか
+
+任意の HTML を描くということは、**その HTML の中の script が、描いた頁と同じ出自で走りうる**ということ。webui の頁で描けば、その script は webui の storage・DOM・そして endpoint へ向かう認証済みの往復に手が届く。
+
+`sandbox` 属性の iframe に閉じ込める手はあるが、閉じ込め先が同じ **site** に居る限り**cookie の分割の単位を共有する**。分割された cookie (CHIPS) の分割の単位は origin ではなく top-level site で、同じ site の別 origin は同じ分割 cookie を共有しうる (契約 [DR-0028](https://github.com/kawaz/ccmsg-protocol/blob/main/docs/decisions/DR-0028-refresh-cookie-across-sites.md))。つまり **origin を分けるだけでは足りない**。
+
+### 1.4 daemon は HTTP を足したくない
+
+ファイルに URL を与える最も素直な形は「instance が `/files/...` を配る」だが、それは daemon に**認証付きの静的配信**という責務をもう 1 つ積むことになる。今 daemon が HTTP で持っているのは `auth/*` だけで、残りは全部 1 本の接続の上に載っている。
+
+## 2. 決定
+
+### 2.1 閲覧は別の site が引き受ける
+
+webui と endpoint のどちらとも **site が違う** 1 つの site (以下**閲覧 site**) を立てる。**別 origin では足りない** — §1.3 の通り、分割 cookie の単位は site だから。
+
+閲覧 site の中身は **2 つの静的ファイル**だけ。
+
+| 置く物 | 役目 |
+|---|---|
+| 頁 1 枚 (`index.html`) | 親から `MessageChannel` のポートを受け取り、Service Worker に渡す。それ以外は何もしない |
+| Service Worker | 自分の scope への fetch を横取りし、ポート越しにバイト列を頼んで `Response` を組む |
+
+**動く物は置かない**。配るのは proxy (hosting) で、FQDN の用意・証明書・配信は**フロントの責務**。この DR はそこに「この site は他のどれとも site が違うこと」だけを要求する。
+
+**daemon には何も足さない**。閲覧 site は instance を知らず、instance も閲覧 site を知らない。
+
+### 2.2 webui は閲覧 site を iframe で開き、ポートを渡す
+
+```
+webui の頁 ──┬─ 接続 (WS / 将来は DataChannel) ── instance
+             │
+             └─ iframe: 閲覧 site
+                  │  postMessage で MessageChannel の port2 を渡す
+                  ▼
+                Service Worker ── fetch を横取り ── port 越しに「このパスのバイト列」
+```
+
+- webui は `<iframe src="https://<閲覧 site>/view/<sid>/<kind>/<path>">` を置く
+- 閲覧 site の頁は SW を登録し、受け取ったポートを SW へ引き渡す
+- SW は自分の scope の fetch を横取りし、ポートに「このパスの、この範囲」を頼む
+- webui の頁は接続中のチャネルの `file.read` で取り、ポートに返す
+- SW はそれを `Response` に組んで返す。**ブラウザから見れば、ただの HTTP 応答**
+
+### 2.3 相対参照が同じ経路で解ける
+
+`/view/<sid>/<kind>/<path>` という**パスの形をそのまま保つ**のが、この設計の効き目の中心。
+
+描いた HTML が `<img src="./fig.png">` と書いていれば、ブラウザはそれを `/view/<sid>/<kind>/<dir>/fig.png` として引きに行く。それも SW の scope の中なので、**同じ横取りが同じように拾う**。CSS も、CSS の中の `url()` も同じ。
+
+**ディレクトリ単位の閲覧が、何も足さずに成り立つ**。1 ファイルを描く仕組みを作ったら、サイトを描く仕組みが付いてきた形で、これは目的と手段が噛み合っている合図 (`design-spec/spec-preflight`)。
+
+### 2.4 権限は「親が繋がっていること」そのもの
+
+閲覧 site は**何の権限も持たない**。持っているのはポート 1 本で、そのポートの向こうに居るのは、**その瞬間にそのセッションへ接続していて `file.read` を通せる webui の頁**。
+
+- ポートは `postMessage` で 1 回だけ渡り、**複製できない**
+- iframe を直接開いた人 (URL を人に送った、ブックマークした) にはポートが無く、SW は**何も答えられない**
+- webui の頁が閉じれば、ポートの向こうが消える
+
+**capability URL は要らない**。URL に権限を載せる形 (daemon の `sandbox_grant`) は、URL が漏れた時に権限も漏れる・失効を別に設計する必要がある・URL が history や Referer に残る、を全部引き受けることになるが、この形はそのどれも持たない。よって daemon の issue `sandbox-grant-delivery-path` は、**配信経路を実装する側ではなく、capability を撤回する側で閉じる** (撤回そのものは daemon の仕事で、この DR の範囲外)。
+
+### 2.5 transport を知らない
+
+ポートの向こうが何で繋がっているかを、閲覧 site も SW も**知らない**。今は WS、将来は WebRTC DataChannel かもしれないが、頼む物は常に「この sid の、この kind の、このパスの、この範囲のバイト列」で、答えはバイト列。
+
+差し替えの時にこの DR の中で残る依存は `auth/*` (HTTP + cookie) だけで、それは**この DR の範囲外** — 認証の carrier は契約 [DR-0020](https://github.com/kawaz/ccmsg-protocol/blob/main/docs/decisions/DR-0020-auth-shape-on-the-wire.md) の持ち物で、ここで決めることではない。
+
+### 2.6 契約に足りない物
+
+範囲読みとバイト列は契約側で足す (契約 DR-0031)。この DR はそれを**前提として使う**だけで、形はここには複製しない。
+
+SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、飛び飛びの範囲が頼めることが要る。
+
+## 3. 不採用
+
+| 採らなかったもの | なぜ |
+|---|---|
+| **webui の頁の中で `blob:` URL を作って描く** | 描いた HTML の script が webui と同じ出自で走る。`blob:` の出自は作った頁の出自 |
+| **`sandbox` 付きの iframe に、同じ site のまま閉じ込める** | `sandbox` は出自を無くすが、**site は変わらない**。分割 cookie の単位は site なので、閉じ込めたことにならない (§1.3、契約 DR-0028) |
+| **別 origin にするが、同じ site に置く** (`view.<webui>`) | 同上。origin の分離は cookie の分割の粒度より細かく、この用途では足りない |
+| **instance が `/files/...` を配る** | daemon に認証付きの静的配信という責務が増える。今 HTTP で持っているのは `auth/*` だけで、その 1 点に閉じているのは意図した形 |
+| **capability URL (`sandbox_grant`) を配る** | 権限が URL に載ると、漏れれば権限も漏れ、失効の設計が別に要り、history と Referer に残る。§2.4 の形はそのどれも持たない。加えて発行しても**届ける経路が無いまま**だった (daemon issue `sandbox-grant-delivery-path`) |
+| **閲覧 site を別タブ / 別窓で開く** | ポートを渡せない。`postMessage` で窓越しに渡すことは技術的には可能だが、親の頁が閉じた後に生き残る窓が「まだ読めるように見えて読めない」状態を作る。§5 の制約を制約のまま受ける方が、状態が 1 つ少ない |
+| **SW を使わず、親が `blob:` を作って iframe に渡す** | 相対参照が解けない。`<img src="./fig.png">` は blob の中からは引けず、**HTML 全体を書き換えて回る**ことになる。CSS の中の `url()` まで含めて書き換え切るのは、やり切れない種類の仕事 |
+| **閲覧 site に webui のコードを載せる** (同じビルドを 2 か所に配る) | 閲覧 site が動く物を持つと、そこが攻撃面になる。持ち物が「頁 1 枚と SW」だけなら、読んで確かめ切れる |
+| **ファイルの種類ごとに描く部品を webui 側に積む** (画像ビューア・PDF ビューア・動画プレイヤー) | ブラウザが既に持っている物を作り直すことになり、種類が増えるたびに増える。しかも HTML は結局描けない |
+
+## 4. 帰結
+
+- **画像・PDF・動画・HTML が見えるようになる**。Files の中身の側は「テキストとして描くか、閲覧 site に渡すか」の 2 択になる
+- **ディレクトリ単位で見える**。ビルドした docs をその場で読む、といった使い方が副産物として付く (§2.3)
+- webui は**描画の責務を持たない**。種類が増えても webui は増えない
+- daemon は**何も増えない**。`sandbox_grant` は逆に減る (§2.4)
+- 配る物が 1 つ増える。**FQDN・証明書・配信の運用がフロントに乗る** (§2.1)
+- 閲覧中は**親の頁が生きている必要がある**。別タブに切り出せない (§5)
+- 初回は **SW の登録という往復が 1 つ増える**。初めて開いたファイルだけ、描き始めが遅れる (§5)
+
+## 5. 前提
+
+| 前提 | 満たさない場合 |
+|---|---|
+| 閲覧 site が、webui とも endpoint とも **site が違う** | 満たさなければこの設計の根拠が消える (§1.3)。フロントの配置がそれを保証できないなら、閲覧の機能ごと成り立たない |
+| Service Worker が登録でき、生き続ける | **iOS Safari はストレージの隔離が強く、登録が消えやすい** (一定期間使わなければ site データごと退去する)。消えていれば頁が登録し直すだけなので、代償は初回の往復 1 つ。**登録できない**環境 (private browsing の一部) では閲覧が使えない — テキストの描画は今のまま残るので、失うのは増えた分だけ |
+| 親の頁が、閲覧中ずっと生きている | 親が消えればポートの向こうが消え、SW は答えられなくなる。**別タブに切り出す道は無い** (§3 の不採用) |
+| 契約が範囲読みとバイト列を持つ (契約 DR-0031) | 持たなければ、描けるのは今も読めているテキストだけ。この DR は契約の変更に**乗っている**ので、先に契約が要る |
+| 1 度に見ているのは 1 つの instance (DR-0004 §6) | 複数へ同時に繋ぐ形になれば、ポートは instance ごとになる。URL の `<sid>` がどの instance の物かを言う必要が出る |
+
+## 6. 裁定の記録
+
+2026-09-19 裁定 (kawaz)。
+
+| | 問い | 裁定 | なぜ |
+|---|---|---|---|
+| FV-Q1 | ファイルをどこで描くか | **別の site を立て、静的な頁 1 枚 + SW だけを置く** | 別 origin では分割 cookie の単位を共有する (契約 DR-0028)。閉じ込めの単位は site |
+| FV-Q2 | その site を誰が配るか | **proxy (hosting) が静的配信する。FQDN の管理はフロントの責務。daemon は HTTP を足さない** | daemon が HTTP で持つのは `auth/*` だけ、という今の形を保つ |
+| FV-Q3 | バイト列をどう渡すか | **iframe に `MessageChannel` のポートを渡し、SW の fetch 横取りがそのポート越しに頼む** | SW が `Response` を組むので、相対参照も同じ横取りが拾う (§2.3) |
+| FV-Q4 | 権限をどう表すか | **親がそのセッションに接続していて `file.read` を通せること、そのもの。capability URL は持たない** | URL に権限を載せると、漏洩・失効・履歴残りを全部引き受ける。daemon issue `sandbox-grant-delivery-path` は撤回側で閉じる (§2.4) |
+| FV-Q5 | transport との関係 | **transport 非依存。WS でも DataChannel でも同じ形** | 頼む物は「バイト列」で、運び方は問わない (§2.5) |
+
+## 7. 要裁定
+
+実装に入る前に解く。**ここでは決めない**。
+
+| | 問い | なぜ要るか |
+|---|---|---|
+| FV-Q6 | 閲覧 site の CSP で **script を許すか** | 許せば、ビルドした docs や図が動く形で見える (= この機能の値打ちの一部)。許さなければ、描けるのは静止した物だけになる。閉じ込めは site の分離で効いているので「許しても安全」と言えるはずだが、**site の分離だけで十分かは、閲覧 site から何が届くか (endpoint への CORS、閲覧 site 自身の storage) を洗ってからでないと言えない** |
+| FV-Q7 | 閲覧 site の FQDN をどう決め、webui はそれをどこから知るか | ビルド時の定数か、instance が名乗るか、設定の 1 項か。どれを選ぶかで「自分で立てた人」の手間が変わる |
+| FV-Q8 | ポートを渡す前の `postMessage` の相手の確かめ方 | `targetOrigin` に閲覧 site を指定するのは当然として、**閲覧 site の側が「この親は webui だ」を確かめるか**。確かめないと、他の頁が閲覧 site を埋め込んでポートを渡せる (ただし渡せる物は自分が持っている接続だけなので、実害が何かは要検討) |
+| FV-Q9 | 大きなファイルの読み進め方 | SW が `Range` を受けた時に何バイトずつ頼むか。契約の 1 回あたりの上限 (契約 DR-0031) は決まっているが、**先読みするか、要求どおりだけ返すか**は描き心地に効く |
+
+## 8. 関連
+
+- [DR-0004](DR-0004-one-state-machine-decides-what-the-screen-is.md) — 画面ぜんぶの姿。閲覧が立てるのは `live` / `stale` だけ
+- [DR-0003](DR-0003-an-action-is-what-a-key-and-a-button-both-reach.md) — 操作の器。閲覧の開閉がアクションになる時の置き場
+- 契約 `docs/decisions/DR-0031-file-read-answers-bytes-in-ranges.md` — この DR が乗っている契約の変更
+- 契約 [DR-0028](https://github.com/kawaz/ccmsg-protocol/blob/main/docs/decisions/DR-0028-refresh-cookie-across-sites.md) — 分割 cookie の単位が site であること。§1.3 の根拠
+- 契約 [DR-0020](https://github.com/kawaz/ccmsg-protocol/blob/main/docs/decisions/DR-0020-auth-shape-on-the-wire.md) — `auth/*` が HTTP に居ること。transport を差し替えても残る依存 (§2.5)
+- daemon `docs/issue/2026-09-09-sandbox-grant-delivery-path.md` — §2.4 が撤回側で閉じると判断した相手
+- `src/ui/Files.tsx` — 今の Files。中身の側がここに 1 択を足す
