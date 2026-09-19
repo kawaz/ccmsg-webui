@@ -29,6 +29,6 @@ visual の files-code / files-markdown / file-word-candidates が light/dark 合
 
 ## 受け入れ条件
 
-- [ ] 契約 v2.8.0 の `file.read` の答え (バイト列 + 範囲) に `files-view.ts` を追随させる
-- [ ] 範囲で答える形になったので `Files.tsx` の「`file.read` は続きを求める引数を持たない」という表示も見直す
-- [ ] visual の files-code / files-markdown / file-word-candidates が通り、基準を撮り直す
+- [x] 契約 v2.8.0 の `file.read` の答え (バイト列 + 範囲) に `files-view.ts` を追随させる
+- [x] 範囲で答える形になったので `Files.tsx` の「`file.read` は続きを求める引数を持たない」という表示も見直す
+- [x] visual の files-code / files-markdown / file-word-candidates が通り、基準を撮り直す
