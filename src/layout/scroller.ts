@@ -58,3 +58,19 @@ export function scrollBoxTo(box: HTMLElement, top: number): void {
 export function topOf(box: HTMLElement, element: Element): number {
   return element.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
 }
+
+/** カーソルの行を**縦だけ**で窓の中に入れる。
+ *
+ * `scrollIntoView` を使わないのは、あれが**動かせる祖先を全部動かす**から —
+ * 狭い画面では一覧と本文が横に並んだ頁になっている (DR-0004 §2.4) ので、一覧の
+ * 行を見せようとした横の動きが、本文の頁を開いたばかりの画面を一覧へ引き戻す
+ * (実機で観測: 送っている最中の scroll が 136 → 68 と巻き戻る)。
+ *
+ * 要るのは縦だけで、横は**頁がどちらに居るか**という別の話。だから動かすのは
+ * 行を縦に動かしている箱 1 つに限る。 */
+export function keepInViewVertically(row: HTMLElement, box: HTMLElement): void {
+  const at = row.getBoundingClientRect();
+  const window = box.getBoundingClientRect();
+  if (at.top < window.top) box.scrollTop -= window.top - at.top;
+  else if (at.bottom > window.bottom) box.scrollTop += at.bottom - window.bottom;
+}

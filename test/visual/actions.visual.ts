@@ -153,14 +153,15 @@ test("ハンバーガーに行き先と切断が畳まれている", async ({ ui
 
 /** 戻る / 進むは**この画面が持つ** (DR-0004 §2.4)。ホーム画面に追加した PWA や
  * 全画面にはブラウザの戻る手が無いので、端末によって在ったり無かったりする道具を
- * 当てにしない。押せるかは自分で数えた履歴の深さが言う。 */
-test("戻る / 進むは履歴の深さの分だけ押せる", async ({ ui: page, instance }) => {
+ * 当てにしない。押せるかを答えるのは Navigation API で、**このタブの履歴そのもの**
+ * を見ている (自分で数えた深さは、読み込み直した後に嘘になる)。 */
+test("戻る / 進むは履歴のある方だけ押せる", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
   await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
   const back = page.getByRole("button", { name: "戻る" });
   const forward = page.getByRole("button", { name: "進む" });
-  // 開いたばかりの頁は、手前も先も無い。
-  await expect(back).toBeDisabled();
+  // まだ一度も戻っていないので、先は無い (手前があるかは、この browser がここへ
+  // 来るまでに通った道の話なので見ない)。
   await expect(forward).toBeDisabled();
 
   await page.getByRole("button", { name: /topic の畳み方/ }).click();
@@ -170,7 +171,6 @@ test("戻る / 進むは履歴の深さの分だけ押せる", async ({ ui: page
 
   await back.click();
   await expect(page).toHaveURL(new RegExp(`${instance.endpoint}$`));
-  await expect(back).toBeDisabled();
   await expect(forward).toBeEnabled();
 
   await forward.click();

@@ -2591,24 +2591,32 @@ select {
   outline-offset: -2px;
 }
 
-/* 狭い画面: 並べない。2 枚は横に並んだままで、見ている方へ滑らせる。
-   滑りは「どちらへ動いたか」が見える最短で、待たせるための時間ではない。 */
+/* 狭い画面: 並べない。**1 枚ずつ窓いっぱい**に並べて、横に送る頁として扱う。
+   隣をチラ見せしないのは、隣の存在を気にしないで読めるようにするため — 横の
+   並びが言うのは「右へ行くほど深い」だけで、そこに居ることは目に入らなくてよい
+   (送っている最中に隣が見えるのは構わない)。
+
+   送るのは scroll そのもの (scroll-snap)。transform で滑らせると、指で送る手が
+   別に要るが、頁として並べれば**スワイプはブラウザの持ち物のまま**になる。 */
 @media (max-width: 720px) {
   .panes {
-    display: grid;
-    grid-template-columns: 100% 100%;
-    transition: transform 90ms ease-out;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .panes::-webkit-scrollbar {
+    display: none;
   }
 
   /* 2 枚はどちらも窓の幅ちょうど。広い画面で覚えた一覧の幅は、ここでは効かない
      (並べていないので、幅は「窓」以外にありえない)。 */
   .pane-list,
   .pane-main {
+    flex: 0 0 100%;
     width: 100%;
-  }
-
-  .panes.showing-main {
-    transform: translateX(-100%);
+    scroll-snap-align: start;
   }
 
   .panes-split {
@@ -2618,12 +2626,6 @@ select {
   /* 一覧を畳んでいても、狭い画面では 1 枚として使う (畳みは並べる時の話)。 */
   .panes.list-off .pane-list {
     display: flex;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .panes {
-    transition: none;
   }
 }
 

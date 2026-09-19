@@ -87,8 +87,8 @@ test("狭い画面では並べず、選ぶと本文へ滑る", async ({ phone: p
   // セッションを選ぶと本文へ。一覧は左へ出ていく。
   await page.getByRole("button", { name: "束 0 を片付ける" }).click();
   await expect(page.getByRole("heading", { name: /transcript — / })).toBeVisible();
-  // 滑り終わるまで待つ: 一覧は**まるまる 1 枚ぶん**左へ出る。途中で測ると、
-  // 90ms の滑りのどこを掴んだかが答えになってしまう。
+  // 送り終わるまで待つ: 一覧は**まるまる 1 枚ぶん**左へ出る。途中で測ると、
+  // 送っている 200ms のどこを掴んだかが答えになってしまう。
   const gone = Math.round((panes?.x ?? 0) - (panes?.width ?? 0));
   await expect
     .poll(async () => Math.round((await page.locator(".pane-list").boundingBox())?.x ?? 0))
@@ -101,11 +101,36 @@ test("狭い画面では並べず、選ぶと本文へ滑る", async ({ phone: p
   // ここで見たいのは「並べずに 1 枚だけを出し、横へ滑って入れ替わる」ことなので、
   // 位置と幅で見る (上の assert)。
 
-  // バーの「一覧」で戻る (狭い画面ではこれが戻る道)。
+  // メニューの「一覧」で戻る。
   await openList(page);
   await expect
     .poll(async () => Math.round((await page.locator(".pane-list").boundingBox())?.x ?? -1))
     .toBe(Math.round(panes?.x ?? 0));
+});
+
+/** 狭い画面の頁は**指で送れる** (DR-0004 §2.4)。送り終わった所は URL にも書く
+ * ので、ブラウザの戻る (iOS の端スワイプを含む) と食い違わない。 */
+test("右へ送れば一覧に戻り、URL もそこを指す", async ({ phone: page, instance }) => {
+  await page.goto(instance.endpoint);
+  await page.getByRole("button", { name: "束 0 を片付ける" }).click();
+  await expect(page).toHaveURL(/\/s\/[0-9a-f-]+\/timeline$/);
+  // 本文の頁に着いてから送る (着く前に送ると、送っている最中の位置を「収まった
+  // 所」と読むことになる — それを読まないのが `sliding` の役目)。
+  const at = page.locator(".panes");
+  await expect
+    .poll(async () => at.evaluate((b: HTMLElement) => b.dataset["sliding"] ?? "着いた"))
+    .toBe("着いた");
+
+  // 指で送る代わりに、頁そのものを一覧側へ寄せる (scroll-snap の頁なので、
+  // 指で送った時と同じ道を通って同じ所に収まる)。
+  await page.locator(".panes").evaluate((box: HTMLElement) => {
+    box.scrollTo({ left: 0, behavior: "smooth" });
+  });
+  // 収まった所が URL に出る。
+  await expect(page).toHaveURL(new RegExp(`^${instance.endpoint}$`));
+  await expect
+    .poll(async () => Math.round((await page.locator(".pane-list").boundingBox())?.x ?? -1))
+    .toBe(Math.round((await page.locator(".panes").boundingBox())?.x ?? 0));
 });
 
 test("一覧が窓より高くても、選んだ本文は末尾で止まる", async ({ ui: page, instance }) => {

@@ -1130,7 +1130,7 @@ export function takeSignOutWord(): void {
   const hash = location.hash;
   if (!hash.startsWith(SIGNED_OUT)) return;
   const refused = decodeURIComponent(hash.slice(SIGNED_OUT.length));
-  history.replaceState(history.state, "", location.pathname + location.search);
+  history.replaceState(null, "", location.pathname + location.search);
   authProblem.value = `この端末からは降りましたが、instance に失効を頼めませんでした (${refused})。別のタブが繋がったままのことがあります。`;
 }
 
@@ -1563,65 +1563,65 @@ function loadSortKey(): SortKey {
  * `replace` is for a move the person did not ask for — restoring the file that
  * was open when the tab is entered without one named — so the back button does
  * not have to walk through the app's own bookkeeping. */
-/** 履歴のどこに居るか。
+/** 戻れるか / 進めるかは **Navigation API が答える**。
  *
- * ブラウザは「戻れるか」を教えてくれない (`history.length` は前に進んだ分も
- * 数える) ので、**自分で置いた数を数える**。この画面の遷移は全部 `navigate` を
- * 通るので、押した回数が深さになり、`popstate` で戻った時はその頁に書いてある
- * 数が今の位置を言う。
+ * `history` はここに答えを持っていない (`length` は前に進んだ分も数えるし、
+ * どこに居るかは言わない) ので、自分で深さを数えるしかなかった。数えた深さは
+ * 頁の中にしか残らないので、読み込み直した後は「進める」を必ず false と答える
+ * ことになる — 嘘ではないが、実際には進める。`navigation.canGoBack` /
+ * `canGoForward` は**そのタブの履歴そのもの**を見ているので、読み込み直しても
+ * 正しく答える。対象の最新 Chrome / Safari 26 はどちらも持っている。
  *
- * 進めるかは「一度でも戻ったか」で決まるので、見た中でいちばん深い所を覚える。
- * 読み込み直すと覚えは 0 から始まる — 頁をまたいで数を持ち歩くと、別のタブや
- * 別の頁の履歴を自分のものとして数えることになる。 */
-interface HistoryMark {
-  readonly at: number;
+ * 持っていない browser では戻る / 進むは押せないままになる — 押せるふりをして
+ * 何も起きないより、そこに手が無いことが見えている方がよい。 */
+interface NavigationLike extends EventTarget {
+  readonly canGoBack: boolean;
+  readonly canGoForward: boolean;
+  back(): void;
+  forward(): void;
 }
 
-function markOf(state: unknown): number {
-  if (typeof state !== "object" || state === null) return 0;
-  const at = (state as { at?: unknown }).at;
-  return typeof at === "number" ? at : 0;
+function navigationApi(): NavigationLike | undefined {
+  const held = (globalThis as { navigation?: unknown }).navigation;
+  return typeof held === "object" && held !== null && "canGoBack" in held
+    ? (held as NavigationLike)
+    : undefined;
 }
 
-export const historyAt = signal(0);
-export const historyDeepest = signal(0);
+export const canGoBack = signal(false);
+export const canGoForward = signal(false);
 
-/** 今の頁に数が書いていなければ書く (この頁から数え始める)。 */
-export function adoptHistory(): void {
-  const at = markOf(history.state);
-  if (history.state === null) history.replaceState({ at } satisfies HistoryMark, "");
-  historyAt.value = at;
-  historyDeepest.value = Math.max(historyDeepest.peek(), at);
+/** 履歴の変化を聞き始める。答えが変わるのは頁を移った時だけなので、
+ * 変化の通知 (`currententrychange`) をそのまま読む — 数えも見張りも要らない。 */
+export function watchHistory(): void {
+  const at = navigationApi();
+  if (at === undefined) return;
+  const read = (): void => {
+    canGoBack.value = at.canGoBack;
+    canGoForward.value = at.canGoForward;
+  };
+  read();
+  at.addEventListener("currententrychange", read);
+  at.addEventListener("navigatesuccess", read);
 }
 
-export function canGoBack(): boolean {
-  return historyAt.value > 0;
+export function goBack(): void {
+  navigationApi()?.back();
 }
 
-export function canGoForward(): boolean {
-  return historyAt.value < historyDeepest.value;
+export function goForward(): void {
+  navigationApi()?.forward();
 }
 
 export function navigate(next: Route, options?: { replace?: boolean }): void {
   route.value = next;
   const path = href(next);
-  if (options?.replace === true) {
-    history.replaceState({ at: historyAt.peek() } satisfies HistoryMark, "", path);
-    return;
-  }
-  const at = historyAt.peek() + 1;
-  history.pushState({ at } satisfies HistoryMark, "", path);
-  historyAt.value = at;
-  // 進んだ先が今までのいちばん深い所になる (分岐した時は、戻って別の道へ進んだ
-  // 時点でその先は無くなっている)。
-  historyDeepest.value = at;
+  if (options?.replace === true) history.replaceState(null, "", path);
+  else history.pushState(null, "", path);
 }
 
 export function adoptLocation(): void {
   route.value = locationRoute();
-  const at = markOf(history.state);
-  historyAt.value = at;
-  historyDeepest.value = Math.max(historyDeepest.peek(), at);
 }
 
 /** gateway に聞いた、日ごとの費用。`days` は「どれだけ遡るか」で、gateway は

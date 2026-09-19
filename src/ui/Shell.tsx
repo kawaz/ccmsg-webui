@@ -1,5 +1,7 @@
-import { useRef } from "preact/hooks";
-import { sessionsSplitKey } from "../layout/panes.ts";
+import type { RefObject } from "preact";
+import { useEffect, useRef } from "preact/hooks";
+import { pagedSideways, sessionsSplitKey } from "../layout/panes.ts";
+import { sliding as beingSlid, slideTo } from "../layout/slide.ts";
 import { ScrollerContext } from "../layout/scroller.ts";
 import {
   dismissToast,
@@ -71,10 +73,12 @@ function Toast() {
  * ではなく一覧の終わりになる。本文を動かす箱がどれかは `ScrollerContext` が
  * 下へ渡す (`layout/scroller.ts`)。
  *
- * 狭い画面では並べず、URL が名指すものだけを出す: 一覧に居れば一覧、セッション
- * に居れば本文。**2 枚は横に並んだまま**で、切り替えは横へ滑らせるだけなので、
- * 行き先が左右のどちらに居るかが動きに出る。滑りは 90ms — 待たせるための時間で
- * はなく、どちらへ動いたかが見える最短。
+ * 狭い画面では並べず、**1 枚ずつ窓いっぱいの頁**として横に並べる。隣はチラ見せ
+ * しない — 横の並びが言うのは「右へ行くほど深い」だけで、隣がそこに居ることは
+ * 目に入らなくてよい。送るのは scroll そのもの (scroll-snap) なので、**指で右へ
+ * 送れば一覧へ戻れる**。送り終わった所は URL にも書く: 画面が一覧に居るのに URL が
+ * セッションを名指していると、ブラウザの戻る (iOS の端スワイプを含む) と食い
+ * 違う。
  *
  * 持つのは配置と、覚えている幅。中身 (一覧 / 本文) が何であるかは知らない。 */
 function Panes() {
@@ -85,8 +89,9 @@ function Panes() {
   const main = useRef<HTMLDivElement>(null);
   const open = sessionsOpen.value;
   // 狭い画面でどちらを見ているかは URL が決める。一覧そのものを指している時
-  // だけ一覧で、それ以外は本文 (戻る道はバーの「一覧」)。
+  // だけ一覧で、それ以外は本文。
   const showing = at.at === "sessions" ? "list" : "main";
+  useSlidingPages(box, main, showing);
   return (
     <Pane
       name="workspace"
@@ -123,6 +128,47 @@ function Panes() {
       </Pane>
     </Pane>
   );
+}
+
+/** 狭い画面の頁送りと、送り終わった所を URL に書くこと (DR-0004 §2.4)。
+ *
+ * **URL → 画面**は送ることで、**画面 → URL** は送り終わりを聞いて書く。後者を
+ * 置かないと、指で一覧へ戻った後も URL はセッションを名指したままになり、
+ * ブラウザの戻る (iOS の端スワイプを含む) が人の見ている所と食い違う。
+ *
+ * 送り終わりは `scrollend` が言う。指を離した後にどこへ収まるかを決めるのは
+ * scroll-snap なので、途中を見張っても答えは出ない (見張る必要も無い)。 */
+function useSlidingPages(
+  box: RefObject<HTMLDivElement>,
+  main: RefObject<HTMLDivElement>,
+  showing: "list" | "main",
+): void {
+  // URL が名指す頁へ送る。広い画面では 2 枚が並んでいるので送る所が無い。
+  useEffect(() => {
+    const at = box.current;
+    const to = main.current;
+    if (at === null || to === null || !pagedSideways(at)) return;
+    slideTo(at, showing === "main" ? to.offsetLeft - at.offsetLeft : 0);
+  }, [box, main, showing]);
+
+  // 送り終わった所を URL に書く。一覧へ戻った時だけで、逆 (本文へ送った時に
+  // どのセッションを開くか) はこちらからは言えない — 開く相手を選ぶのは人。
+  useEffect(() => {
+    const at = box.current;
+    if (at === null) return;
+    const settled = (): void => {
+      // こちらが送っている最中の `scrollend` は「着いた所」を言っていない。
+      if (beingSlid(at)) return;
+      if (!pagedSideways(at)) return;
+      if (at.scrollLeft > at.clientWidth / 2) return;
+      if (route.peek().at === "sessions") return;
+      navigate({ at: "sessions" });
+    };
+    at.addEventListener("scrollend", settled);
+    return () => {
+      at.removeEventListener("scrollend", settled);
+    };
+  }, [box]);
 }
 
 /** 区画をまたぐ移動 (DR-0003 §2.7)。

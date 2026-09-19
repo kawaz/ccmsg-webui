@@ -1,4 +1,5 @@
 import { computed, useSignal } from "@preact/signals";
+import { keepInViewVertically } from "../layout/scroller.ts";
 import { useEffect, useRef } from "preact/hooks";
 import {
   liveness,
@@ -270,7 +271,10 @@ function PeerRow({
   // カーソルの行は画面の中に居る。キーで辿った先が窓の外だと、辿っている手が
   // 何も動いていないように見える。
   useEffect(() => {
-    if (onCursor) box.current?.scrollIntoView({ block: "nearest" });
+    const at = box.current;
+    const pane = at?.closest(".pane-list");
+    if (!onCursor || at === null || !(pane instanceof HTMLElement)) return;
+    keepInViewVertically(at, pane);
   }, [onCursor]);
   return (
     <Holder name={`row ${peer.sid}`}>

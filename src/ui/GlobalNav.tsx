@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { useRef } from "preact/hooks";
 import { href } from "../base.ts";
+import { pagedSideways } from "../layout/panes.ts";
 import { statusBadge } from "../llm/status-view.ts";
 import type { Route } from "../route.ts";
 import {
@@ -9,6 +10,8 @@ import {
   canGoBack,
   canGoForward,
   endpoint,
+  goBack,
+  goForward,
   llmStatusReports,
   navigate,
   route,
@@ -59,8 +62,8 @@ function Ways() {
     enabled: () => can("llm_usage") || can("llm_status"),
     run: go({ at: "usage" }),
   });
-  useAction("app.back", { enabled: canGoBack, run: () => history.back() });
-  useAction("app.forward", { enabled: canGoForward, run: () => history.forward() });
+  useAction("app.back", { enabled: () => canGoBack.value, run: goBack });
+  useAction("app.forward", { enabled: () => canGoForward.value, run: goForward });
   useAction("app.open-parent-session", {
     // 親が居るのは worker を主語に読んでいる時だけ。
     enabled: () => route.value.at === "agent",
@@ -117,8 +120,8 @@ function SessionsToggle({ onDone }: { onDone: () => void }) {
   const press = (): void => {
     onDone();
     const panes = document.querySelector(".panes");
-    const side = panes === null || getComputedStyle(panes).display !== "grid";
-    if (side) {
+    const paged = panes instanceof HTMLElement && pagedSideways(panes);
+    if (!paged) {
       toggleSessionsOpen();
       return;
     }

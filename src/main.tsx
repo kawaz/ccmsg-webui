@@ -2,12 +2,12 @@ import { render } from "preact";
 import "./app.css";
 import { watchEnrolmentLinks } from "./auth/enrolment-link.ts";
 import {
-  adoptHistory,
   adoptLocation,
   enrolment,
   holdEnrolment,
   resume,
   takeSignOutWord,
+  watchHistory,
 } from "./state.ts";
 import { applySaved } from "./settings-section.ts";
 import "./theme.ts";
@@ -28,14 +28,14 @@ takeSignOutWord();
 watchEnrolmentLinks(
   {
     hash: () => location.hash,
-    clearHash: () => history.replaceState(history.state, "", location.pathname + location.search),
+    clearHash: () => history.replaceState(null, "", location.pathname + location.search),
     onHashChange: (react) => addEventListener("hashchange", react),
   },
   holdEnrolment,
 );
 
-// この頁が履歴のどこに居るかを数え始める (戻る / 進むが押せるかの出所)。
-adoptHistory();
+// 戻る / 進むが押せるかを Navigation API に聞き始める。
+watchHistory();
 
 addEventListener("popstate", () => {
   adoptLocation();

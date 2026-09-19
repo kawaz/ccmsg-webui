@@ -27,3 +27,13 @@ export function parseSessionsOpen(raw: string | undefined): boolean {
 export function formatSessionsOpen(open: boolean): string {
   return open ? "open" : "closed";
 }
+
+/** 2 枚が**頁として横に並んでいるか** (= 狭い画面か)。
+ *
+ * 幅の境目は **CSS が正本**なので、数を持たずに今の姿を読む。読むのは「横へ
+ * 送れるか」そのもの — 並べている時の 2 ペインは窓に収まっていて送る所が無く、
+ * 頁にしている時だけ窓の外へ続く。`display` の綴りで見分けない: 版組の作りが
+ * 変われば綴りも変わるが、送れるかどうかは作りが変わっても同じことを言う。 */
+export function pagedSideways(box: HTMLElement): boolean {
+  return box.scrollWidth - box.clientWidth > 1;
+}
