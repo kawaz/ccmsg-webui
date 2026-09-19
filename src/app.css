@@ -515,11 +515,6 @@ select {
   gap: 6px;
 }
 
-.tl-item {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 120px;
-}
-
 .tl-tail {
   height: 1px;
   scroll-snap-align: end;

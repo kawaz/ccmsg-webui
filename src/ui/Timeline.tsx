@@ -172,6 +172,7 @@ export function Timeline({ sid }: { sid: Sid }) {
 function TimelineBody({ view }: { view: TranscriptItemsView }) {
   const pane = useRef<HTMLDivElement>(null);
   const top = useRef<HTMLParagraphElement>(null);
+  const tail = useRef<HTMLDivElement>(null);
   const scroller = useContext(ScrollerContext);
   const room = (): HTMLElement | null => scroller?.current ?? null;
   const held = view.items.value;
@@ -226,6 +227,22 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     const at = key === null || key === undefined ? -1 : matched.value.indexOf(key);
     if (at >= 0) search.index.value = at + 1;
   };
+
+  // 開くのは人の動作なので、末尾へ置くのはここ 1 回だけ。以降は誰も位置を
+  // 書かない — 末尾に留まるのは番兵の snap、遡った先で留まるのは錨の仕事。
+  // `scroll-snap` は近くにある吸着点にしか吸わないので、頁ぶんの transcript を
+  // 描いた所から末尾までは、これを置かないと届かない (開いた所が先頭になる)。
+  //
+  // 置く先は**番兵の吸着点**であって、動かせる一番下ではない。番兵の下には
+  // pane の余白と footer が居るので、一番下へ置くと snap が引き戻そうとする
+  // 位置と 65px 食い違い、開くたびにどちらが勝つかで本文の高さが変わる。
+  const opened = useRef(false);
+  useEffect(() => {
+    const end = tail.current;
+    if (opened.current || end === null || nodes.length === 0) return;
+    opened.current = true;
+    end.scrollIntoView({ block: "end" });
+  }, [nodes.length]);
 
   useEffect(() => {
     const edge = top.current;
@@ -310,7 +327,7 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                         </div>
                       ))}
                     </div>
-                    <div class="tl-tail" aria-hidden="true" />
+                    <div class="tl-tail" aria-hidden="true" ref={tail} />
                   </div>
                   {nodes.length === 0 && !view.loading.value && (
                     <p class="empty">まだ transcript がありません。</p>
