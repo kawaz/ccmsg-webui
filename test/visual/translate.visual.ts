@@ -71,10 +71,13 @@ test("読んでいる所で切り替えても、読んでいる行は動かな�
 
   // item の側の入口を押す。**上端まで戻らずに押せる**ことがこの test の主題なので、
   // 押すのは Playwright の click — 画面内に無ければ動かしてしまうので、動かな
-  // かったことがそのまま結果に出る。
-  await english
-    .locator("xpath=ancestor::div[contains(@class,'tl-line')][1]")
-    .getByRole("button", { name: "訳" })
+  // かったことがそのまま結果に出る。入口はその項目を選んだ時に出る `⋯` の中。
+  const line = english.locator("xpath=ancestor::div[contains(@class,'tl-line')][1]");
+  await english.click();
+  await line.getByRole("button", { name: "この項目の操作" }).click();
+  await page
+    .locator("#tl-item-menu")
+    .getByRole("button", { name: "本文の言語を切り替える (訳 ⇄ 原文)" })
     .click();
   await expect(page.getByText("【host の訳】The fold is read").first()).toBeVisible();
 

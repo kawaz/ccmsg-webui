@@ -100,6 +100,10 @@ export const ACTIONS: readonly Action[] = [
   { id: "timeline.open-worker", title: "worker を主語に開く" },
   { id: "timeline.select-prev-in-voice", title: "同じ声の前へ" },
   { id: "timeline.select-next-in-voice", title: "同じ声の次へ" },
+  // 選んだ 1 項目に効くもの。担当は**その項目自身**が名乗るので、押す所は選んだ
+  // 項目に出る `⋯` の中にある (§2.3)。
+  { id: "timeline.show-jsonl", title: "元の record (jsonl) を見る" },
+  { id: "timeline.copy", title: "本文をコピーする" },
 
   // files。木と本文は別々の節なので、同じ上下でも届く先が違う (§2.2)。
   { id: "files.select-prev", title: "前へ (ファイルの木)" },

@@ -47,23 +47,34 @@ test("← でセクションが畳まれ、畳んだ分は 1 単位になる", a
   await expect(head).toHaveAttribute("aria-expanded", "true");
 });
 
-test("選んだ 1 通に ▲ ▼ が出て、同じ声だけを辿る", async ({ ui: page, instance }) => {
+test("選んだ 1 通に ⋯ が出て、そこから同じ声だけを辿る", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
   await expect(page.locator(".tl-bubble").first()).toBeVisible();
 
   // 同じ声が 2 つ以上ある列を選ぶ。この fixture では人の発言は 1 通しかない
   // ので、そこから「同じ声の次へ」が効かないのは正しい振る舞い。
-  await page.locator(".tl-bubble .tl-who", { hasText: "セッション" }).first().click();
+  await page
+    .locator(".tl-line.message")
+    .filter({ has: page.locator(".visually-hidden", { hasText: "セッション" }) })
+    .first()
+    .click();
   const chosen = page.locator(".tl-bubble.chosen");
   await expect(chosen).toHaveCount(1);
-  await expect(chosen.getByRole("button", { name: "同じ声の次へ" })).toBeVisible();
+
+  // 操作は常時出ていない。選んだ 1 通にだけ出る `⋯` の中にある。
+  const more = page.getByRole("button", { name: "この項目の操作" });
+  await expect(more).toHaveCount(1);
   await shot(page, "actions-chosen-message.png");
+  await more.click();
+  const menu = page.locator("#tl-item-menu");
+  await expect(menu).toBeVisible();
+  await shot(page, "actions-item-menu.png");
 
   // 同じ声の次へ。選んだ 1 通が決めた列を辿るので、押した先も同じ相手の声。
-  const who = await chosen.locator(".tl-who").first().textContent();
-  await chosen.getByRole("button", { name: "同じ声の次へ" }).click();
+  const who = await chosen.locator(".visually-hidden").first().textContent();
+  await menu.getByRole("button", { name: "同じ声の次へ" }).click();
   await expect(page.locator(".tl-bubble.chosen")).toHaveCount(1);
-  expect(await page.locator(".tl-bubble.chosen .tl-who").first().textContent()).toBe(who);
+  expect(await page.locator(".tl-bubble.chosen .visually-hidden").first().textContent()).toBe(who);
 });
 
 test("キーバインドの設定は、綴りと今の環境での姿を並べて出す", async ({ ui: page, instance }) => {

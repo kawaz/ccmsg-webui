@@ -479,10 +479,7 @@ select {
 
 .tl-pane {
   overflow-anchor: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 8px;
+  padding: 4px 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -495,6 +492,7 @@ select {
 }
 
 .tl-line {
+  position: relative;
   display: flex;
   gap: 8px;
   padding: 6px 4px;
@@ -538,21 +536,13 @@ select {
   margin-left: 16px;
 }
 
-/* 元の record への入口。読んでいる邪魔をしないよう、普段は薄く小さく置き、
-   その行に触れている間だけ前に出る。分類の甘い item では常に見える
-   (`.generic`) — そこが「元の行を見ないと分からない」所だから。 */
+/* 元の record。項目の操作から開いた時だけ居るので、居る間は閉じる手として
+   はっきり出しておく。 */
 .tl-raw > summary {
   cursor: pointer;
   color: var(--fg-muted);
   font-size: 11px;
-  opacity: 0.25;
   width: fit-content;
-}
-
-.tl-line:hover .tl-raw > summary,
-.tl-raw[open] > summary,
-.tl-line.generic .tl-raw > summary {
-  opacity: 1;
 }
 
 .tl-raw pre {
@@ -597,6 +587,7 @@ select {
 
 .tl-tool {
   margin: 0 0 4px;
+  padding-inline-end: 20px;
   display: flex;
   gap: 8px;
   min-width: 0;
@@ -625,6 +616,7 @@ select {
 
 .tl-fold > summary,
 .tl-aside > summary {
+  padding-inline-end: 20px;
   cursor: pointer;
   color: var(--fg-muted);
   font-size: 12px;
@@ -673,17 +665,8 @@ select {
   color: var(--brand-fg);
 }
 
-/* worker へ降りる入口。行の中身ではなく行から出る道なので、道具の 1 行とは
- * 別の重さで置く。 */
-.tl-agent-link {
-  display: inline-block;
-  margin: 2px 0 4px;
-  font-size: 12px;
-  color: var(--brand-fg);
-}
-
-/* 通知が答えた 1 通へ戻る道。行から出る道という点で worker への入口と同じ
-   重さ、押す物なので囲みは持たない。 */
+/* 通知が答えた 1 通へ戻る道。行の中身ではなく行から出る道なので、
+   道具の 1 行とは別の重さで置く。押す物なので囲みは持たない。 */
 .tl-reply-link {
   padding: 0;
   border: 0;
@@ -976,11 +959,13 @@ select {
   border-width: 0;
 }
 
-/* 名乗りは畳みの取っ手そのもの。閉じている間は名乗りの隣に 1 行の要約が出る。 */
+/* 名乗りは畳みの取っ手そのもの。閉じている間は 1 行の要約が出る。右肩は
+   選んだ時に `⋯` が出る所なので、常に空けておく。 */
 .tl-bubble > summary {
   display: flex;
   gap: 6px;
   min-width: 0;
+  padding-inline-end: 20px;
   cursor: pointer;
   list-style: none;
 }
@@ -2153,25 +2138,6 @@ select {
   font-size: 11px;
 }
 
-/* item の側の入口。読んでいる所で押せることが要点なので、本文の頭に小さく置き、
-   触れている間だけ前に出る (読む邪魔をしない)。 */
-.tl-reading {
-  float: right;
-  margin: 0 0 2px 8px;
-  padding: 0 5px;
-  border-color: transparent;
-  color: var(--fg-muted);
-  font-size: 11px;
-  line-height: 1.6;
-  opacity: 0.45;
-}
-
-.tl-line:hover .tl-reading,
-.tl-reading:focus-visible {
-  opacity: 1;
-  border-color: var(--border);
-}
-
 /* --- セッションの状態 --- */
 
 .status-block {
@@ -3041,15 +3007,61 @@ select {
   box-shadow: 0 0 0 2px var(--member-border);
 }
 
-.tl-voice-nav {
-  display: flex;
-  gap: 2px;
-  margin-inline-start: auto;
+/* 選んだ 1 項目の操作。出るのは選んだ所だけなので、居ない時も場所だけは行の
+   右肩に空けておく — 辿るたびに行の幅が変わると、読んでいる文が動く。 */
+.tl-more-wrap {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 2px;
 }
 
-.tl-voice-nav button {
+.tl-more {
+  anchor-name: --tl-item-menu;
   padding: 0 4px;
-  line-height: 1.2;
+  border-color: transparent;
+  background: none;
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.tl-more:hover,
+.tl-more:focus-visible {
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+/* 開くのも閉じるのも位置決めもブラウザの持ち物 (DR-0003 §2.5)。錨から下に出し、
+   入らなければ上へ返す。 */
+.tl-menu {
+  position: fixed;
+  position-anchor: --tl-item-menu;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block;
+  inset: auto;
+  margin: 2px 0 0;
+  padding: 4px;
+  width: max-content;
+  max-width: 20em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tl-menu button {
+  border-color: transparent;
+  background: none;
+  text-align: start;
+  font-size: 12px;
+}
+
+.tl-menu button:hover:not(:disabled),
+.tl-menu button:focus-visible {
+  border-color: var(--border);
 }
 
 /* 確認。開いている間、後ろが不活になるのは `showModal()` の持ち物で、こちらで

@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { createContext } from "preact";
 import { useContext, useEffect, useMemo, useRef } from "preact/hooks";
 import { computed, useSignal } from "@preact/signals";
@@ -80,9 +81,7 @@ import { displayPathFor, isAbsolutePath, ROOT } from "../files/paths.ts";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
-import { actionOf } from "../actions/catalogue.ts";
-import { run } from "../actions/tree.ts";
-import { Act, Holder, Pane, useAction, useScope, useScopeKeys } from "./Scope.tsx";
+import { Act, Holder, Pane, useAction, useScopeKeys } from "./Scope.tsx";
 import { hasVoiceNeighbour, stepInVoice, stepItem } from "../timeline/voice-nav.ts";
 
 /** A session's transcript as the items an instance read it into, followed
@@ -337,7 +336,7 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                       .filter((one) => one.notification.sid === view.sid)
                       .map((one) => (
                         <div key={one.key} class="tl-bubble notice">
-                          <span class="tl-who">通知</span>
+                          <span class="visually-hidden">通知</span>
                           <div class="tl-body">
                             <MarkdownView
                               source={one.notification.text}
@@ -724,19 +723,19 @@ function agentOf(row: ItemRow): string | undefined {
   return undefined;
 }
 
-/** その worker を主語にして開くリンク。親の transcript に出るのは指示と返って
- * きた答えだけで、その worker が何を叩いたかは worker 自身の transcript にしか
- * 無い。 */
-function AgentLink({ sid, agentId }: { sid: Sid; agentId: string }) {
+/** その worker を主語にして開く所。親の transcript に出るのは指示と返ってきた
+ * 答えだけで、その worker が何を叩いたかは worker 自身の transcript にしか無い。
+ *
+ * 担当を名乗るのはこの 1 行なので (§2.3)、節も 1 行ぶん立てる。 */
+function OpenWorker({ sid, agentId }: { sid: Sid; agentId: string }) {
   return (
     <Holder name={`worker ${agentId}`}>
-      <AgentGo sid={sid} agentId={agentId} />
+      <OpenWorkerAct sid={sid} agentId={agentId} />
     </Holder>
   );
 }
 
-function AgentGo({ sid, agentId }: { sid: Sid; agentId: string }) {
-  const scope = useScope();
+function OpenWorkerAct({ sid, agentId }: { sid: Sid; agentId: string }) {
   const to = { at: "agent", sid, agentId } as const;
   useAction("timeline.open-worker", {
     enabled: () => true,
@@ -744,40 +743,117 @@ function AgentGo({ sid, agentId }: { sid: Sid; agentId: string }) {
       navigate(to);
     },
   });
+  return <Act action="timeline.open-worker" />;
+}
+
+/** 選んだ 1 項目にだけ出る `⋯` と、そこから開くその項目への操作。
+ *
+ * 常に出ている操作を項目ごとに並べると、transcript が操作の並びで埋まって本文
+ * が読めなくなる。**出るのは選んだ 1 つだけ**なので、画面に居る `⋯` はいつも
+ * 1 つきり — 窓の id と錨の名前を定数で持てるのはそのため。
+ *
+ * 窓はブラウザの popover そのもので、開閉もライトディスミスも位置決めも
+ * 自前で書かない (DR-0003 §2.5)。 */
+function ItemMenu({ row, worker }: { row: ItemRow; worker: ComponentChildren }) {
+  const { item } = row;
+  const raws = [row.item, row.result].filter((one) => one !== undefined);
+  useAction("timeline.show-jsonl", {
+    enabled: () => true,
+    run: () => {
+      for (const one of raws) timelineFolds.value.set(rawFoldKey(one.uuid), true);
+    },
+  });
+  useAction("timeline.copy", {
+    // 書き込む先を持たないブラウザでは押せる所を出さない (押しても何も起きない
+    // ものが並ぶより、無い方が読める)。
+    enabled: () => navigator.clipboard !== undefined,
+    run: () => {
+      void navigator.clipboard.writeText(rowCopyText(row));
+    },
+  });
+  const route = preferredRoute.value;
+  const prose = itemProse(item);
+  const offered = route !== undefined && prose !== undefined && !needsNoTranslation(prose);
   return (
-    <a
-      class="tl-agent-link"
-      href={href(to)}
-      onClick={(event: MouseEvent) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-        event.preventDefault();
-        run("timeline.open-worker", scope);
-      }}
-    >
-      {actionOf("timeline.open-worker")?.title}
-    </a>
+    <span class="tl-more-wrap">
+      <button type="button" class="tl-more" popovertarget={MENU_ID} aria-label="この項目の操作">
+        <span aria-hidden="true">⋯</span>
+      </button>
+      {/* 選んだ後に窓が残っていると、その下の transcript が読めない。閉じる手
+          (Escape・窓の外) はブラウザの持ち物のままで、**選んだら閉じる**ことだけ
+          をここが足す。 */}
+      <div
+        popover="auto"
+        id={MENU_ID}
+        class="tl-menu"
+        role="group"
+        aria-label="この項目の操作"
+        onClick={(event: MouseEvent) => {
+          const target = event.target;
+          if (!(target instanceof Element) || target.closest("button") === null) return;
+          (event.currentTarget as HTMLElement).hidePopover();
+        }}
+      >
+        <Act action="timeline.select-prev-in-voice" />
+        <Act action="timeline.select-next-in-voice" />
+        {offered && <Act action="timeline.toggle-reading" />}
+        {worker}
+        <Act action="timeline.show-jsonl" />
+        <Act action="timeline.copy" />
+      </div>
+    </span>
   );
+}
+
+/** 画面に居る `⋯` はいつも 1 つ (選んだ 1 項目のもの) なので、窓の id も錨の
+ * 名前も定数で足りる。 */
+const MENU_ID = "tl-item-menu";
+
+/** その項目からコピーするもの。名乗りは付けない — 貼る先で要るのは言われた
+ * 中身で、この画面がその項目を何と呼んでいるかではない。 */
+function rowCopyText(row: ItemRow): string {
+  return [row.item, row.result]
+    .filter((one) => one !== undefined)
+    .map((one) => {
+      const prose = itemProse(one);
+      return prose === undefined || prose === "" ? itemDetail(one) : prose;
+    })
+    .filter((text) => text !== "")
+    .join("\n\n");
 }
 
 function RowView({ row }: { row: ItemRow }) {
   const { item } = row;
   const view = useContext(ViewContext);
   const agent = agentOf(row);
-  const link =
-    agent === undefined || view === undefined || view.agentId === agent ? undefined : (
-      <AgentLink sid={view.sid} agentId={agent} />
-    );
+  // 選ぶのは打鍵でも押す所でも同じ 1 つの signal。行のどこを押しても選べる —
+  // 選ぶための小さな的を別に置くと、その的だけが選ぶ手になる。
+  const chosen = selectedItem.value === item.id;
+  const select = () => {
+    selectedItem.value = item.id;
+  };
+  const menu = chosen ? (
+    <ItemMenu
+      row={row}
+      worker={
+        agent === undefined || view === undefined || view.agentId === agent ? null : (
+          <OpenWorker sid={view.sid} agentId={agent} />
+        )
+      }
+    />
+  ) : null;
   if (item.type === "thinking") {
     return (
-      <div class="tl-line thinking" data-search-key={item.id}>
+      <div class="tl-line thinking" data-search-key={item.id} onClick={select}>
         <ThinkingView item={item} />
         <RawFold item={item} />
+        {menu}
       </div>
     );
   }
   if (item.type.startsWith("message.")) {
     return (
-      <div class="tl-line message" data-search-key={item.id}>
+      <div class="tl-line message" data-search-key={item.id} onClick={select}>
         <MessageView item={item} />
         {row.result !== undefined && (
           <div class="tl-nested">
@@ -785,17 +861,21 @@ function RowView({ row }: { row: ItemRow }) {
             <RawFold item={row.result} />
           </div>
         )}
-        {link}
         <RawFold item={item} />
+        {menu}
       </div>
     );
   }
   return (
-    <div class={`tl-line item${isGeneric(item) ? " generic" : ""}`} data-search-key={item.id}>
+    <div
+      class={`tl-line item${isGeneric(item) ? " generic" : ""}`}
+      data-search-key={item.id}
+      onClick={select}
+    >
       <ItemLine item={item} />
       {row.result !== undefined && <ItemLine item={row.result} />}
-      {link}
       <RawFold item={item} />
+      {menu}
     </div>
   );
 }
@@ -830,21 +910,8 @@ function Prose({
 }) {
   const fileWords = useContext(FileWordsContext);
   const shown = useTranslated(text);
-  const route = preferredRoute.value;
-  // 入口は**訳す所を持っている文にだけ**出す。日本語だけの文に付けても、押して
-  // 何も変わらないものが並ぶだけで、どれを押せば変わるのかが読めなくなる。
-  const offered = route !== undefined && !needsNoTranslation(text);
   return (
     <>
-      {offered && (
-        <Act
-          action="timeline.toggle-reading"
-          class="tl-reading"
-          title={`${ROUTE_LABELS[route]} と原文を行き来する (画面ぜんぶ)`}
-        >
-          {reading.value === "original" ? "訳" : "原文"}
-        </Act>
-      )}
       {shown.pending && <span class="tl-translating">訳しています…</span>}
       <MarkdownView
         source={shown.text}
@@ -885,37 +952,12 @@ function MessageView({ item }: { item: TranscriptItem }) {
           <span class="tl-mark" aria-hidden="true">
             {open ? "▼" : "▶"}
           </span>
-          {/* 押した 1 通が選んだ 1 通になる。畳みの開け閉めはそのまま (押した
-              所で畳みが動くのは今までどおり)。 */}
-          <span
-            class="tl-who"
-            onClick={() => {
-              selectedItem.value = item.id;
-            }}
-          >
-            {itemLabel(item)}
-          </span>
+          {/* 誰が言ったかは吹き出しの色と罫が言っている (DR-0001 §6.3、
+              color-system §8.2) ので、同じことを字でも言わない。読み上げには
+              色が届かないので、そちらには名乗りをそのまま渡す。 */}
+          <span class="visually-hidden">{itemLabel(item)}</span>
           {!open && <span class="tl-brief">{messageBrief(item)}</span>}
           <RelativeTime at={item.at} />
-          {chosen && (
-            // 同じ声の前後へ。押す所と打鍵が同じアクションを起こすので、
-            // 「この声だけ辿る」がどちらの手でも同じものになる (§2.4)。
-            <span
-              class="tl-voice-nav"
-              onClick={(event: MouseEvent) => {
-                // 畳みの開け閉めは summary の既定の動き。ここを押した時だけは
-                // 畳まずに、選択だけを動かす。
-                event.preventDefault();
-              }}
-            >
-              <Act action="timeline.select-prev-in-voice" label="同じ声の前へ">
-                ▲
-              </Act>
-              <Act action="timeline.select-next-in-voice" label="同じ声の次へ">
-                ▼
-              </Act>
-            </span>
-          )}
         </>
       }
     >
@@ -963,8 +1005,11 @@ function ItemLine({ item }: { item: TranscriptItem }) {
   );
 }
 
-/** 元の record。押されるまで取り寄せない — 分類が足りているうちは要らないし、
- * 足りていない所では、これが確かめる唯一の道になる。
+/** 元の record。**頼まれるまで場所も取らない** — 分類が足りているうちは要らない
+ * ので、項目の操作から開いた時 (`timeline.show-jsonl`) だけここに出る。足りて
+ * いない所では、これが確かめる唯一の道になる。
+ *
+ * 出ている間は畳みのまま置く: 開いた本人が閉じる手を、開いた所のすぐ隣に持つ。
  *
  * 1 つの record から読まれた item は同じ所を指すので、どれの下から開いても
  * 出てくるのは同じ 1 行。 */
@@ -976,6 +1021,7 @@ function RawFold({ item }: { item: TranscriptItem }) {
     if (open) void view?.readRecord(item);
   }, [open, view, item]);
   const record = view?.records.value.get(item.uuid);
+  if (!open) return null;
   return (
     <Fold class="tl-raw" folds={timelineFolds.value} foldKey={key} fallback={false} summary="jsonl">
       <pre class="mono">

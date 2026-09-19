@@ -164,12 +164,13 @@ test("timeline-fold-open", async ({ ui: page, instance }) => {
 });
 
 // 型付き item が答えられない唯一の問い — 元の行は何と書いてあったか — を、
-// 押した所で取り寄せて出す。分類の甘い item ではこの入口が既定で見えている。
+// 選んだ項目の操作から取り寄せて出す。
 test("timeline-raw-record", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  const raw = page.locator("details.tl-raw > summary").last();
-  await expect(raw).toBeVisible();
-  await raw.click();
+  await expect(page.locator(".tl-bubble").first()).toBeVisible();
+  await page.locator(".tl-line").first().click();
+  await page.getByRole("button", { name: "この項目の操作" }).click();
+  await page.getByRole("button", { name: "元の record (jsonl) を見る" }).click();
   await expect(page.locator("details.tl-raw[open] pre")).toContainText("uuid");
   await shot(page, "timeline-raw-record.png");
 });
@@ -190,7 +191,10 @@ test("timeline-agent", async ({ ui: page, instance }) => {
   // 親から降りる: 起動した所がそのまま入口になっているかを、URL を打つのでは
   // なく押して確かめる。
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  await page.getByRole("link", { name: "worker を主語に開く" }).first().click();
+  const asked = page.locator(".tl-line").filter({ hasText: "fold-scout" }).first();
+  await asked.click();
+  await asked.getByRole("button", { name: "この項目の操作" }).click();
+  await page.locator("#tl-item-menu").getByRole("button", { name: "worker を主語に開く" }).click();
   await expect(page).toHaveURL(new RegExp(`/agent/${AGENT_ID}/timeline$`));
   await expect(page.getByRole("heading", { name: new RegExp(`worker ${AGENT_ID}`) })).toBeVisible();
   await expect(page.getByText("窓を持つのは")).toBeVisible();
