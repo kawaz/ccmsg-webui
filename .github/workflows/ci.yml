@@ -87,9 +87,12 @@ jobs:
           CCMSG_CLI: ${{ github.workspace }}/ccmsg/src/cli.ts
           CCMSG_WEBUI_SNAPSHOTS: ${{ github.workspace }}/snapshots
 
+      # `=all` で全枚を書き直す。既定の `--update-snapshots` は合わなかった絵
+      # だけを書き直すので、閾値 (`maxDiffPixelRatio`) の内側で違っている絵は
+      # 何世代も前の描画のまま基準として残る (`just visual-accept` と同じ理由)。
       - name: Redraw the baselines
         if: inputs.redraw_baselines == true
-        run: bun x playwright test --update-snapshots
+        run: bun x playwright test --update-snapshots=all
         working-directory: webui
         env:
           CCMSG_CLI: ${{ github.workspace }}/ccmsg/src/cli.ts

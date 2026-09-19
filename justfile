@@ -83,9 +83,14 @@ visual: check-snapshots
     bun test/visual/manifest.ts verify
 
 # 今の描画を基準にする (snapshots リポに commit、manifest は作業コピーに残す)
+#
+# `=all` で撮り直すのは、既定の `--update-snapshots` が**合わなかった絵だけ**を
+# 書き直すから: 閾値 (`maxDiffPixelRatio`) の内側で違っている絵はそのまま残り、
+# 何世代も前の描画が基準として居座る。基準は「今の描画」であって「今の描画と
+# 十分似ている古い描画」ではない。
 [script]
 visual-accept: check-snapshots
-    bun x playwright test --update-snapshots
+    bun x playwright test --update-snapshots=all
     bun test/visual/manifest.ts write
     dir="{{ snapshots-dir }}"
     version=$(just version)
