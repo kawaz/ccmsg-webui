@@ -3,6 +3,7 @@ import { href } from "../base.ts";
 import { type Route, type Tab, visibleTabs } from "../route.ts";
 import { runStanding } from "../runs.ts";
 import { navigate, peers, route, terminalGateway, terminalIdOfSession } from "../state.ts";
+import { actionOf } from "../actions/catalogue.ts";
 import { run } from "../actions/tree.ts";
 import { Act, useAction, useScope } from "./Scope.tsx";
 import { Files } from "./Files.tsx";
@@ -124,7 +125,7 @@ export function Main() {
                 run("app.open-parent-session", scope);
               }}
             >
-              ← 親のセッション
+              ← {actionOf("app.open-parent-session")?.title}
             </a>
             <a class="on" aria-current="page" href={href(at)}>
               worker {at.agentId}

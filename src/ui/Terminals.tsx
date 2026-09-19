@@ -10,6 +10,7 @@ import {
 } from "../terminals.ts";
 import { terminalUrl } from "../terminal-url.ts";
 import { navigate, peers, runRows, terminalGateway, terminalGroups, terminals } from "../state.ts";
+import { actionOf } from "../actions/catalogue.ts";
 import { run } from "../actions/tree.ts";
 import { Holder, useAction, useScope } from "./Scope.tsx";
 import { TerminalFrame } from "./TerminalPanel.tsx";
@@ -59,14 +60,13 @@ function OpenTerminal({ id, strong }: { id: string; strong?: boolean }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      title="端末を開く"
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
         run("terminal.open", scope);
       }}
     >
-      端末
+      {actionOf("terminal.open")?.title}
     </a>
   );
 }
@@ -203,7 +203,7 @@ function Gone({ id }: { id: string }) {
             run("app.open-terminals", scope);
           }}
         >
-          端末の一覧へ
+          {actionOf("app.open-terminals")?.title}
         </a>
       </p>
     </section>

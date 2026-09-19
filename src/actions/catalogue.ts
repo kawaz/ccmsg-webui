@@ -84,6 +84,10 @@ export const ACTIONS: readonly Action[] = [
   { id: "timeline.select-next-in-voice", title: "同じ声の次へ" },
 
   // files。木と本文は別々の節なので、同じ上下でも届く先が違う (§2.2)。
+  { id: "files.select-prev", title: "前へ (ファイルの木)" },
+  { id: "files.select-next", title: "次へ (ファイルの木)" },
+  { id: "files.collapse", title: "フォルダを閉じる / 1 つ外へ" },
+  { id: "files.expand", title: "フォルダを開く / 本文へ移る" },
   { id: "files.open", title: "ファイルを開く" },
 
   // 文書の畳み。**綴りが木の節を指していない**のは検索と同じ理由で、これが

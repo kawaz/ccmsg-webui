@@ -26,14 +26,16 @@ import {
 import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
 import { matchingKeys, type SearchWord } from "../search/in-view-search.ts";
 import { run } from "../actions/tree.ts";
-import { Holder, Pane, useAction, useScope } from "./Scope.tsx";
+import { stepKey } from "../cursor.ts";
+import { type FileUnit, treeUnits, unitAt, unitKey } from "../files/files-cursor.ts";
+import { Holder, Pane, standOn, useAction, useScope, useScopeKeys } from "./Scope.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 import { markedSpans, markedText } from "./search-marks.tsx";
 import { href } from "../base.ts";
 import type { LineRange, Route } from "../route.ts";
 import { splitStorageKey } from "../layout/split-width.ts";
 import { Splitter, useSplitWidth } from "./Splitter.tsx";
-import { files, filesMemory, hello, navigate, sessionPaths } from "../state.ts";
+import { files, filesCursor, filesMemory, hello, navigate, sessionPaths } from "../state.ts";
 
 /** A session's files: the tree on one side, the file being read on the other.
  *
@@ -69,7 +71,8 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
       >
         {/* 木と本文は**別々の節** (DR-0003 §2.2)。同じ上下を打っても、ツリーで
           打つのと本文の中で打つのとで届く担当が違う。 */}
-        <Pane name="tree" label="ファイルの木" class="files-tree" hold={tree}>
+        <Pane name="tree" label="ファイル" role="navigation" class="files-tree" hold={tree}>
+          <TreeActions view={view} />
           <p class="files-section">プロジェクト</p>
           <DirBody view={view} dir={ROOT} depth={0} selected={path} />
           <OutsideFiles view={view} selected={path} />
@@ -92,6 +95,88 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
       </Pane>
     </section>
   );
+}
+
+/** 木が担当するアクションと、区画の役としての打鍵 (DR-0003 §2.2 の「一覧の
+ * 方向キー」)。
+ *
+ * 辿る軸はフォルダとファイルを兼ねる 1 本で、上下はカーソルを動かすだけ。開くのは
+ * 決定の時 (Enter、またはファイルの上での →) — カーソルが乗っただけで開くと、
+ * 辿る途中の file を全部読みに行くことになる。
+ *
+ * 描くものが無いのにコンポーネントなのは、担当を名乗るのがこの節の中に居ること
+ * だから。 */
+function TreeActions({ view }: { view: FilesView }) {
+  const scope = useScope();
+  const units = treeUnits(view.tree.value, view.outside.value);
+  const keys = units.map(unitKey);
+  const here = (): FileUnit | undefined => unitAt(units, filesCursor.value);
+  const move = (step: 1 | -1): void => {
+    const to = stepKey(keys, filesCursor.value, step);
+    if (to !== undefined) filesCursor.value = to;
+  };
+  const opened = (path: string): boolean => view.tree.value.expanded.has(path);
+  useAction("files.select-prev", {
+    enabled: () => units.length > 0,
+    run: () => {
+      move(-1);
+    },
+  });
+  useAction("files.select-next", {
+    enabled: () => units.length > 0,
+    run: () => {
+      move(1);
+    },
+  });
+  // ← は「1 つ外へ」の 1 語 (§2.2 の裁定 Q13)。開いているフォルダの上では閉じ、
+  // それ以外では自分を抱えているフォルダの行へ移る。
+  useAction("files.collapse", {
+    enabled: () => here() !== undefined,
+    run: () => {
+      const at = here();
+      if (at === undefined) return;
+      if (at.at === "dir" && opened(at.path)) {
+        view.toggle(at.path);
+        return;
+      }
+      const up = parentPath(at.path);
+      if (up !== undefined && up !== ROOT) filesCursor.value = unitKey({ at: "dir", path: up });
+    },
+  });
+  // → はフォルダなら開き、ファイルなら本文へ移る (一覧のセッションの上での →
+  // が tl 本体へ移るのと同じ形)。
+  useAction("files.expand", {
+    enabled: () => here() !== undefined,
+    run: () => {
+      const at = here();
+      if (at === undefined) return;
+      if (at.at === "dir") {
+        if (!opened(at.path)) view.toggle(at.path);
+        return;
+      }
+      run("files.open", scope);
+    },
+  });
+  // 区画の上では、行に効くアクションの対象は**カーソルの行**。行の中の同じ
+  // アクション (その行が対象) は内側に居るので、押す所には行の方が当たる。
+  useAction("files.open", {
+    enabled: () => here()?.at === "file",
+    run: () => {
+      const at = here();
+      if (at?.at !== "file") return;
+      navigate({ at: "session", sid: view.sid, tab: "files", path: at.path });
+      const preview = scope.parent?.child("preview");
+      if (preview !== undefined) standOn(preview);
+    },
+  });
+  useScopeKeys({
+    ArrowUp: "files.select-prev",
+    ArrowDown: "files.select-next",
+    ArrowLeft: "files.collapse",
+    ArrowRight: "files.expand",
+    Enter: "files.open",
+  });
+  return null;
 }
 
 /** The files reached outside the browsable root.
@@ -194,14 +279,18 @@ function EntryRow({
       <FileRow path={path} label={entry.name} depth={depth} selected={selected} type={entry.type} />
     );
   }
+  const onCursor = filesCursor.value === unitKey({ at: "dir", path });
   return (
     <>
       <button
         type="button"
-        class="files-row"
+        class={`files-row${onCursor ? " on-cursor" : ""}`}
         style={indent(depth)}
         aria-expanded={expanded}
         onClick={() => {
+          // 押した行がカーソルの行になる。行に効く操作の対象がカーソルの行で
+          // ある以上、押した所とキーで別の行を指してはならない。
+          filesCursor.value = unitKey({ at: "dir", path });
           view.toggle(path);
         }}
       >
@@ -257,16 +346,19 @@ function FileLink({
   const at = files.value;
   const to: Route | undefined =
     at === undefined ? undefined : { at: "session", sid: at.sid, tab: "files", path };
+  const cursorKey = unitKey({ at: "file", path });
   useAction("files.open", {
     enabled: () => files.value !== undefined,
     run: () => {
+      filesCursor.value = cursorKey;
       if (to !== undefined) navigate(to);
     },
   });
+  const onCursor = filesCursor.value === cursorKey;
   if (to === undefined) return null;
   return (
     <a
-      class={`files-row${path === selected ? " files-row-on" : ""}`}
+      class={`files-row${path === selected ? " files-row-on" : ""}${onCursor ? " on-cursor" : ""}`}
       style={indent(depth)}
       href={href(to)}
       aria-current={path === selected ? "true" : undefined}

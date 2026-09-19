@@ -102,6 +102,7 @@ import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
+import { actionOf } from "../actions/catalogue.ts";
 import { run } from "../actions/tree.ts";
 import { Act, Holder, Pane, useAction, useScope, useScopeKeys } from "./Scope.tsx";
 import { hasVoiceNeighbour, stepInVoice, stepItem } from "../timeline/voice-nav.ts";
@@ -1054,7 +1055,7 @@ function AgentGo({ sid, agentId }: { sid: Sid; agentId: string }) {
         run("timeline.open-worker", scope);
       }}
     >
-      この worker を開く
+      {actionOf("timeline.open-worker")?.title}
     </a>
   );
 }

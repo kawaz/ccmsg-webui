@@ -1,4 +1,4 @@
-import type { ComponentChildren, RefObject } from "preact";
+import type { ComponentChildren, JSX, RefObject } from "preact";
 import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { eventKey } from "../actions/binding.ts";
@@ -92,6 +92,7 @@ export function standOn(scope: Scope): void {
 export function Pane({
   name,
   label,
+  role = "group",
   class: className,
   style,
   settled,
@@ -101,6 +102,10 @@ export function Pane({
   name: string;
   /** 読み上げが言うこの区画の名前。 */
   label: string;
+  /** 区画が読み上げに何として立つか。既定は `group` — 版組の上の区切りという
+   * 以上のことを言わない。**その区画が landmark でもある時だけ**名乗り直す
+   * (木がそのまま道である files のツリーは `navigation`)。 */
+  role?: JSX.AriaRole;
   class?: string;
   style?: string;
   /** この区画が、立つのに要るものを受け取り切ったか。`data-settled` として
@@ -147,7 +152,7 @@ export function Pane({
         style={style}
         {...(settled === true ? { "data-settled": "" } : {})}
         tabIndex={-1}
-        role="group"
+        role={role}
         aria-label={label}
         // クリックした先の区画を宛先にする。**逆向きにはしない** — DOM の focus
         // が動いたら節を決め直す形にすると、入力欄をクリックしただけで区画が

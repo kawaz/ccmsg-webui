@@ -1,4 +1,5 @@
 import type { Sid } from "@ccmsg/protocol";
+import { stepKey } from "./cursor.ts";
 import type { SessionGroup, SessionSection } from "./sessions.ts";
 
 /** 一覧のカーソルが辿るもの (DR-0003 §2.2)。
@@ -35,24 +36,13 @@ export function listUnits(
   });
 }
 
-/** 1 つ動かした先の名前。端では動かない (回り込まない) — 一覧の端で反対側へ
- * 飛ぶと、押しっぱなしで辿っている人が自分がどこに居るか見失う。
- *
- * カーソルがどこにも居ない (= まだ何も触っていない、または居た行が消えた) 時は、
- * 動かす向きの端から始める。 */
+/** 1 つ動かした先の名前。動き方は区画に依らないので `src/cursor.ts` が持つ。 */
 export function stepCursor(
   units: readonly ListUnit[],
   from: string | undefined,
   step: 1 | -1,
 ): string | undefined {
-  if (units.length === 0) return undefined;
-  const at = units.findIndex((unit) => unitKey(unit) === from);
-  if (at < 0) {
-    const edge = step === 1 ? units[0] : units[units.length - 1];
-    return edge === undefined ? undefined : unitKey(edge);
-  }
-  const to = units[at + step];
-  return to === undefined ? undefined : unitKey(to);
+  return stepKey(units.map(unitKey), from, step);
 }
 
 /** カーソルが今指しているもの。名前だけ覚えているので、行が消えれば答えも消える

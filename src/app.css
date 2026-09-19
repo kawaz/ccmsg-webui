@@ -2957,7 +2957,8 @@ select {
 /* 一覧のカーソル。開いている行 (`.on`) と同じ地の色は使わない — カーソルは
    「今ここに居る」で、開いているのは「今これを読んでいる」。別のことなので、
    カーソルは左の 1 本で言う。 */
-.row.on-cursor {
+.row.on-cursor,
+.files-row.on-cursor {
   box-shadow: inset 3px 0 0 var(--brand-fg);
 }
 

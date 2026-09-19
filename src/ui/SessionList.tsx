@@ -61,6 +61,7 @@ import {
   terminalIdOfSession,
   unkilled,
 } from "../state.ts";
+import { actionOf } from "../actions/catalogue.ts";
 import { run } from "../actions/tree.ts";
 import { Act, Holder, standOn, useAction, useScope, useScopeKeys } from "./Scope.tsx";
 import { terminalLabel } from "../terminals.ts";
@@ -628,7 +629,7 @@ export function SessionList() {
             run("app.open-terminals", scope);
           }}
         >
-          端末
+          {actionOf("app.open-terminals")?.title}
         </a>
       </div>
 
