@@ -497,6 +497,11 @@ export async function shot(
       // 渡る瞬間は instance が決めるので、走らせるたびに違う瞬間が写る。席は
       // 常に置いてあるので (`.waiting-slot`)、覆っても行の組み方は写る。
       page.locator(".waiting-badge"),
+      // 人の id。WebAuthn の user handle そのもの (契約 `UserId`) で、登録の
+      // たびに 16 byte を引き直す — 絵を撮るブラウザは走行ごとに登録するので、
+      // 同じ人が 2 度出てくることはない。長さは 22 文字で決まっているので、
+      // 覆っても箱は動かない。
+      page.locator(".user-id"),
     ],
     ...(options.animations === undefined ? {} : { animations: options.animations }),
   });

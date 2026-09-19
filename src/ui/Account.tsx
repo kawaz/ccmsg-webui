@@ -61,7 +61,7 @@ function Connected() {
           <>
             <dt>誰として</dt>
             <dd>
-              <code>{who}</code>
+              <code class="user-id">{who}</code>
             </dd>
           </>
         )}
@@ -100,7 +100,7 @@ export function Account() {
             <dd>{held.user.display_name ?? "(名前なし)"}</dd>
             <dt>id</dt>
             <dd>
-              <code>{held.user.user}</code>
+              <code class="user-id">{held.user.user}</code>
             </dd>
             <dt>作られた日</dt>
             <dd>
@@ -117,7 +117,10 @@ export function Account() {
           <p class="meta">
             passkey は <b>origin ごと</b>に 1 本要ります (契約 DR-0030 §2)。別の origin や別の
             端末で増やすには、instance のある端末で{" "}
-            <code>ccmsg user passkey add {held.user.user} --origin &lt;その origin&gt;</code>{" "}
+            <code>
+              ccmsg user passkey add <span class="user-id">{held.user.user}</span> --origin &lt;その
+              origin&gt;
+            </code>{" "}
             を実行して、出た URL と 6 桁を使ってください。
           </p>
 
