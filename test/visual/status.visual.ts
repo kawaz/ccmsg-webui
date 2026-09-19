@@ -1,5 +1,5 @@
 import { STATUS_SID } from "./fixture.ts";
-import { expect, shot, test } from "./harness.ts";
+import { expect, ownBrowser, shot, test } from "./harness.ts";
 
 /** セッションが今何をしているか。
  *
@@ -25,16 +25,25 @@ test("workflow と背後の仕事と TODO が、走っている順に並ぶ", as
   await shot(page, "session-status.png");
 });
 
-test("繋いでいない間は、状態も畳んだ答えを出さない", async ({ usage: page, instance }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+test("繋いでいない間は、状態も畳んだ答えを出さない", async ({ browser, instance }) => {
+  // 自分の browser を要る: 切断は「この端末から降りる」ことで、その browser の
+  // family を失効させる (DR-0004 §2.6)。
+  const page = await ownBrowser(browser, instance);
   await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
   await expect(page.locator(".status-subject", { hasText: "束 0 を片付ける" })).toBeVisible();
-  await page.getByRole("button", { name: "切断" }).click();
+  await page.getByRole("button", { name: "メニュー" }).click();
+  await page.getByRole("button", { name: "切断", exact: true }).click();
+  await page.locator("dialog.confirm").getByRole("button", { name: "切断する" }).click();
   // 明示的な切断は持ち物を畳むので、状態の画面ごと接続の画面に戻る。
   await expect(page.locator(".row")).toHaveCount(0);
   await expect(page.locator(".status-subject", { hasText: "束 0 を片付ける" })).toHaveCount(0);
-  await page.getByRole("button", { name: "接続" }).click();
+  // 降りるは読み込み直しで終わるので、繋ぎ直した先はトップ。状態はそこから
+  // 開き直せば、また instance の畳んだ答えで埋まる。
+  await page.getByRole("button", { name: "接続", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
+  await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
   await expect(page.locator(".status-subject", { hasText: "束 0 を片付ける" })).toBeVisible();
+  await page.context().close();
 });
 
 test("書き出すと、instance の host に残った場所が返る", async ({ ui: page, instance }) => {

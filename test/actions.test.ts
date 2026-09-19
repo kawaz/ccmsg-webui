@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { actionOf, isDestructive } from "../src/actions/catalogue.ts";
 import { canRun, type Handler, run, runKey, Scope } from "../src/actions/tree.ts";
 
 /** スコープの木と、起動が内側から外へ登る道 (DR-0003 §2.3)。
@@ -128,5 +129,29 @@ describe("降ろすと担当が消える", () => {
     const drop = timeline.handle("timeline.select-next", handler(log, "timeline"));
     drop();
     expect(run("timeline.select-next", timeline)).toBe("none");
+  });
+});
+
+describe("一覧に並ぶアクション", () => {
+  test("切断は 1 つで、印が付いている (DR-0004 §2.6)", () => {
+    // 接続 = 認証なので、webui 上の操作は「切断」1 つ。意味は従来のログアウト
+    // (失効を頼み、手元を消し、頁を立て直す) で、そちらの綴りは残さない。
+    expect(actionOf("app.disconnect")?.title).toBe("切断する");
+    expect(isDestructive("app.disconnect")).toBe(true);
+    expect(actionOf("app.sign-out")).toBeUndefined();
+  });
+
+  test("印が付いているので、できない時に外側へ流れない", () => {
+    const log: string[] = [];
+    const { app, workspace } = tree();
+    app.handle("app.disconnect", handler(log, "app"));
+    workspace.handle("app.disconnect", handler(log, "workspace", false));
+    expect(run("app.disconnect", workspace)).toBe("stopped");
+    expect(log).toEqual([]);
+  });
+
+  test("プロンプト入力欄を開くが一覧に居る (FAB と打鍵が同じ 1 つを起こす)", () => {
+    expect(actionOf("main.open-prompt")?.title).toBe("プロンプト入力欄を開く");
+    expect(isDestructive("main.open-prompt")).toBe(false);
   });
 });

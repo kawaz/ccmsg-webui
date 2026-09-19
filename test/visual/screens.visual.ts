@@ -122,8 +122,11 @@ test("sessions", async ({ ui: page, instance }) => {
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
   await expect(page.getByRole("button", { name: /topic の畳み方/ })).toBeVisible();
   // 設定への入口は**接続後にだけ**居る (DR-0004 §2.5)。繋ぐ前の画面に「繋ぐ」
-  // 以外の道を増やさないため、未接続の帯には無い。
+  // 以外の道を増やさないため、未接続の帯には無い。接続後もハンバーガーの中で、
+  // 常時露出しているのは「今どうなっているか」を見せるものだけ (§2.4)。
+  await page.getByRole("button", { name: "メニュー" }).click();
   await expect(page.getByRole("link", { name: "設定" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await shot(page, "sessions.png");
 });
 
@@ -132,6 +135,7 @@ test("sessions", async ({ ui: page, instance }) => {
 test("account", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
+  await page.getByRole("button", { name: "メニュー" }).click();
   await page.getByRole("link", { name: "アカウント" }).click();
   await expect(page.getByRole("heading", { name: "アカウント" })).toBeVisible();
   // 3 段が揃って初めて 1 枚の絵になる: 人と、その passkey と、持っている
@@ -287,6 +291,7 @@ test("settings", async ({ settings: page, instance }) => {
   // まで変わる。
   await page.goto(instance.endpoint);
   await connected(page);
+  await page.getByRole("button", { name: "メニュー" }).click();
   await page.getByRole("link", { name: "設定" }).click();
   await expect(page).toHaveURL(new RegExp("/settings$"));
   await expect(page.getByRole("heading", { name: "色", exact: true })).toBeVisible();

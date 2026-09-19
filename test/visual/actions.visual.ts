@@ -89,3 +89,55 @@ test("キーバインドの設定は、綴りと今の環境での姿を並べ�
   await expect(page.locator(".key-reserved").first()).toContainText("効きません");
   await shot(page, "actions-key-bindings.png");
 });
+
+/** どこからでも話しかける口 (DR-0003 §2.7)。
+ *
+ * 宛先は URL が名指すセッションなので、transcript を開いていない見方 (ここでは
+ * ファイル) からでも同じ 1 つが起きる。セッションを名指していない画面には出ない
+ * — 届く先が無い所に押す所を置かない。 */
+test("FAB はセッションを名指す画面にだけ出て、composer を重ねる", async ({
+  ui: page,
+  instance,
+}) => {
+  await page.goto(instance.endpoint);
+  await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
+  // 一覧だけを見ている間は宛先が無い。
+  await expect(page.locator("button.fab")).toHaveCount(0);
+
+  await page.goto(`${instance.endpoint}s/${SID}/files`);
+  const fab = page.locator("button.fab");
+  await expect(fab).toBeVisible();
+  await fab.click();
+
+  // 開いた先は確認と同じ重なりの節で、載っているのは transcript の下と同じ
+  // composer (送れるかの判定も下書きの置き場も 1 通り)。
+  const prompt = page.locator("dialog.confirm.prompt");
+  await expect(prompt).toBeVisible();
+  await expect(prompt.getByRole("textbox", { name: "セッションへのメッセージ" })).toBeFocused();
+  await shot(page, "actions-prompt.png");
+
+  // 閉じる手は重なりの持ち物 (Escape)。
+  await page.keyboard.press("Escape");
+  await expect(prompt).toBeHidden();
+});
+
+/** 誤って押されて困るものと、開きに行く時にしか要らないものはメニューの中
+ * (DR-0004 §2.4)。 */
+test("ハンバーガーにアカウント・設定・切断が畳まれている", async ({ ui: page, instance }) => {
+  await page.goto(instance.endpoint);
+  await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
+  // 道に出ているのは「今どうなっているか」と、何度も押すものだけ。
+  await expect(page.getByRole("button", { name: "切断", exact: true })).toBeHidden();
+
+  await page.getByRole("button", { name: "メニュー" }).click();
+  const menu = page.locator("#global-menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("link", { name: "アカウント" })).toBeVisible();
+  await expect(menu.getByRole("link", { name: "設定" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "切断", exact: true })).toBeVisible();
+  await shot(page, "actions-menu.png");
+
+  // 閉じる手は popover の持ち物。
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+});

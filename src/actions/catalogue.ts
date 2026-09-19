@@ -28,8 +28,11 @@ export const ACTIONS: readonly Action[] = [
   // (DR-0004 §2.5)。
   { id: "app.reload", title: "読み込み直す" },
   { id: "app.connect", title: "接続する" },
-  { id: "app.disconnect", title: "切断する" },
-  { id: "app.sign-out", title: "ログアウトする", destructive: true },
+  // このシステムは**接続 = 認証**なので、webui 上の操作は「切断」1 つ
+  // (DR-0004 §2.6)。意味は「この端末から降りる」で、`auth.signout` と手元の
+  // 消去と読み込み直しまでを含む — 席を外すだけの切り方を別に持つと、降りた
+  // つもりの人の cookie が残る。取り返しが付かない側なので印が付く。
+  { id: "app.disconnect", title: "切断する", destructive: true },
 
   // 他の画面への道。押す所は今も各画面の中に散っているが、**担当は木の上の
   // 1 か所に集まる** (付録 A) — どこから起こしても同じ所に着く。
@@ -42,6 +45,9 @@ export const ACTIONS: readonly Action[] = [
   // メインコンテンツ
   { id: "main.prev-tab", title: "前の見方へ" },
   { id: "main.next-tab", title: "次の見方へ" },
+  // 宛先は**選択中のセッション** (= URL の sid)。どの見方を開いていても、書いた
+  // ものが届く先は 1 つなので、宛先を言う signal を別に持たない (DR-0003 §2.7)。
+  { id: "main.open-prompt", title: "プロンプト入力欄を開く" },
 
   // 端末。行が自分の端末を対象に担当するので、綴りは木の節を指していない
   // (一覧の行からも端末の一覧からも同じ 1 つを起こす)。

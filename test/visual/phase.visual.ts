@@ -72,7 +72,7 @@ test("許可が切れたら、画面を残したまま passkey を頼む", async
   await dialog.getByRole("button", { name: "閉じる" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText("畳んだ値の読み方")).toBeVisible();
-  await expect(page.getByRole("button", { name: "ログアウト" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "メニュー" })).toBeEnabled();
   await shot(page, "reauth-closed.png");
 
   // 閉じても許可が切れている事実は下りないので、状態の印から出し直せる。
@@ -82,8 +82,11 @@ test("許可が切れたら、画面を残したまま passkey を頼む", async
 });
 
 /** 降りると、向こうの family も手元の覚えも残らない (§2.6)。絵は撮らない —
- * 見たいのは**消えた後に何が残っていないか**で、それは画面の形には出ない。 */
-test("ログアウトは family を失効させ、この端末の覚えも残さない", async ({ browser, instance }) => {
+ * 見たいのは**消えた後に何が残っていないか**で、それは画面の形には出ない。
+ *
+ * 画面に出る切り方は 1 つ (「切断」) で、意味は降りること。ハンバーガーの中に
+ * 居るので、押すには先にメニューを開く。 */
+test("切断は family を失効させ、この端末の覚えも残さない", async ({ browser, instance }) => {
   const page = await ownBrowser(browser, instance);
   await page.goto(instance.endpoint);
   await connected(page);
@@ -100,8 +103,9 @@ test("ログアウトは family を失効させ、この端末の覚えも残さ
   });
 
   // 押す所から起こす。取り返しが付かない側なので、一度確かめてから。
-  await page.getByRole("button", { name: "ログアウト" }).click();
-  await page.locator("dialog.confirm").getByRole("button", { name: "ログアウトする" }).click();
+  await page.getByRole("button", { name: "メニュー" }).click();
+  await page.getByRole("button", { name: "切断", exact: true }).click();
+  await page.locator("dialog.confirm").getByRole("button", { name: "切断する" }).click();
 
   // トップに戻り、繋ぐ所だけが出ている。
   await expect(page.getByRole("button", { name: "接続", exact: true })).toBeVisible();

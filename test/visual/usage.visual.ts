@@ -1,5 +1,5 @@
 import { SID } from "./fixture.ts";
-import { expect, nothingOverflows, shot, test } from "./harness.ts";
+import { expect, nothingOverflows, ownBrowser, shot, test } from "./harness.ts";
 
 /** 上流とクオータの画面、そして prompt cache の輪。
  *
@@ -138,18 +138,27 @@ test("回線が切れただけなら、聞いたものは印付きで残る", as
   await page.unrouteAll();
 });
 
-test("人が切断したら持ち物ごと畳み、繋ぎ直すと snapshot で戻る", async ({
-  usage: page,
-  instance,
-}) => {
+/** 画面に出る切り方は 1 つで、意味は**この端末から降りる**こと (DR-0004 §2.6)。
+ *
+ * 自分の browser を要る: 降りるとその browser の family が失効するので、共有の
+ * 頁でやると後に走る画面まで巻き込む。 */
+test("切断は持ち物ごと畳み、passkey からやり直せば戻る", async ({ browser, instance }) => {
+  const page = await ownBrowser(browser, instance);
   await page.goto(instance.endpoint);
   await expect(page.locator(".row").first()).toBeVisible();
 
-  await page.getByRole("button", { name: "切断" }).click();
-  await expect(page.locator(".row")).toHaveCount(0);
+  // 常時露出していない (誤タップで降りては困る)。取り返しが付かない側なので、
+  // 押してから一度確かめる。
+  await page.getByRole("button", { name: "メニュー" }).click();
+  await page.getByRole("button", { name: "切断", exact: true }).click();
+  await page.locator("dialog.confirm").getByRole("button", { name: "切断する" }).click();
+  await expect(page.getByRole("button", { name: "接続", exact: true })).toBeVisible();
   await expect(page.locator(".row")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "接続" }).click();
+  // 戻るには passkey からやり直す。credential そのものは残っているので、
+  // 認証器が答えれば同じ一覧が snapshot で戻る。
+  await page.getByRole("button", { name: "接続", exact: true }).click();
   await expect(page.getByRole("heading", { name: /^instance / })).toBeVisible();
   await expect(page.locator(".row").first()).toBeVisible();
+  await page.context().close();
 });

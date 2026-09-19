@@ -312,7 +312,7 @@ to load the page again. **When the contract generation does not match, that
 button changes colour** — there is no band and no automatic reload, because what
 is on screen is not this page's to hide or throw away.
 
-**`stale` keeps both the screen and the URL.** A dropped line is retried while backing off — a refresh that never arrived (`unreachable`) is one of those, because not reaching the instance is not the same as being refused by it. Only a lost authorization (`auth_invalid`) raises a passkey over the middle of the screen. Taking it reconnects in place, and the workspace behind it never moved. **That request can be closed**: `stale` is a shape somebody can read, and an overlay with no way out holds the screen behind it inert — no disconnect, no sign-out, no reload. Closing it does not unsay that the authorization is gone, and the state mark is where asking again lives. **A re-authentication that is refused keeps the screen too** — waving the prompt away is "not now", not consent to throw away what was being read.
+**`stale` keeps both the screen and the URL.** A dropped line is retried while backing off — a refresh that never arrived (`unreachable`) is one of those, because not reaching the instance is not the same as being refused by it. Only a lost authorization (`auth_invalid`) raises a passkey over the middle of the screen. Taking it reconnects in place, and the workspace behind it never moved. **That request can be closed**: `stale` is a shape somebody can read, and an overlay with no way out holds the screen behind it inert — no disconnect, no reload. Closing it does not unsay that the authorization is gone, and the state mark is where asking again lives. **A re-authentication that is refused keeps the screen too** — waving the prompt away is "not now", not consent to throw away what was being read.
 
 **Arriving at a connected URL while not connected dials first.** Where that
 works the URL's own screen opens; the URL is rewritten to `/` only on a device
@@ -330,17 +330,30 @@ disconnection does is a question of what is worth losing. There are three.
 |---|---|
 | **Nothing has been heard yet** (a first visit) | no list, no transcript, no mesh row, and an empty body: the bar alone says the state and offers the one way to connect (`src/ui/Disconnected.tsx`) |
 | **Nobody asked for it** (the network went, the instance left) | what was heard stays on screen, with a band saying it is no longer current. The next snapshot replaces the same rows |
-| **Someone pressed 切断** | everything held in memory goes (the lists, the transcript, the fold state, the access token). The refresh cookie and the remembered address stay, so 接続 comes back without a passkey |
+| **Someone pressed 切断** | everything held in memory goes (the lists, the transcript, the fold state, the access token), the far side is asked to revoke, every `ccmsg.` key of this origin is cleared and the page is stood up again — this is getting off the device, and coming back starts at a passkey |
 
-**Disconnecting and signing out are different things** (DR-0004 §2.6).
-Disconnecting is stepping away; signing out is getting off this device. The
-latter asks the contract's `auth.signout` to revoke the token family (the cookie
-is HttpOnly, so the reply is the only place it can be expired) and **clears every
-`ccmsg.` key of this origin by default**. There is one setting for people who
-want to keep something (off by default), and what it keeps is the preferences
-alone (see "localStorage keys name what they belong to"). **The local side is cleared whether or not the far side answers** — a device somebody decided to get off is the worse place for a trace to stay, and what did not go through is left as one line of words. **It ends by loading the top of the page again**: leaving no trace means the copies held in memory go too, and loading again costs no list of things to clear one by one (preferences come back only where the setting kept them, read off the storage that still has them). The one line travels to that load in the URL fragment, and is taken out of the URL where it is read. They are not one thing because
-making them one leaves either somebody stepping away redoing a passkey every
-time, or somebody who meant to get off with their cookie still standing.
+**There is one way to cut the connection, and it is getting off this device**
+(DR-0004 §2.6). Connecting is authenticating here, so being unconnected and
+being signed off are not two states a person has reason to tell apart: the one
+operation asks the contract's `auth.signout` to revoke the token family (the
+cookie is HttpOnly, so the reply is the only place it can be expired) and
+**clears every `ccmsg.` key of this origin by default**. There is one setting
+for people who want to keep something (off by default), and what it keeps is the
+preferences alone (see "localStorage keys name what they belong to"). **The
+local side is cleared whether or not the far side answers** — a device somebody
+decided to get off is the worse place for a trace to stay, and what did not go
+through is left as one line of words. **It ends by loading the top of the page
+again**: leaving no trace means the copies held in memory go too, and loading
+again costs no list of things to clear one by one (preferences come back only
+where the setting kept them, read off the storage that still has them). The one
+line travels to that load in the URL fragment, and is taken out of the URL where
+it is read. A second way that only closes the socket is not offered beside it:
+two words nobody can read a difference of leave one of them as the cut that
+leaves a trace, and stepping away is what closing the tab is for. It is
+irreversible, so it asks once before it goes, and it sits inside the hamburger
+rather than out on the nav. **An unasked-for disconnection is not this
+operation** — a line that dropped is said by the mark, and a lost authorization
+raises the passkey request over the screen.
 
 The body carries neither an explanation nor a second button. The bar already
 says there is no connection and already offers the way to make one; a second

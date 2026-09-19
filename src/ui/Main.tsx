@@ -6,6 +6,7 @@ import { navigate, peers, route, terminalGateway, terminalIdOfSession } from "..
 import { actionOf } from "../actions/catalogue.ts";
 import { run } from "../actions/tree.ts";
 import { Act, useAction, useScope } from "./Scope.tsx";
+import { Fab } from "./Fab.tsx";
 import { Files } from "./Files.tsx";
 import { RunChoice, RunEnded, RunPanel, RunSettled } from "./Runs.tsx";
 import { Status } from "./Status.tsx";
@@ -107,6 +108,8 @@ export function Main() {
   const scope = useScope();
   return (
     <>
+      {/* 中身の手前に浮く (DR-0003 §2.2 の木で、メインコンテンツの直下)。 */}
+      <Fab />
       {at.at === "sessions" && <Nothing />}
       {at.at === "usage" && <Usage />}
       {at.at === "account" && <Account />}

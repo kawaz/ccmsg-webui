@@ -1,7 +1,7 @@
 import { createContext } from "preact";
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import { computed, useSignal } from "@preact/signals";
-import { liveness, reachable, type Sid, type TranscriptItem } from "@ccmsg/protocol";
+import type { Sid, TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
 import { useFileWords } from "../files/file-word-link.ts";
 import { href } from "../base.ts";
@@ -75,7 +75,6 @@ import {
   displayFace,
   navigate,
   notifications,
-  peers,
   preferredRoute,
   reading,
   selectedItem,
@@ -99,6 +98,7 @@ import {
 } from "../markdown/markdown-view.tsx";
 import { displayPathFor, isAbsolutePath, ROOT } from "../files/paths.ts";
 import { Composer } from "./Composer.tsx";
+import { sendability } from "../conversation/sendability.ts";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
@@ -216,31 +216,6 @@ export function Timeline({ sid }: { sid: Sid }) {
   // 覚えているもの (測った高さ・読んでいる item) は 1 つの transcript のもの。
   // worker は同じ sid の別 transcript なので、名前に主語まで含める。
   return <TimelineBody key={`${view.sid}/${view.agentId ?? ""}`} view={view} />;
-}
-
-/** 送れる相手か、送れないならなぜか。
- *
- * 行から読む (契約の `liveness` / `reachable`)。断られてから知らせるのではなく、
- * 打つ前に言う — 送れない理由はどれも、人が先に手を打てるものになっている。 */
-function sendability(sid: Sid): { live: boolean; why: string } {
-  const peer = peers.value.find((one) => one.sid === sid);
-  if (peer === undefined) {
-    return { live: false, why: "このセッションは instance に接続していません" };
-  }
-  switch (liveness(peer, Date.now())) {
-    case "duplicated":
-      // 2 つのプロセスが同じ transcript を書いているので、instance は送るのを
-      // 断る (契約 DR-0001 §3)。人がやることは run を選ぶこと。
-      return { live: false, why: "同じセッションを 2 つのプロセスが書いています" };
-    case "paused":
-      return { live: false, why: "セッションは終了しています" };
-    case "disappeared":
-      return { live: false, why: "セッションは居なくなりました" };
-    case "alive":
-      return reachable(peer)
-        ? { live: true, why: "" }
-        : { live: false, why: "instance からも端末からも操作できない状態です" };
-  }
 }
 
 function TimelineBody({ view }: { view: TranscriptItemsView }) {

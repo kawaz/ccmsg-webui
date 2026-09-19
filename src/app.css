@@ -3184,3 +3184,80 @@ button.status-mark {
 .connection-facts code {
   overflow-wrap: anywhere;
 }
+
+/* どこからでも話しかける口 (DR-0003 §2.7)。メインコンテンツの中身の手前に
+   浮くので、版組の中に場所を取らない — 読んでいる所を狭めずに、話しかける手を
+   常に見えている所へ置く。 */
+.fab {
+  position: fixed;
+  inset-block-end: 28px;
+  inset-inline-end: 20px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--brand-fg);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--brand-fg);
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+  cursor: pointer;
+}
+
+.fab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 話しかける重なり。確認と同じ器で、違うのは中身だけ (§2.8)。危ない操作では
+   ないので、縁は確認の色を取り下げる。 */
+.confirm.prompt {
+  width: min(42em, 92vw);
+  border-color: var(--border);
+}
+
+.confirm.prompt .composer {
+  position: static;
+  margin-top: 0;
+  background: none;
+}
+
+/* ハンバーガー。誤タップで困るもの (降りる) と、開きに行く時にしか要らない
+   もの (設定・アカウント) をここに畳む。 */
+.global-menu-open {
+  flex: none;
+  padding: 4px 9px;
+  line-height: 1;
+  anchor-name: --global-menu-open;
+}
+
+.global-menu {
+  position: fixed;
+  position-anchor: --global-menu-open;
+  inset: auto;
+  inset-block-start: anchor(bottom);
+  inset-inline-end: anchor(right);
+  margin-block-start: 4px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 10em;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}
+
+/* 開いている間だけ版組を持つ。閉じている popover の `display: none` は UA の
+   持ち物なので、無条件に `display` を書くと出しっぱなしになる。 */
+.global-menu:popover-open {
+  display: flex;
+}
+
+.global-menu > a {
+  padding: 2px 0;
+}

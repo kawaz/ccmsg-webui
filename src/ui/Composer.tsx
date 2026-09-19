@@ -14,7 +14,19 @@ import { hello, messageSendRefusal, sendMessage } from "../state.ts";
  * 送れるのは動いているセッションだけ: 止まったセッションへの `message.send` は
  * instance が断るので、断られてから理由を読ませるのではなく、送れないことと
  * その理由を先に書いておく。 */
-export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: string }) {
+export function Composer({
+  sid,
+  live,
+  why,
+  focused,
+}: {
+  sid: Sid;
+  live: boolean;
+  why: string;
+  /** 開いた時に手がここに居ることが分かっている所 (重なりの中) から渡る。
+   * 版組の中に居る composer は、頁を開いただけで入力が焦点を奪わない方がよい。 */
+  focused?: boolean;
+}) {
   const instance = hello.value?.instance;
   const key = instance === undefined ? undefined : draftKey(instance, sid);
   const text = useSignal("");
@@ -67,6 +79,7 @@ export function Composer({ sid, live, why }: { sid: Sid; live: boolean; why: str
     <div class="composer">
       <textarea
         ref={box}
+        autoFocus={focused === true}
         rows={3}
         value={text.value}
         placeholder="このセッションに話しかける (Enter で改行、⌘/Ctrl+Enter で送信)"

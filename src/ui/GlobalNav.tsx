@@ -1,11 +1,11 @@
 import type { ComponentChildren } from "preact";
+import { useRef } from "preact/hooks";
 import { href } from "../base.ts";
 import { statusBadge } from "../llm/status-view.ts";
 import type { Route } from "../route.ts";
 import {
   askFirst,
   can,
-  disconnect,
   endpoint,
   llmStatusReports,
   navigate,
@@ -24,6 +24,10 @@ import { StatusMark } from "./StatusMark.tsx";
  * **帯ではない**。接続前の主役だった住所の入力も接続のボタンもここには無く、
  * あるのは他の画面への道と、状態の小部品と、常設の読み込み直しだけ。住所は
  * フッタに極小で出る (`GlobalFooter`)。
+ *
+ * 常時出すのは「今どうなっているか」を見せるものと、見ている最中に何度も押す
+ * ものだけ。誤って押されると困るもの (切断) と、開きに行く時にしか要らないもの
+ * (設定・アカウント) はハンバーガーの中に畳む (§2.4)。
  *
  * 設定へ入れるのは接続後だけ — 繋ぐ前の人に出す設定は、出した分だけ「繋ぐ」
  * 以外の道を増やす (§2.5)。 */
@@ -65,12 +69,15 @@ function Go({
   at,
   action,
   title,
+  onGo,
   children,
 }: {
   at: Route;
   /** 起こすアクション。省くと、道そのものを持たない入口としてその場で移る。 */
   action?: string;
   title?: string;
+  /** 入口を包んでいるもの (メニュー) に、行ったことを知らせる手。 */
+  onGo?: () => void;
   children: ComponentChildren;
 }) {
   const scope = useScope();
@@ -83,6 +90,7 @@ function Go({
         event.preventDefault();
         if (action === undefined) navigate(at);
         else run(action, scope);
+        onGo?.();
       }}
     >
       {children}
@@ -146,15 +154,19 @@ function UsageLink() {
   );
 }
 
-/** 席を外すのと、この端末から降りるのは別のこと (§2.6)。
+/** この端末から降りる (§2.6)。
  *
- * 切断は socket を閉じるだけで、憶えた住所も refresh cookie も残る — 「接続」を
- * 押せば passkey 無しで戻れる。ログアウトは手元に何も残さず、戻るには passkey
- * からやり直す。取り返しが付かない側なので、押したら一度確かめる。 */
-function Leaving() {
+ * **このシステムは接続 = 認証**なので、画面に出す操作は「切断」1 つ。意味は
+ * 向こうに失効を頼み、手元に残っているものを消し、頁を立て直すまでで、席を
+ * 外すだけの切り方を別に持たない — 持つと、降りたつもりの人の cookie が残る側と、
+ * ちょっと切りたいだけの人が毎回 passkey をやり直す側のどちらかになる。
+ *
+ * 意図しない切断はこれとは別 (回線が落ちただけなら印が言い、認証が切れていれば
+ * 再認証の頼みが重なる、§2.4)。取り返しが付かない側なので、押したら一度確かめる。 */
+function Leaving({ onDone }: { onDone: () => void }) {
   const ask = (): void => {
     askFirst({
-      action: "app.sign-out",
+      action: "app.disconnect",
       note: "instance に失効を頼み、この端末に残っているものを消します。戻るには passkey で認証し直します。",
       go: () => {
         void signOut();
@@ -163,16 +175,55 @@ function Leaving() {
   };
   // キーからも押す所からも同じ 1 つを通るので、確認の出ない経路ができない
   // (DR-0003 §2.1、§2.8)。
-  useAction("app.disconnect", { enabled: () => true, run: disconnect });
-  useAction("app.sign-out", { enabled: () => true, run: ask });
+  useAction("app.disconnect", { enabled: () => true, run: ask });
+  return (
+    <button
+      type="button"
+      class="row-danger"
+      onClick={() => {
+        onDone();
+        ask();
+      }}
+    >
+      切断
+    </button>
+  );
+}
+
+/** ハンバーガーの中。
+ *
+ * **常時露出させないのは、誤って押されて困るものと、押す機会が稀なものだから**
+ * — 降りるは取り返しが付かず、設定とアカウントは開きに行く時にしか要らない。
+ * 逆に状態の印・一覧の出し入れ・上流の具合・読み込み直しは残す: どれも「今どう
+ * なっているか」を見せているか、見ている最中に何度も押すものになっている。
+ *
+ * 閉じる手 (Escape・外側のクリック・トップレイヤ) は `popover` が持っているので、
+ * `document` の keydown も mousedown もここには要らない (DR-0003 付録 B)。 */
+function Menu() {
+  const box = useRef<HTMLDivElement>(null);
+  const close = (): void => {
+    box.current?.hidePopover();
+  };
   return (
     <>
-      <button type="button" onClick={disconnect}>
-        切断
+      <button
+        type="button"
+        class="global-menu-open"
+        popovertarget="global-menu"
+        aria-label="メニュー"
+        title="メニュー"
+      >
+        ☰
       </button>
-      <button type="button" onClick={ask}>
-        ログアウト
-      </button>
+      <div ref={box} id="global-menu" class="global-menu" popover="auto">
+        <Go at={{ at: "account" }} title="自分の passkey と、持っている instance" onGo={close}>
+          アカウント
+        </Go>
+        <Go at={{ at: "settings" }} action="app.open-settings" title="設定" onGo={close}>
+          設定
+        </Go>
+        <Leaving onDone={close} />
+      </div>
     </>
   );
 }
@@ -184,14 +235,8 @@ export function GlobalNav() {
       <StatusMark />
       <SessionsToggle />
       <UsageLink />
-      <Go at={{ at: "account" }} title="自分の passkey と、持っている instance">
-        アカウント
-      </Go>
-      <Go at={{ at: "settings" }} action="app.open-settings" title="設定">
-        設定
-      </Go>
-      <Leaving />
       <Reload />
+      <Menu />
     </nav>
   );
 }
@@ -199,7 +244,7 @@ export function GlobalNav() {
 /** 繋いでいる先。**ほとんど気にしない情報**なので、画面の下端に極小で置く。
  *
  * 接続前は人が述べる主役の入力で、接続後は「今どこに繋がっているか」を確かめ
- * たくなった時にだけ読む 1 行になる。述べ直したければ切断してから — 繋いだまま
+ * たくなった時にだけ読む 1 行になる。述べ直せるのは接続前の画面だけ — 繋いだまま
  * 住所を書き換える所を画面に出しておく理由が無い。 */
 export function GlobalFooter() {
   return <p class="global-footer mono">{endpoint.value ?? "(住所がありません)"}</p>;
