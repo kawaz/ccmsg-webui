@@ -1,6 +1,6 @@
 ---
 title: visual の inbox 画面が全体走行で 1 度だけ pixel 差で落ちた (単体・次の全体走行では再現せず)
-status: open
+status: resolved
 category: bug
 created: 2026-09-16T16:43:33+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-19T13:27:10+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: 全件10回走行でinbox 0失敗 (2026-09-19実測)","真因推定: 3f5f1e6 (待ち通数バッジが席を保つ+本文が止まるまで待つ)","now固定はpinClock済みfixtureで確認","mask対象: .tl-when, .waiting-badge"]
 blocked_by:
 origin:
 ---
