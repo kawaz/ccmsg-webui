@@ -8,6 +8,7 @@ import type {
   Sid,
 } from "@ccmsg/protocol";
 import type { Connection } from "../connection.ts";
+import { decodeBase64, textOf } from "./bytes.ts";
 import type { FilesRecord } from "./files-store.ts";
 import { withOutsidePath } from "./files-store.ts";
 import { ancestorsOf, isAbsolutePath, ROOT, sortEntries } from "./paths.ts";
@@ -35,10 +36,13 @@ export interface TreeState {
 export interface OpenFile {
   readonly path: string;
   readonly kind: FileKind;
-  /** Size on disk, which `content` may not carry all of. */
+  /** Size on disk. */
   readonly size: number;
-  readonly truncated: boolean;
+  /** テキストとして読むな、の印 (契約 DR-0031 §1)。バイト列は届くが、何として
+   * 描くかを決めるのは描く側で、それは閲覧 site の責務 (DR-0005)。ここが持つ
+   * のは大きさを言うことまで。 */
   readonly binary: boolean;
+  /** ファイル全体の文。`binary` なら空。 */
   readonly content: string;
 }
 
@@ -201,20 +205,9 @@ export class FilesView {
         this.failure.value = "このセッションから開けるファイルではありません";
         return;
       }
-      const reply = (await this.#connection.request("file.read", {
-        sid: this.sid,
-        kind,
-        path,
-      })) as unknown as FileReadResult;
-      if (this.#wanted !== path) return;
-      this.file.value = {
-        path,
-        kind,
-        size: reply.size,
-        truncated: reply.truncated,
-        binary: reply.binary,
-        content: reply.content,
-      };
+      const whole = await this.#whole(kind, path);
+      if (whole === undefined || this.#wanted !== path) return;
+      this.file.value = { path, kind, ...whole };
       this.failure.value = undefined;
       if (kind !== "contained") this.#remember(path);
     } catch (cause) {
@@ -222,6 +215,46 @@ export class FilesView {
       this.failure.value = String(cause);
     } finally {
       if (this.#wanted === path) this.reading.value = false;
+    }
+  }
+
+  /** 1 つのファイルを、範囲を継いで最後まで読む。
+   *
+   * 1 回の答えが運べるのは `MAX_FILE_READ_BYTES` までなので (契約 DR-0031 §2)、
+   * それより大きいファイルは範囲を継いで初めて全文になる。続きがあるかは印では
+   * なく数で言う — `offset` と返ってきた `length` の和が `size` に届いていない
+   * 間は続きがある。
+   *
+   * 読んでいる間にファイルが変わっても読みは止めない。契約は範囲をまたいだ
+   * 一貫した読みを約束しておらず (DR-0031 の前提)、実際に起きるのはほとんどが
+   * 追記で、そこで失敗にすると書かれ続けているファイルが永久に開けなくなる。
+   *
+   * 途中で別のファイルが選ばれたら (`#wanted` が動いたら) そこで降りる。長い
+   * ファイルの残りを読み続けても、着く先はもう誰も見ていない。 */
+  async #whole(
+    kind: FileKind,
+    path: string,
+  ): Promise<{ size: number; binary: boolean; content: string } | undefined> {
+    const parts: Uint8Array[] = [];
+    let offset = 0;
+    for (;;) {
+      const reply = (await this.#connection.request("file.read", {
+        sid: this.sid,
+        kind,
+        path,
+        offset,
+      })) as unknown as FileReadResult;
+      if (this.#wanted !== path) return undefined;
+      // バイト列は届いているが、描くのはここの仕事ではない (`OpenFile.binary`)。
+      // 続きを読んでも使い道が無いので、大きさと印だけを持って戻る。
+      if (reply.binary) return { size: reply.size, binary: true, content: "" };
+      parts.push(decodeBase64(reply.content));
+      offset += reply.length;
+      // 終端まで来たか、それ以上進まなくなったら終わり。0 バイトで抜けるのは、
+      // 進まない答えを返す相手と延々往復しないため。
+      if (offset >= reply.size || reply.length === 0) {
+        return { size: reply.size, binary: false, content: textOf(parts) };
+      }
     }
   }
 

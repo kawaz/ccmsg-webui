@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { Sid } from "@ccmsg/protocol";
+import type { Connection } from "../src/connection.ts";
+import { FilesView } from "../src/files/files-view.ts";
 import {
   filesStorageKey,
   parseFilesRecord,
@@ -216,5 +219,95 @@ describe("files の記録", () => {
     const record = { view: "preview" as const };
     expect(persistViewMode(record, "a.ts", "code")).toEqual(record);
     expect(persistViewMode(record, "a.md", "code").view).toBe("code");
+  });
+});
+
+/** 1 回の答えが運べる上限を跨ぐ読み (契約 DR-0031)。
+ *
+ * 使い捨ての instance 役に、頼まれた範囲だけを base64 で答えさせる。`FilesView`
+ * が全文に組み直せるかを見るので、上限は本物 (512 KiB) ではなく小さくして、
+ * 範囲が何度も継がれる所を実際に通す。 */
+describe("FilesView がファイルを範囲で読む", () => {
+  function instanceOf(bytes: Uint8Array, binary = false, step = 8) {
+    const asked: number[] = [];
+    const connection = {
+      request(op: string, args: Record<string, unknown>) {
+        if (op === "file.stat") return Promise.resolve({ results: [{ kind: "workspace" }] });
+        if (op === "dir.list") return Promise.resolve({ entries: [] });
+        if (op !== "file.read") throw new Error(`思っていない op: ${op}`);
+        const offset = Number(args["offset"] ?? 0);
+        asked.push(offset);
+        const part = bytes.slice(offset, offset + step);
+        let binaryText = "";
+        for (const byte of part) binaryText += String.fromCharCode(byte);
+        return Promise.resolve({
+          sid: SID,
+          path: args["path"],
+          size: bytes.byteLength,
+          offset,
+          length: part.byteLength,
+          binary,
+          content: btoa(binaryText),
+          mtime_at: 0,
+        });
+      },
+    };
+    return { connection, asked };
+  }
+
+  const nothingRemembered = { read: () => ({}), write: () => {} };
+
+  async function opened(bytes: Uint8Array, binary = false) {
+    const { connection, asked } = instanceOf(bytes, binary);
+    const view = new FilesView(connection as unknown as Connection, SID as Sid, nothingRemembered);
+    view.start();
+    view.show("/x/a.txt");
+    // 読みは非同期で、範囲の数だけ往復する。終わりは view 自身が signal で言うので、
+    // それを待つ (何往復になるかは test の側からは決められない)。
+    await new Promise<void>((resolve) => {
+      const stop = view.reading.subscribe((busy) => {
+        if (!busy) {
+          resolve();
+          queueMicrotask(() => stop());
+        }
+      });
+    });
+    return { file: view.file.value, asked };
+  }
+
+  test("上限より大きいテキストは範囲を継いで全文になる", async () => {
+    const text = "0123456789abcdefghijklmnopqrstuvwxyz";
+    const { file, asked } = await opened(new TextEncoder().encode(text));
+    expect(file?.content).toBe(text);
+    expect(file?.size).toBe(text.length);
+    expect(file?.binary).toBe(false);
+    expect(asked).toEqual([0, 8, 16, 24, 32]);
+  });
+
+  test("範囲の境目にまたがる多バイト文字が壊れない", async () => {
+    // 8 バイトの区切りは「あ」(3 バイト) の途中に落ちる。
+    const text = "あいうえおかきくけこ";
+    const { file } = await opened(new TextEncoder().encode(text));
+    expect(file?.content).toBe(text);
+  });
+
+  test("1 範囲に収まるファイルは 1 往復で終わる", async () => {
+    const { file, asked } = await opened(new TextEncoder().encode("abc"));
+    expect(file?.content).toBe("abc");
+    expect(asked).toEqual([0]);
+  });
+
+  test("空のファイルも 1 往復で終わる", async () => {
+    const { file, asked } = await opened(new Uint8Array(0));
+    expect(file?.content).toBe("");
+    expect(asked).toEqual([0]);
+  });
+
+  test("テキストとして読めないものは大きさだけを持って止まる", async () => {
+    const { file, asked } = await opened(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), true);
+    expect(file?.binary).toBe(true);
+    expect(file?.size).toBe(10);
+    expect(file?.content).toBe("");
+    expect(asked).toEqual([0]);
   });
 });

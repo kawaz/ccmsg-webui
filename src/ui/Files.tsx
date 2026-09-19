@@ -549,12 +549,6 @@ function FileBody({
         )}
       </p>
       <SearchBar search={search} matched={matched} onReveal={reveal} />
-      {file.truncated && (
-        <p class="banner">
-          先頭 {file.content.length} 文字だけを出しています (全 {file.size} バイト)。契約の
-          `file.read` は続きを求める引数を持たないので、この先はここからは読めません。
-        </p>
-      )}
       <div
         class="viewer-scroll"
         ref={scroller}
@@ -567,7 +561,7 @@ function FileBody({
         }}
       >
         {file.binary ? (
-          <p class="empty">テキストではないので中身は出しません。</p>
+          <p class="empty">バイナリファイルです ({file.size} バイト)。</p>
         ) : markdown && mode === "preview" ? (
           <div class="viewer-preview">
             <MarkdownView
