@@ -4,6 +4,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
+| 2026-09-19 | bug | open | [visual-file-word-bubble-vertical-drift](./2026-09-19-visual-file-word-bubble-vertical-drift.md) | visual test の file-word-bubble が縦位置ずれで落ちる (原因未特定) |
 | 2026-09-18 | design | open | [pinned-key-missing-instance](./2026-09-18-pinned-key-missing-instance.md) | 留めたセッションの鍵が instance を名乗っていない (ccmsg.sessions.pinned) |
 | 2026-09-18 | bug | open | [markdown-code-span-url-becomes-link](./2026-09-18-markdown-code-span-url-becomes-link.md) | メッセージ本文の markdown で、インライン code に書かれた URL がリンクにならない |
 | 2026-09-17 | request | open | [request-hyoui-iframe-allow-publickey-credentials-get](./2026-09-17-request-hyoui-iframe-allow-publickey-credentials-get.md) | hyoui を埋め込む iframe の `allow` に `publickey-credentials-get` を足す (hyoui DR-0036 passkey 認証) |
