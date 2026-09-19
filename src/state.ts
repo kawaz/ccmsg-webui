@@ -110,7 +110,10 @@ import { clearLocal, keepOnSignOut, localStore } from "./settings.ts";
 import {
   answeringSids,
   errorsBySid,
+  formatPinned,
   isSortKey,
+  parsePinned,
+  pinnedStorageKey,
   type SortKey,
   sortAgents,
   sortPeers,
@@ -163,14 +166,6 @@ type TerminalsData = Static<typeof TerminalsFrame>["data"];
 /** 並べ方の好み。instance もセッションも名前に入らない — 一覧を何順で読むかは
  * この人の読み方で、相手ごとに決め直すものではない。 */
 const SORT_KEY_STORAGE = keepOnSignOut("ccmsg.sessions.sort");
-/** 留めたセッション。**このブラウザの覚え**で、instance には送らない — 「今
- * 追いかけている仕事」は人ごとに違い、同じ instance を見ている他の人の一覧を
- * 動かす理由が無い。
- *
- * 好みとしては残さない (`keepOnSignOut` を通さない): 名前には sid が入らないが、
- * **値が名指しているのは instance のセッション**なので、降りた端末に残せば、
- * 次にそこを使う人の一覧が他人の仕事で始まる。 */
-const PINNED_STORAGE = "ccmsg.sessions.pinned";
 
 /** The topics this build stands on: what the session list is made of, plus the
  * one topic that is about the person rather than about a session — a
@@ -1481,27 +1476,31 @@ export function dismissConfirm(): void {
  * 決めている。 */
 export const selectedItem = signal<string | undefined>(undefined);
 
-/** 留めてあるセッション。並びの先頭に来て、印が付く。 */
-export const pinned = signal<ReadonlySet<Sid>>(loadPinned());
+/** 留めてあるセッション。並びの先頭に来て、印が付く。
+ *
+ * **このブラウザの覚え**で、instance には送らない — 「今追いかけている仕事」は
+ * 人ごとに違い、同じ instance を見ている他の人の一覧を動かす理由が無い。
+ *
+ * 名乗る前は空。sid だけでは「どの instance のセッションか」が決まらないので、
+ * 挨拶が済むまで読む鍵が無い (files の覚えと同じ規律)。 */
+export const pinned = signal<ReadonlySet<Sid>>(new Set());
 
-function loadPinned(): ReadonlySet<Sid> {
-  const held = localStore.get(PINNED_STORAGE);
-  if (held === undefined) return new Set();
-  try {
-    const read: unknown = JSON.parse(held);
-    return new Set(
-      Array.isArray(read) ? (read.filter((one) => typeof one === "string") as Sid[]) : [],
-    );
-  } catch {
-    return new Set();
-  }
+function pinnedKey(): string | undefined {
+  const instance = hello.value?.instance;
+  return instance === undefined ? undefined : pinnedStorageKey(instance);
 }
+
+effect(() => {
+  const at = pinnedKey();
+  pinned.value = at === undefined ? new Set() : parsePinned(localStore.get(at));
+});
 
 export function togglePinned(sid: Sid): void {
   const next = new Set(pinned.value);
   if (!next.delete(sid)) next.add(sid);
   pinned.value = next;
-  localStore.set(PINNED_STORAGE, JSON.stringify([...next]));
+  const at = pinnedKey();
+  if (at !== undefined) localStore.set(at, formatPinned(next));
 }
 
 /** instance が持っている dump の献立。名前を列挙できるのはこの op だけなので、

@@ -41,6 +41,34 @@ function byInstant(a: number | undefined, b: number | undefined): number {
   return b - a;
 }
 
+/** 留めたセッションをどこに置くか。
+ *
+ * ブラウザは 1 つの店を site 全体で持ち、人はそこから複数の instance に届く。
+ * 留めてあるのはその instance のセッションなので、鍵が instance を名乗る
+ * (DESIGN「localStorage のキー規律」) — 裸の名前で置くと、別の instance を
+ * 開いた人の一覧が、見たことのない sid で始まる。 */
+export function pinnedStorageKey(instance: string): string {
+  return `ccmsg.sessions.pinned:${instance}`;
+}
+
+/** 覚えていた留め。読めない値・手で書き換えられた値は「1 つも留めていない」と
+ * 同じに扱う — 留め直すのは 1 押しなので、読めない値で画面を止める理由が無い。 */
+export function parsePinned(raw: string | undefined): ReadonlySet<Sid> {
+  if (raw === undefined) return new Set();
+  let held: unknown;
+  try {
+    held = JSON.parse(raw);
+  } catch {
+    return new Set();
+  }
+  if (!Array.isArray(held)) return new Set();
+  return new Set(held.filter((one): one is Sid => typeof one === "string"));
+}
+
+export function formatPinned(pinned: ReadonlySet<Sid>): string {
+  return JSON.stringify([...pinned]);
+}
+
 /** 並び。**留めた行が先**で、その中では選ばれた並びのまま。
  *
  * 留めるのは「今これを追いかけている」という人の側の印なので、instance が言う

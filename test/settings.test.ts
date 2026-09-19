@@ -34,10 +34,10 @@ const PREFERENCES = [
   "ccmsg.timeline.display:",
 ];
 
-/** 好みではない名前たち。ユーザ・instance・sid のどれかを名前か値で名指す。 */
+/** 好みではない名前たち。ユーザ・instance・sid のどれかを名前で名乗る。 */
 const THE_REST = [
   "ccmsg.endpoint",
-  "ccmsg.sessions.pinned",
+  "ccmsg.sessions.pinned:instance-one",
   "ccmsg.layout.split:instance-one",
   "ccmsg.layout.sessions-split:instance-one",
   "ccmsg.files:instance-one:sid-one",

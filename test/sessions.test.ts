@@ -6,6 +6,9 @@ import {
   isLost,
   sectionOf,
   sessionLabel,
+  formatPinned,
+  parsePinned,
+  pinnedStorageKey,
   sortAgents,
   sortPeers,
   terminalIdsBySid,
@@ -209,5 +212,22 @@ describe("留めた行", () => {
 
   test("留めていなければ、並びは選んだ通り", () => {
     expect(sortPeers(rows, "user_input").map((row) => row.sid)).toEqual(["1111", "2222", "3333"]);
+  });
+
+  test("鍵は instance を名乗るので、別の instance の留めは混ざらない", () => {
+    expect(pinnedStorageKey("inst-a")).toBe("ccmsg.sessions.pinned:inst-a");
+    expect(pinnedStorageKey("inst-b")).not.toBe(pinnedStorageKey("inst-a"));
+  });
+
+  test("書いたものがそのまま読める", () => {
+    const held = new Set(["1111", "2222"]);
+    expect([...parsePinned(formatPinned(held))]).toEqual(["1111", "2222"]);
+  });
+
+  test("読めない値は「1 つも留めていない」と同じ", () => {
+    expect(parsePinned(undefined).size).toBe(0);
+    expect(parsePinned("{").size).toBe(0);
+    expect(parsePinned('{"sid":"1111"}').size).toBe(0);
+    expect([...parsePinned('["1111",7,null]')]).toEqual(["1111"]);
   });
 });
