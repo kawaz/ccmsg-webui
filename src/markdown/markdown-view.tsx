@@ -39,6 +39,8 @@ import { classifyMarkdownLinkUrl, type FilePathRef, isSafeUrl } from "./markdown
 import { type FileWordHits, fileWordOf } from "./file-word.ts";
 import { FileWord } from "./FileWord.tsx";
 import { FoldOpen } from "../timeline/fold-open.ts";
+import { run as runAction } from "../actions/tree.ts";
+import { useAction, useScope } from "../ui/Scope.tsx";
 
 /** `location.origin`, or `null` where there is no `location` (unit tests
  * render `renderMarkdownAst` outside a DOM). Kept as a tiny wrapper rather
@@ -266,6 +268,30 @@ interface MarkdownSectionFold {
 }
 const MarkdownSectionFoldContext = createContext<MarkdownSectionFold | null>(null);
 
+/** 文書ぜんぶの畳みを担当する所 (DR-0003 §2.4)。
+ *
+ * 描くものが無いのにコンポーネントなのは、担当を名乗るのが**その節の中に居る
+ * こと**だから — 畳みを持っている文書が立っている区画の担当になる。畳みを頼んで
+ * いない文書ではそもそも描かれないので、担当も名乗らない。 */
+function MarkdownFoldActions({ fold }: { fold: MarkdownSectionFold }) {
+  const apply = (next: boolean): void => {
+    for (const key of fold.allKeys) fold.store.set(key, next);
+  };
+  useAction("document.open-all-sections", {
+    enabled: () => fold.allKeys.length > 0,
+    run: () => {
+      apply(true);
+    },
+  });
+  useAction("document.close-all-sections", {
+    enabled: () => fold.allKeys.length > 0,
+    run: () => {
+      apply(false);
+    },
+  });
+  return null;
+}
+
 /** Hover-intent delays for the caret's menu. Opening is slow enough that a
  * pointer crossing the caret on its way to the text never summons the menu;
  * closing is slower still, because the gap the pointer travels to reach the
@@ -305,6 +331,7 @@ function MarkdownSectionShell({
 }) {
   const fold = useContext(MarkdownSectionFoldContext);
   const store = fold?.store;
+  const scope = useScope();
   // Reading the store during render is what subscribes this section to its own
   // key and nothing else — the reason the state lives out there at all.
   const open = store ? store.isOpen(sectionKey, true) : true;
@@ -337,6 +364,14 @@ function MarkdownSectionShell({
     },
     [store, cancelMenuTimer],
   );
+
+  /** 文書ぜんぶに効く項目は**アクションを起こす 1 行**で、することの中身は
+   * 担当の側にある (§2.4)。メニューを畳むのは部品の中で閉じる操作。 */
+  const raise = (action: string): void => {
+    runAction(action, scope);
+    cancelMenuTimer();
+    setMenuOpen(false);
+  };
 
   // "…children" opens this section too: opening the subtree of a collapsed
   // section would otherwise reveal nothing. Closing the subtree deliberately
@@ -385,7 +420,9 @@ function MarkdownSectionShell({
                 type="button"
                 role="menuitem"
                 title="この文書の全セクションを開く"
-                onClick={() => applyTo(fold?.allKeys ?? [], true)}
+                onClick={() => {
+                  raise("document.open-all-sections");
+                }}
               >
                 Open all
               </button>
@@ -401,7 +438,9 @@ function MarkdownSectionShell({
                 type="button"
                 role="menuitem"
                 title="この文書の全セクションを閉じる"
-                onClick={() => applyTo(fold?.allKeys ?? [], false)}
+                onClick={() => {
+                  raise("document.close-all-sections");
+                }}
               >
                 Close all
               </button>
@@ -1572,15 +1611,18 @@ export function MarkdownView({
       sections: sectionFold,
       highlight,
     });
-    const withFold = sectionFold ? (
-      <MarkdownSectionFoldContext.Provider
-        value={{ store: sectionStore, allKeys: collectMarkdownSectionKeys(root.children) }}
-      >
-        {markdown}
-      </MarkdownSectionFoldContext.Provider>
-    ) : (
-      markdown
-    );
+    const folding: MarkdownSectionFold | null = sectionFold
+      ? { store: sectionStore, allKeys: collectMarkdownSectionKeys(root.children) }
+      : null;
+    const withFold =
+      folding === null ? (
+        markdown
+      ) : (
+        <MarkdownSectionFoldContext.Provider value={folding}>
+          <MarkdownFoldActions fold={folding} />
+          {markdown}
+        </MarkdownSectionFoldContext.Provider>
+      );
     if (headings.length <= 1) return withFold;
 
     return (

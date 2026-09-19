@@ -25,6 +25,8 @@ import {
 } from "../markdown/highlight.ts";
 import { type MarkdownPathLinker, MarkdownView } from "../markdown/markdown-view.tsx";
 import { matchingKeys, type SearchWord } from "../search/in-view-search.ts";
+import { run } from "../actions/tree.ts";
+import { Holder, Pane, useAction, useScope } from "./Scope.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
 import { markedSpans, markedText } from "./search-marks.tsx";
 import { href } from "../base.ts";
@@ -52,22 +54,26 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
   const openAt = (next: Route) => {
     navigate(next);
   };
-  const panes = useRef<HTMLDivElement | null>(null);
-  const tree = useRef<HTMLElement | null>(null);
+  const panes = useRef<HTMLDivElement>(null);
+  const tree = useRef<HTMLDivElement>(null);
   const instance = hello.value?.instance;
   const split = useSplitWidth(instance === undefined ? undefined : splitStorageKey(instance));
   return (
     <section class="section files">
-      <div
+      <Pane
+        name="files"
+        label="ファイル"
         class="files-panes"
-        ref={panes}
+        hold={panes}
         style={split.width === undefined ? undefined : `--files-tree-w:${split.width}px`}
       >
-        <nav class="files-tree" aria-label="ファイル" ref={tree}>
+        {/* 木と本文は**別々の節** (DR-0003 §2.2)。同じ上下を打っても、ツリーで
+          打つのと本文の中で打つのとで届く担当が違う。 */}
+        <Pane name="tree" label="ファイルの木" class="files-tree" hold={tree}>
           <p class="files-section">プロジェクト</p>
           <DirBody view={view} dir={ROOT} depth={0} selected={path} />
           <OutsideFiles view={view} selected={path} />
-        </nav>
+        </Pane>
         <Splitter
           class="files-split"
           label="ファイルの木と本文の境目"
@@ -80,10 +86,10 @@ function FilesBody({ view, path, lines }: { view: FilesView; path?: string; line
           onSet={split.hold}
           onSettle={split.keep}
         />
-        <div class="files-viewer">
+        <Pane name="preview" label="ファイルの中身" class="files-viewer">
           <Viewer view={view} path={path} lines={lines} session={session} openAt={openAt} />
-        </div>
-      </div>
+        </Pane>
+      </Pane>
     </section>
   );
 }
@@ -208,8 +214,12 @@ function EntryRow({
   );
 }
 
-/** One openable row. An `<a>` rather than a button: opening a file is a
- * navigation, so the browser's own affordances (new tab, copy link) work. */
+/** One openable row.
+ *
+ * 行は**自分の path を対象に「ファイルを開く」を担当する** (DR-0003 §2.3 の、
+ * 同じ id を場所ごとの担当が持つ形)。押す所は `<a>` のままにする — 開くことが
+ * 遷移である以上、新しいタブ・リンクのコピーというブラウザの手を捨てる理由が
+ * 無く、`onClick` が**アクションを起こす 1 行**であれば §2.4 は満たされる。 */
 function FileRow({
   path,
   label,
@@ -223,9 +233,37 @@ function FileRow({
   selected?: string;
   type: DirEntry["type"];
 }) {
+  return (
+    <Holder name={`file ${path}`}>
+      <FileLink path={path} label={label} depth={depth} selected={selected} type={type} />
+    </Holder>
+  );
+}
+
+function FileLink({
+  path,
+  label,
+  depth,
+  selected,
+  type,
+}: {
+  path: string;
+  label: string;
+  depth: number;
+  selected?: string;
+  type: DirEntry["type"];
+}) {
+  const scope = useScope();
   const at = files.value;
-  if (at === undefined) return null;
-  const to: Route = { at: "session", sid: at.sid, tab: "files", path };
+  const to: Route | undefined =
+    at === undefined ? undefined : { at: "session", sid: at.sid, tab: "files", path };
+  useAction("files.open", {
+    enabled: () => files.value !== undefined,
+    run: () => {
+      if (to !== undefined) navigate(to);
+    },
+  });
+  if (to === undefined) return null;
   return (
     <a
       class={`files-row${path === selected ? " files-row-on" : ""}`}
@@ -235,7 +273,7 @@ function FileRow({
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
-        navigate(to);
+        run("files.open", scope);
       }}
     >
       <span class="files-caret" />

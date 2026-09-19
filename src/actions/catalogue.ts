@@ -61,6 +61,14 @@ export const ACTIONS: readonly Action[] = [
   { id: "timeline.select-prev-in-voice", title: "同じ声の前へ" },
   { id: "timeline.select-next-in-voice", title: "同じ声の次へ" },
 
+  // files。木と本文は別々の節なので、同じ上下でも届く先が違う (§2.2)。
+  { id: "files.open", title: "ファイルを開く" },
+
+  // 文書の畳み。**綴りが木の節を指していない**のは検索と同じ理由で、これが
+  // files プレビューと tl 本体の 2 か所に立つ区画の役だから (付録 A)。
+  { id: "document.open-all-sections", title: "文書の全セクションを開く" },
+  { id: "document.close-all-sections", title: "文書の全セクションを閉じる" },
+
   // 検索 (窓が開いている間)
   { id: "search.prev-match", title: "前の一致へ" },
   { id: "search.next-match", title: "次の一致へ" },
