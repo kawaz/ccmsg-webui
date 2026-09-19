@@ -102,7 +102,8 @@ import { Composer } from "./Composer.tsx";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
-import { Act, Pane, useAction, useScopeKeys } from "./Scope.tsx";
+import { run } from "../actions/tree.ts";
+import { Act, Holder, Pane, useAction, useScope, useScopeKeys } from "./Scope.tsx";
 import { hasVoiceNeighbour, stepInVoice, stepItem } from "../timeline/voice-nav.ts";
 
 /** A session's transcript as the items an instance read it into, followed
@@ -738,6 +739,12 @@ function TimelineActions({
     enabled: () => true,
     run: openSearch,
   });
+  // 訳と原文の行き来は**画面ぜんぶに効く** (`state.ts` の `toggleReading`) ので、
+  // 担当も 1 通ごとではなく tl が持つ。押す所は訳す所を持っている文の脇に出る。
+  useAction("timeline.toggle-reading", {
+    enabled: () => preferredRoute.value !== undefined,
+    run: toggleReading,
+  });
   useScopeKeys({
     ArrowUp: "timeline.select-prev",
     ArrowDown: "timeline.select-next",
@@ -768,17 +775,22 @@ function ReplyToLink({
   return (
     <>
       {" "}
-      <button
-        type="button"
-        class="tl-reply-link"
-        onClick={() => {
-          onGo(key);
-        }}
-      >
-        答えた 1 通へ
-      </button>
+      {/* 飛び先はこの 1 通なので、担当も**この 1 通が**持つ (§2.3)。 */}
+      <Holder name={`reply-to ${mid}`}>
+        <ReplyToAct target={key} onGo={onGo} />
+      </Holder>
     </>
   );
+}
+
+function ReplyToAct({ target, onGo }: { target: string; onGo: (key: string) => void }) {
+  useAction("timeline.go-to-replied", {
+    enabled: () => true,
+    run: () => {
+      onGo(target);
+    },
+  });
+  return <Act action="timeline.go-to-replied" class="tl-reply-link" />;
 }
 
 /** そのセッションに宛てて言われて、まだ渡っていない 1 通。
@@ -1016,7 +1028,22 @@ function agentOf(row: ItemRow): string | undefined {
  * きた答えだけで、その worker が何を叩いたかは worker 自身の transcript にしか
  * 無い。 */
 function AgentLink({ sid, agentId }: { sid: Sid; agentId: string }) {
+  return (
+    <Holder name={`worker ${agentId}`}>
+      <AgentGo sid={sid} agentId={agentId} />
+    </Holder>
+  );
+}
+
+function AgentGo({ sid, agentId }: { sid: Sid; agentId: string }) {
+  const scope = useScope();
   const to = { at: "agent", sid, agentId } as const;
+  useAction("timeline.open-worker", {
+    enabled: () => true,
+    run: () => {
+      navigate(to);
+    },
+  });
   return (
     <a
       class="tl-agent-link"
@@ -1024,7 +1051,7 @@ function AgentLink({ sid, agentId }: { sid: Sid; agentId: string }) {
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
-        navigate(to);
+        run("timeline.open-worker", scope);
       }}
     >
       この worker を開く
@@ -1110,14 +1137,13 @@ function Prose({
   return (
     <>
       {offered && (
-        <button
-          type="button"
+        <Act
+          action="timeline.toggle-reading"
           class="tl-reading"
           title={`${ROUTE_LABELS[route]} と原文を行き来する (画面ぜんぶ)`}
-          onClick={toggleReading}
         >
           {reading.value === "original" ? "訳" : "原文"}
-        </button>
+        </Act>
       )}
       {shown.pending && <span class="tl-translating">訳しています…</span>}
       <MarkdownView

@@ -75,6 +75,9 @@ export const ACTIONS: readonly Action[] = [
   { id: "timeline.page-up", title: "1 画面戻る (transcript)" },
   { id: "timeline.page-down", title: "1 画面進む (transcript)" },
   { id: "timeline.open-search", title: "この transcript の中を探す" },
+  { id: "timeline.toggle-reading", title: "本文の言語を切り替える (訳 ⇄ 原文)" },
+  { id: "timeline.go-to-replied", title: "答えた 1 通へ" },
+  { id: "timeline.open-worker", title: "worker を主語に開く" },
   { id: "timeline.select-prev-in-voice", title: "同じ声の前へ" },
   { id: "timeline.select-next-in-voice", title: "同じ声の次へ" },
 
