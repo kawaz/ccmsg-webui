@@ -1,4 +1,4 @@
-import { expect, listSettled, shot, test } from "./harness.ts";
+import { expect, listSettled, settledOrder, shot, test } from "./harness.ts";
 
 /** 行の上でできること (留める / 改名 / 終了) の試作。
  *
@@ -7,17 +7,20 @@ import { expect, listSettled, shot, test } from "./harness.ts";
 
 test("留めると一覧の先頭に来て、外すと戻る", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
-  // 行を選ぶ前に、一覧が届き切るのを待つ。「いちばん下の行」は届き切る前だと
-  // 別のセッションを指すので、留める相手が走行ごとに変わってしまう。
+  // 行を選ぶ前に、一覧が届き切るのを待つ。
   await listSettled(page);
   // セッションの行だけ (mesh の行にも `.row` を使っている)。
   const rows = page.locator(".row:has(.row-pin)");
   await expect(rows.first()).toBeVisible();
+  await settledOrder(page);
 
-  // 下の方に居る行を留める。
-  const last = rows.last();
-  const name = await last.locator(".name").innerText();
-  await last.getByRole("button", { name: "☆" }).click();
+  // 留める相手は**名指し**で選ぶ。「いちばん下の行」は一覧の並びが指すもので、
+  // 並びは同じ走行で先に走った spec が何をしたかで動く — 位置で選ぶと、留めた
+  // 行が走行ごとに変わり、絵がその spec 順を焼き込む。
+  const name = "長い transcript";
+  const chosen = rows.filter({ has: page.locator(".name", { hasText: name }) });
+  await expect(chosen).toHaveCount(1);
+  await chosen.getByRole("button", { name: "☆" }).click();
   await expect(rows.first().locator(".name")).toHaveText(name);
   await expect(rows.first().getByRole("button", { name: "★" })).toBeVisible();
   await shot(page, "session-pinned.png");
@@ -30,6 +33,7 @@ test("留めると一覧の先頭に来て、外すと戻る", async ({ ui: page
 test("終了は確認を開くまで — 決めるのはダイアログの中", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}`);
   await listSettled(page);
+  await settledOrder(page);
   const row = page.locator(".row:has(.row-pin)").filter({ hasText: "束 0 を片付ける" }).first();
   await row.getByRole("button", { name: "終了" }).click();
 

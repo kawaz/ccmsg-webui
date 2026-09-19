@@ -1,10 +1,13 @@
-import { SID } from "./fixture.ts";
+import { SID, TALK_SID } from "./fixture.ts";
 import { connected, expect, test } from "./harness.ts";
 
 /** 話しかける所の手触り。絵ではなく、打った文字がどうなるかを見る。 */
 
+// 宛先は絵を撮らないセッション (`TALK_SID`)。受け付けられた 1 通は transcript に
+// 載るので、撮る側と同じセッションへ送ると基準がその行込みで焼かれ、spec の走る
+// 順が絵を決めてしまう。
 test("受け付けられたら入力欄は空になり、結果が 1 行出る", async ({ ui: page, instance }) => {
-  await page.goto(`${instance.endpoint}s/${SID}/timeline`);
+  await page.goto(`${instance.endpoint}s/${TALK_SID}/timeline`);
   await connected(page);
   const box = page.locator(".composer textarea");
 

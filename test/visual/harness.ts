@@ -7,6 +7,7 @@ import {
   SID,
   STATUS_SID,
   TAIL_SID,
+  TALK_SID,
   writeFixture,
 } from "./fixture.ts";
 import { type Instance, startInstance } from "./instance.ts";
@@ -124,6 +125,15 @@ export const test = base.extend<object, Fixtures>({
             repo: "kawaz/ccmsg-webui",
             branch: "main",
             model: "claude-opus-5",
+          }),
+          await greetAsSession(instance.stateDir, {
+            sid: TALK_SID,
+            cwd: instance.cwd,
+            transcriptPath: fixture.talkTranscriptPath,
+            title: "話しかけて確かめる",
+            repo: "kawaz/ccmsg-webui",
+            branch: "main",
+            model: "claude-sonnet-5",
           }),
           await greetAsSession(instance.stateDir, {
             sid: TAIL_SID,
@@ -509,6 +519,20 @@ export async function listSettled(page: Page): Promise<void> {
   const list = page.locator(".pane-list");
   if ((await list.count()) === 0) return;
   await expect(list).toHaveAttribute("data-settled", "");
+}
+
+/** 一覧の並びが落ち着くまで待つ。
+ *
+ * 並べ方の既定は「人が話しかけた順」で、その時刻は instance が transcript を
+ * 読んで初めて決まる。挨拶が済んだ直後の snapshot では読めていない行が混ざり、
+ * 読めた分から順に並びが入れ替わる — `data-settled` が言うのは「snapshot が
+ * 届いたか」までなので、その先の並びは自分で待つ。
+ *
+ * 待つのは**出来事**で時間ではない: 落ち着いた並びの先頭は fixture が決めて
+ * いる 1 つ (`STATUS_SID` の「束 0 を片付ける」) なので、そこに着いたことが
+ * 「読み終えた」の印になる。 */
+export async function settledOrder(page: Page): Promise<void> {
+  await expect(page.locator(".row:has(.row-pin) .name").first()).toHaveText("束 0 を片付ける");
 }
 
 /** 動いているものが止まるまで待つ。

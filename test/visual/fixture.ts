@@ -37,6 +37,14 @@ export const BULK_ITEMS = 500;
  * transcript を持つ — 数で確かめるものなので、他の test が同じ file を伸ばすと
  * 起点が動く。 */
 export const TAIL_SID = "88888888-9999-4aaa-8bbb-cccccccccccc";
+/** 話しかける test が宛先にするセッション。
+ *
+ * 絵を撮る所とは分ける — 受け付けられた 1 通は transcript に載るので、撮る側と
+ * 同じセッションへ送ると、基準がその行込みで焼かれ、その file だけを単体で
+ * 走らせると行の無い画面と突き合わせることになる (`TAIL_SID` が「誰も書き足さ
+ * ない」を要るのと同じ理由を、書く側から言ったもの)。 */
+export const TALK_SID = "44444444-5555-4666-8777-888888888888";
+
 /** 状態の画面が読むセッション。道具の呼びしか持たない transcript で、絵に出る
  * のは instance がそれを畳んだ結果。 */
 export const STATUS_SID = "77777777-8888-4999-8aaa-bbbbbbbbbbbb";
@@ -358,6 +366,8 @@ export interface Fixture {
   readonly statusTranscriptPath: string;
   /** 追記を見る test が読む方 (TAIL_SID)。 */
   readonly tailTranscriptPath: string;
+  /** 話しかける test が宛先にする方 (TALK_SID)。 */
+  readonly talkTranscriptPath: string;
   /** 頁をまたいで遡る test が読む方 (BULK_SID)。 */
   readonly bulkTranscriptPath: string;
   /** 呼び出しと答えが頁の境をまたぐ方 (JOIN_SID)。 */
@@ -409,6 +419,14 @@ export function writeFixture(home: string, cwd: string): Fixture {
       assistant([{ type: "text", text: "書かれた分はそのまま末尾に出ます。" }]),
     ].join(""),
   );
+  const talkTranscriptPath = join(project, `${TALK_SID}.jsonl`);
+  writeFileSync(
+    talkTranscriptPath,
+    [
+      user("打った文字がどうなるかを確かめたい。"),
+      assistant([{ type: "text", text: "受け付けられた 1 通はここに並びます。" }]),
+    ].join(""),
+  );
   const statusTranscriptPath = join(project, `${STATUS_SID}.jsonl`);
   writeFileSync(statusTranscriptPath, statusTranscript());
   const phoneTranscriptPath = join(project, `${OTHER_SID}.jsonl`);
@@ -451,6 +469,7 @@ export function writeFixture(home: string, cwd: string): Fixture {
     phoneTranscriptPath,
     statusTranscriptPath,
     tailTranscriptPath,
+    talkTranscriptPath,
     bulkTranscriptPath,
     joinTranscriptPath,
   };
