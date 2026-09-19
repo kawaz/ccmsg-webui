@@ -61,6 +61,8 @@ export const ACTIONS: readonly Action[] = [
   { id: "session-list.expand", title: "セクションを開く / セッションを開く" },
   { id: "session-list.open", title: "セッションを開く" },
   { id: "session-list.open-search", title: "クイックフィルタを開く" },
+  // **クイックフィルタとは別**。こちらは一覧に無いものを取りに行く (§2.2)。
+  { id: "session-list.search-offline", title: "動いていないセッションを探す" },
   { id: "session-list.rename", title: "セッションを改名する" },
   { id: "session-list.pin", title: "一覧の先頭に留める / やめる" },
   { id: "session-list.new", title: "新しいセッションを始める" },

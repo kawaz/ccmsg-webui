@@ -11,7 +11,7 @@ import {
 } from "../search/session-search.ts";
 import type { SearchWord } from "../search/in-view-search.ts";
 import { markedText } from "./search-marks.tsx";
-import { navigate, searchSessions } from "../state.ts";
+import { navigate, offlineSearchOpen, searchSessions } from "../state.ts";
 
 /** 動いていないセッションを探す。
  *
@@ -94,7 +94,13 @@ export function SessionSearch() {
   };
 
   return (
-    <details class="section search-sessions">
+    <details
+      class="section search-sessions"
+      open={offlineSearchOpen.value}
+      onToggle={(event) => {
+        offlineSearchOpen.value = (event.currentTarget as HTMLDetailsElement).open;
+      }}
+    >
       <summary>動いていないセッションを探す</summary>
       <form
         class="search-form"

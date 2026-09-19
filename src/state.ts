@@ -1391,6 +1391,11 @@ export const listFilterOpen = signal(false);
  * 画面の state として外に出る (打鍵からも押す所からも同じ 1 つが起こす)。 */
 export const launcherOpen = signal(false);
 
+/** 動いていないセッションを探す窓を開いているか。**クイックフィルタとは別の
+ * アクション**で (§2.2)、開くことがアクションである以上、開いているかは同じく
+ * 画面の state として外に出る。 */
+export const offlineSearchOpen = signal(false);
+
 /** 今カーソルの行を改名している最中か。行の中の state ではなく画面の state なのは、
  * 打鍵からも押す所からも同じ 1 つのアクションが起こすため (§2.4)。 */
 export const renaming = signal<Sid | undefined>(undefined);

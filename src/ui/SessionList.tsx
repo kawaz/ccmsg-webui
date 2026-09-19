@@ -42,6 +42,7 @@ import {
   listFilterOpen,
   listSettled,
   launcherOpen,
+  offlineSearchOpen,
   llmRequests,
   markUnkilled,
   navigate,
@@ -545,6 +546,12 @@ function ListActions({
   useAction("session-list.open-search", {
     enabled: () => true,
     run: onFilter,
+  });
+  useAction("session-list.search-offline", {
+    enabled: () => true,
+    run: () => {
+      offlineSearchOpen.value = true;
+    },
   });
   // 区画の役としての打鍵 (§2.2 の表)。PageUp / PageDown は区画のスクロールで、
   // 区画そのものが focus を持っているのでブラウザの既定がそのまま効く。
