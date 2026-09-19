@@ -1,6 +1,7 @@
 import type {
   AssertionCredential,
   AuthChallenge,
+  AuthChallengeArgs,
   AuthEnrollArgs,
   AuthRefreshReason,
   AuthRegisterArgs,
@@ -74,8 +75,22 @@ async function post(
   return parsed as Record<string, unknown>;
 }
 
-export async function fetchChallenge(endpoint: string): Promise<AuthChallenge> {
-  return (await post(endpoint, "challenge", {})) as unknown as AuthChallenge;
+/** Ask for a challenge, and — where the page is answering an enrolment URL —
+ * have the URL's liveness settled in the same breath.
+ *
+ * Whether a URL is still good is knowable only at its issuer (the secret that
+ * signed it and the record of its having been spent are both there), so this is
+ * the last moment before a person is asked to type anything at which the answer
+ * can be had. A token that is spent, expired, or issued by nobody the instance
+ * can reach refuses with `auth_invalid` and says no more (contract
+ * `AuthChallengeArgs`). */
+export async function fetchChallenge(endpoint: string, token?: string): Promise<AuthChallenge> {
+  const args: AuthChallengeArgs = token === undefined ? {} : { token };
+  return (await post(
+    endpoint,
+    "challenge",
+    args as unknown as Record<string, unknown>,
+  )) as unknown as AuthChallenge;
 }
 
 /** Turn what the browser produced into what the contract carries.
@@ -108,19 +123,21 @@ function registrationCredential(credential: PublicKeyCredential): AuthRegisterAr
  * both `name` and `displayName` — a passkey manager keeps the name and shows it
  * wherever the key is listed, and what it keeps is `name`.
  *
- * The challenge is fetched from the endpoint being posted to, and travels back
- * beside the credential with the instance that can spend it: behind a load
- * balancer the one that issued it, the one that made the URL and the one
- * receiving this may all be different (contract `AuthRegisterArgs`). */
+ * The challenge is the one already in hand: it was fetched when the URL was
+ * opened, which is where the URL's liveness was settled (`fetchChallenge`), and
+ * asking for a second would throw that answer away. It travels back beside the
+ * credential with the instance that can spend it: behind a load balancer the one
+ * that issued it, the one that made the URL and the one receiving this may all
+ * be different (contract `AuthRegisterArgs`). */
 export async function registerPasskey(options: {
   token: string;
   claims: Extract<EnrollClaims, { purpose: "create_user" }>;
   code: string;
+  challenge: AuthChallenge;
   displayName: string;
   deviceLabel?: string;
 }): Promise<AuthSession> {
-  const { claims, displayName } = options;
-  const challenge = await fetchChallenge(claims.endpoint);
+  const { claims, challenge, displayName } = options;
   const created = await navigator.credentials.create({
     publicKey: {
       challenge: bufferOf(challenge.challenge),
@@ -187,9 +204,15 @@ function assertionCredential(credential: PublicKeyCredential): AssertionCredenti
  * who has not been here in a while. */
 async function getAssertion(
   endpoint: string,
-  options: { mediation?: CredentialMediationRequirement; signal?: AbortSignal } = {},
+  options: {
+    mediation?: CredentialMediationRequirement;
+    signal?: AbortSignal;
+    /** 既に手にしている challenge。登録 URL から来た時はこれで、二度目を
+     * 取りに行かない。 */
+    challenge?: AuthChallenge;
+  } = {},
 ): Promise<{ challenge: AuthChallenge; credential: AssertionCredential }> {
-  const challenge = await fetchChallenge(endpoint);
+  const challenge = options.challenge ?? (await fetchChallenge(endpoint));
   const got = await navigator.credentials.get({
     publicKey: { challenge: bufferOf(challenge.challenge), userVerification: "required" },
     ...(options.mediation === undefined ? {} : { mediation: options.mediation }),
@@ -242,9 +265,10 @@ export async function enrolInstance(options: {
   token: string;
   claims: EnrollClaims;
   code: string;
+  challenge: AuthChallenge;
 }): Promise<AuthSession> {
   const { claims } = options;
-  const proved = await getAssertion(claims.endpoint);
+  const proved = await getAssertion(claims.endpoint, { challenge: options.challenge });
   const args: AuthEnrollArgs = {
     token: options.token,
     code: options.code,

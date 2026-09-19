@@ -2,7 +2,7 @@ import { useSignal } from "@preact/signals";
 import { defaultDeviceLabel, thisDevice } from "../auth/device-label.ts";
 import { authProblem } from "../auth/session.ts";
 import type { Enrolment as Held } from "../auth/enrolment-link.ts";
-import { completeEnrolment, dismissEnrolment } from "../state.ts";
+import { completeEnrolment, dismissEnrolment, type EnrolmentStand } from "../state.ts";
 
 /** What an enrolment link opens on.
  *
@@ -21,11 +21,23 @@ import { completeEnrolment, dismissEnrolment } from "../state.ts";
  * the person was sent and the only place the passkey may be made or presented.
  * The endpoint beside it is where the answer is posted and is held to nothing
  * (contract DR-0030 §4), so it is shown as what it is. */
-export function Enrolment({ held }: { readonly held: Held | undefined }) {
+export function Enrolment({ held }: { readonly held: EnrolmentStand | undefined }) {
+  if (held === undefined) return null;
+  // **フォームは URL の生死が分かってから**出す (契約 issue
+  // `registration-url-checked-before-the-form`)。使用済みの URL でも人に 6 桁を
+  // 打たせてから弾くのでは、打たせた分がまるごと無駄になる。駄目だった時の言葉
+  // は 1 つで、その帯は URL を読んだ時点の断りと同じ所に出る (`authProblem`)。
+  if (held.at === "checking") {
+    return (
+      <section class="section auth">
+        <p class="empty">この URL が使えるかを確かめています…</p>
+      </section>
+    );
+  }
   // The form is a component of its own so that what a person typed belongs to
   // the link they typed it for: another link is another key, and the fields
   // start from what it says rather than from what the last one left.
-  return held === undefined ? null : <EnrolmentForm key={held.token} held={held} />;
+  return <EnrolmentForm key={held.held.token} held={held.held} />;
 }
 
 function EnrolmentForm({ held }: { readonly held: Held }) {

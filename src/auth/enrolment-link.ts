@@ -46,7 +46,7 @@ export function isRefused(link: EnrolmentLink): link is RefusedLink {
  * and not three. Which it was is not this page's to say and not worth saying:
  * telling somebody that the URL was real but used is telling them the URL was
  * real (contract issue `registration-url-checked-before-the-form`). */
-const UNUSABLE = "この URL は使えません。CLI で発行し直してください。";
+export const UNUSABLE_LINK = "この URL は使えません。CLI で発行し直してください。";
 
 /** Read `#enroll=<token>` out of a location fragment.
  *
@@ -69,10 +69,10 @@ export function parseEnrolmentFragment(
   const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
   const token = params.get("enroll");
   if (token === null || token === "") {
-    return params.get("register") === null ? undefined : { refused: UNUSABLE };
+    return params.get("register") === null ? undefined : { refused: UNUSABLE_LINK };
   }
   const claims = readClaims(token);
-  if (claims === undefined || claims.expires_at <= now) return { refused: UNUSABLE };
+  if (claims === undefined || claims.expires_at <= now) return { refused: UNUSABLE_LINK };
   return { token, claims };
 }
 

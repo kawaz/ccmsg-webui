@@ -41,6 +41,7 @@ import type {
   TerminalInfo,
   TerminalsFrame,
   TopicName,
+  AuthChallenge,
   TranscriptItem,
   TranslateRunResult,
 } from "@ccmsg/protocol";
@@ -48,13 +49,19 @@ import {
   assertPasskey,
   canOfferPasskey,
   enrolInstance,
+  fetchChallenge,
   refreshSession,
   registerPasskey,
   signOutSession,
 } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
 import { endpointFromLocation, isEndpoint, socketUrl } from "./auth/endpoint.ts";
-import { type Enrolment, type EnrolmentLink, isRefused } from "./auth/enrolment-link.ts";
+import {
+  type Enrolment,
+  type EnrolmentLink,
+  isRefused,
+  UNUSABLE_LINK,
+} from "./auth/enrolment-link.ts";
 import {
   access,
   authProblem,
@@ -66,6 +73,7 @@ import {
   isNoSession,
   isSignInDeclined,
   isUnreachable,
+  isUnusableLink,
   needsRegistration,
   needsSignIn,
   tokenIsLive,
@@ -232,13 +240,21 @@ export function setEndpoint(next: string): boolean {
   return true;
 }
 
-/** The enrolment a link carried, while it is being carried out.
+/** 登録 URL を開いてから、フォームを出すまでの間に居る所。
  *
- * Filled in from the fragment, whenever one arrives: it is the whole of what
- * `ccmsg user create` or `ccmsg user add --enroll` handed over, and the six
- * digits that go with it arrive by the other route (the person's eyes, from a
- * terminal). */
-export const enrolment = signal<Enrolment | undefined>(undefined);
+ * **URL の生死は、人が何かを打つ前に発行者が答える** (契約 issue
+ * `registration-url-checked-before-the-form`)。使用済みかどうかは token を読んで
+ * も分からない — 消費の記録は発行者にしか無く、期限だけが token の側に見える半分
+ * なので、使用済みの URL は残りの窓のあいだ生きているように見える。だから
+ * `auth.challenge` に token を添えて聞き、その答えを待つ間が `checking`。
+ *
+ * 通った challenge はそのまま登録に使う: 生死を確かめた手そのものが challenge を
+ * 持って返るので、二度目を取りに行く理由が無い。 */
+export type EnrolmentStand =
+  | { readonly at: "checking"; readonly held: Enrolment }
+  | { readonly at: "ready"; readonly held: Enrolment; readonly challenge: AuthChallenge };
+
+export const enrolment = signal<EnrolmentStand | undefined>(undefined);
 
 /** Take up what an enrolment link brought.
  *
@@ -259,7 +275,23 @@ export function holdEnrolment(link: EnrolmentLink): void {
     authProblem.value = link.refused;
     return;
   }
-  enrolment.value = link;
+  authProblem.value = undefined;
+  enrolment.value = { at: "checking", held: link };
+  void fetchChallenge(link.claims.endpoint, link.token)
+    .then((challenge) => {
+      // 答えが返るまでに別の URL を開いていたら、その人が今見ているのはこちらの
+      // 話ではない。
+      if (enrolment.peek()?.held.token !== link.token) return;
+      enrolment.value = { at: "ready", held: link, challenge };
+    })
+    .catch((cause: unknown) => {
+      if (enrolment.peek()?.held.token !== link.token) return;
+      enrolment.value = undefined;
+      // 発行者が断ったのなら、断り方は 1 つ (使用済み / 期限切れ / 発行元不明を
+      // 区別しない)。届かなかっただけなら URL の話ではないので、届かなかったと
+      // 言う — URL が使えないと言い切ると、直せるものを直せないことにしてしまう。
+      authProblem.value = isUnusableLink(cause) ? UNUSABLE_LINK : describeAuthError(cause);
+    });
 }
 export const status = signal<ConnectionStatus>("idle");
 
@@ -1223,8 +1255,9 @@ export async function completeEnrolment(
   code: string,
   said: { displayName?: string; deviceLabel?: string } = {},
 ): Promise<void> {
-  const held = enrolment.peek();
-  if (held === undefined) return;
+  const stand = enrolment.peek();
+  if (stand?.at !== "ready") return;
+  const held = stand.held;
   authProblem.value = undefined;
   try {
     const session =
@@ -1233,10 +1266,16 @@ export async function completeEnrolment(
             token: held.token,
             claims: held.claims,
             code,
+            challenge: stand.challenge,
             displayName: said.displayName ?? "",
             ...(said.deviceLabel === undefined ? {} : { deviceLabel: said.deviceLabel }),
           })
-        : await enrolInstance({ token: held.token, claims: held.claims, code });
+        : await enrolInstance({
+            token: held.token,
+            claims: held.claims,
+            code,
+            challenge: stand.challenge,
+          });
     // The link is spent and the issuing instance has answered for it, so what
     // it named is now something this page has been told rather than something a
     // fragment claimed: this is where the instance becomes the one being dialed.

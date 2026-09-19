@@ -105,6 +105,16 @@ export function isUnreachable(cause: unknown): boolean {
   return cause instanceof AuthError && cause.code === "unreachable";
 }
 
+/** Whether the instance refused a登録 URL itself.
+ *
+ * 使用済み / 期限切れ / 発行元不明は**区別しない** — 区別すると「本物の URL
+ * だった」という情報まで返すことになるので、契約もこの 1 語で答える (契約
+ * `AuthChallengeArgs`)。届かなかっただけの時と分けるためにだけ問う: 届かない
+ * のは URL の話ではない。 */
+export function isUnusableLink(cause: unknown): boolean {
+  return cause instanceof AuthError && cause.code === "auth_invalid";
+}
+
 /** Whether asking for a passkey ended without one.
  *
  * The browser answers the same way whether the person waved the prompt away or

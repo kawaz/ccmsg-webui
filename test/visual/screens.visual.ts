@@ -75,10 +75,35 @@ test("register-expired", async ({ page, instance }) => {
   await shot(page, "register-expired.png");
 });
 
+/** 発行者が「使えない」と答えた登録 URL を開いた所。
+ *
+ * 期限は先なので頁の側では断れず、**フォームを出す前に endpoint に聞いて**初めて
+ * 分かる (契約 issue `registration-url-checked-before-the-form`)。出るのは期限
+ * 切れの時と同じ 1 つの言葉で、使用済みなのか発行元が知らないのかは言わない —
+ * 言い分けると「本物の URL だった」ことまで答えることになる。 */
+test("register-unusable", async ({ page, instance }) => {
+  const { url } = await instance.passkey();
+  await page.goto(disowned(url));
+  await expect(page.getByRole("heading", { name: "passkey を登録する" })).toHaveCount(0);
+  await expect(page.getByText("この URL は使えません")).toBeVisible();
+  await shot(page, "register-unusable.png");
+});
+
+/** 期限を先へ動かした登録 URL。claims を書き換えると署名が合わなくなるので、
+ * **頁は通し、発行者が断る** — この test が見たいのは頁の期限読みではなく、
+ * 発行者に聞いて初めて分かる断りの方。 */
+function disowned(url: string): string {
+  return withExpiry(url, Date.now() + 60 * 60 * 1000);
+}
+
 /** 同じ登録 URL の、期限だけが過ぎたもの。署名は触らない — この頁は署名を読ま
  * ず、期限を読んで断るのが見たいことなので、発行されたままの token の claims を
  * 書き換えるのが一番近い。 */
 function expired(url: string): string {
+  return withExpiry(url, 1);
+}
+
+function withExpiry(url: string, expiresAt: number): string {
   const [page, hash] = url.split("#enroll=");
   if (page === undefined || hash === undefined) throw new Error(`登録 URL ではありません: ${url}`);
   const [header, body, signature] = hash.split(".");
@@ -87,9 +112,9 @@ function expired(url: string): string {
     string,
     unknown
   >;
-  claims["expires_at"] = 1;
-  const spent = toBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
-  return `${page}#enroll=${String(header)}.${spent}.${String(signature)}`;
+  claims["expires_at"] = expiresAt;
+  const rewritten = toBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
+  return `${page}#enroll=${String(header)}.${rewritten}.${String(signature)}`;
 }
 
 test("sessions", async ({ ui: page, instance }) => {
