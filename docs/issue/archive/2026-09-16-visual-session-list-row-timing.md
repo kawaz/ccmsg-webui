@@ -1,6 +1,6 @@
 ---
 title: セッション一覧系 visual test が回によって 1〜3 件落ちる (行のタイミング差)
-status: open
+status: resolved
 category: bug
 created: 2026-09-16T22:51:31+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-19T13:26:38+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: 84b6470 で一覧が listed && terminalsListed を data-settled で出し shot() が待つ形になり解消。全件10回走行で sessions/session-pinned 0失敗(2026-09-19実測)"]
 blocked_by:
 origin: 自リポ TODO
 ---
