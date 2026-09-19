@@ -1,6 +1,6 @@
 ---
 title: webui のファイル閲覧が ccmsg v1.7.0 の file.read に追随していない
-status: open
+status: resolved
 category: bug
 created: 2026-09-19T21:52:47+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-19T22:11:48+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: commit 7746e598 で契約 v2.8.0 に追従 (src/files/bytes.ts で content を base64 復号、MAX_FILE_READ_BYTES 超過は offset を進めて継ぎバイトのまま結合し最後に 1 度復号、truncated 撤去 = 続きの有無は offset+length と size の引き算で判定、binary は「バイナリファイルです (N バイト)」まで表示)。範囲読みテスト5本追加。files-code / files-markdown / file-word-candidates の基準は byte 一致で変化なし"]
 blocked_by:
 origin: ccmsg (依頼元プロジェクト)
 ---

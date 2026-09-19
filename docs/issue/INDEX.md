@@ -4,7 +4,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
-| 2026-09-19 | bug | open | [files-view-file-read-contract-v2-8-0](./2026-09-19-files-view-file-read-contract-v2-8-0.md) | webui のファイル閲覧が ccmsg v1.7.0 の file.read に追随していない |
 | 2026-09-19 | design | open | [fab-place-reset-in-settings](./2026-09-19-fab-place-reset-in-settings.md) | 話しかける口の居場所と高さを「既定に戻す」手を設定の画面に置くか |
 | 2026-09-19 | design | open | [timeline-item-size-follows-snap-state](./2026-09-19-timeline-item-size-follows-snap-state.md) | transcript 1 通のサイズをスクロールスナップ状態に CSS だけで追従させる (scroll-state / view timeline) |
 | 2026-09-19 | task | open | [visual-accept-covers-linux-baselines](./2026-09-19-visual-accept-covers-linux-baselines.md) | visual-accept に linux 基準の workflow_dispatch → artifact 取り込み → manifest 更新を組み込む |
