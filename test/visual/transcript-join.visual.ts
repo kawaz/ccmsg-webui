@@ -21,16 +21,13 @@ test("頁をまたいで並んだ呼び出しと答えは、遡ると 1 行に�
   const heading = page.getByRole("heading", { name: /transcript — / });
   await expect(heading).toHaveText(/200 item/, { timeout: 20_000 });
 
-  /** 1 頁遡る。頁の大きさは instance が決めるので、数そのものではなく「手元が
-   * 増えた」ことで待つ (上端に居続ける所は `holdTimelineAtTop` を読む)。 */
-  const top = async () => {
-    const before = (await heading.textContent()) ?? "";
+  // 答えは 2 頁目の先頭、呼び出しは 3 頁目の末尾。上端に居続ければ、先頭に
+  // 届くまで頁が足される (引き金は先頭の番兵を見ている観測なので、1 度上へ
+  // 行って 1 頁ではない)。
+  await expect(async () => {
     await holdTimelineAtTop(page);
-    await expect(heading).not.toHaveText(before);
-  };
-  // 2 頁目の先頭が答え、3 頁目の末尾が呼び出し。
-  await top();
-  await top();
+    await expect(page.locator(".tl-edge").first()).toHaveText("— 先頭 —", { timeout: 2000 });
+  }).toPass({ timeout: 30_000 });
 
   // 描かれるのは見えている所だけなので、行そのものは探して辿り着く (数えるのは
   // 手元に持っているかどうかで、今描かれているかではない)。

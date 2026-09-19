@@ -9,6 +9,11 @@ import { expect, holdTimelineAtTop, test } from "./harness.ts";
  * に収まる transcript では、どちら側から答えられていても同じ絵になるので、頁を
  * またぐ長さで確かめる。
  *
+ * 遡りの引き金は先頭の番兵を見ている `IntersectionObserver` なので、上端に
+ * 居続ける間は頁が続けて足される (scroll event を数えていた頃のように、1 度
+ * 上へ行くと 1 頁、ではない)。だから数えるのは「1 回で何頁か」ではなく、
+ * **末尾の 1 頁から始まり、遡ると先頭まで届く**こと。
+ *
  * 長さは fixture が先に書いてある (`BULK_SID`)。test が走ってから書き足す形だと、
  * 見ているのが「遡れるか」ではなく「書き足しの束をどれだけ速く取り込むか」に
  * なってしまう — 実際、遅い機械ではそちらが追いつかず、末尾に届く前の頁を見て
@@ -17,7 +22,7 @@ import { expect, holdTimelineAtTop, test } from "./harness.ts";
 /** 1 度遡ると増える分。instance が 1 頁で答える item の数。 */
 const PAGE = 200;
 
-test("末尾から始まり、遡ると手前が頁ずつ足される", async ({ ui: page, instance }) => {
+test("末尾の 1 頁から始まり、遡ると先頭まで足される", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${BULK_SID}/timeline`);
   const heading = page.getByRole("heading", { name: /transcript — / });
   // 開いた所は末尾: 最後に書かれたものが見えている。始まりから読み下ろして
@@ -31,10 +36,12 @@ test("末尾から始まり、遡ると手前が頁ずつ足される", async ({
   const first = await held();
   expect(first).toBe(PAGE);
 
-  await holdTimelineAtTop(page);
-  await expect(heading).toHaveText(new RegExp(`${String(first + PAGE)} item`));
-  await holdTimelineAtTop(page);
   // 最初の 1 行ごと、transcript ぜんぶ。`prev` が返らなくなった所が始まり。
-  await expect(heading).toHaveText(new RegExp(`${String(BULK_ITEMS + 1)} item`));
+  await expect(async () => {
+    await holdTimelineAtTop(page);
+    await expect(heading).toHaveText(new RegExp(`${String(BULK_ITEMS + 1)} item`), {
+      timeout: 2000,
+    });
+  }).toPass({ timeout: 30_000 });
   await expect(page.locator(".tl-edge").first()).toHaveText("— 先頭 —");
 });

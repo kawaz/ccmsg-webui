@@ -1,4 +1,4 @@
-import { SID } from "./fixture.ts";
+import { SID, TALK_SID } from "./fixture.ts";
 import { expect, openMenu, ownBrowser, shot, test } from "./harness.ts";
 
 /** 操作がアクションになった所の見た目 (DR-0003)。
@@ -136,6 +136,13 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
 
   // 送れたら閉じる。窓は用が済んだら消えるもので、続けて書くならもう一度
   // 開く (下書きは同じ所に残っている)。
+  //
+  // 送る先は**絵を撮るセッションと分ける** (`fixture.ts` の TALK_SID)。受け付け
+  // られた 1 通は transcript に載るので、撮る側と同じ所へ送ると、この後に撮る
+  // 画面ぜんぶが「その 1 通がもう届いているか」で変わる (item が 7 だったり 8
+  // だったりする)。
+  await page.goto(`${instance.endpoint}s/${TALK_SID}/files`);
+  await expect(fab).toBeVisible();
   await fab.click();
   await expect(prompt).toBeVisible();
   await prompt.getByRole("textbox", { name: "セッションへのメッセージ" }).fill("FAB から 1 通");

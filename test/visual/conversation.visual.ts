@@ -53,7 +53,7 @@ test("/ は宛先の区画の検索を開く", async ({ ui: page, instance }) =>
   // tl 本体を宛先にすると、同じ `/` がこの transcript の検索を開く。
   // 見出しを押して宛先を tl 本体にする (本文は追記で動き続けるので、押す所は
   // 動かない所を選ぶ)。
-  await page.locator(".timeline > h2").click();
+  await page.locator(".timeline-head h2").click();
   await page.keyboard.press("/");
   await expect(page.getByRole("textbox", { name: /探す言葉/ })).toBeVisible();
 

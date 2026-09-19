@@ -211,7 +211,8 @@ export const test = base.extend<object, Fixtures>({
       const context = await browser.newContext({
         viewport: PHONE,
         deviceScaleFactor: 1,
-        isMobile: false,
+        isMobile: true,
+        hasTouch: true,
       });
       const page = await context.newPage();
       await addAuthenticator(page);
@@ -547,8 +548,7 @@ export async function settledOrder(page: Page): Promise<void> {
 /** 動いているものが止まるまで待つ。
  *
  * 待つのは**出来事**で、時間ではない: 本文を動かす箱の位置が 2 frame 続けて
- * 同じになったら、錨が決まって置き直しが終わったということ
- * (`anchor-snapshot-one-frame-stale` の症状がここに出る)。高さの測り直しは
+ * 同じになったら、錨が決まって置き直しが終わったということ。高さの測り直しは
  * 描画のたびに走るので、1 frame では「測る前」と「測った後」の区別が付かない。
  *
  * 箱がまだ無い画面 (設定・登録) では待つものが無いので、そのまま返る。 */
