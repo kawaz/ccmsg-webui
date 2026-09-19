@@ -3,6 +3,8 @@ import { href } from "../base.ts";
 import { type Route, type Tab, visibleTabs } from "../route.ts";
 import { runStanding } from "../runs.ts";
 import { navigate, peers, route, terminalGateway, terminalIdOfSession } from "../state.ts";
+import { run } from "../actions/tree.ts";
+import { Act, useAction, useScope } from "./Scope.tsx";
 import { Files } from "./Files.tsx";
 import { RunChoice, RunEnded, RunPanel, RunSettled } from "./Runs.tsx";
 import { Status } from "./Status.tsx";
@@ -35,6 +37,18 @@ function SessionTabs({ sid, tab }: { sid: Sid; tab: Tab }) {
   const tabs = visibleTabs(
     terminalGateway.value !== undefined && terminalIdOfSession(sid) !== undefined,
   );
+  // 見方の切り替えは**回す** (DR-0003 付録 A)。押す所はタブそのものが持って
+  // いて、そちらは「この見方へ」という別の操作 — 回すことに押す所は要らない
+  // (打鍵でしか意味を成さない、§2.4)。
+  const step =
+    (by: 1 | -1): (() => void) =>
+    () => {
+      const at = tabs.indexOf(tab);
+      const to = tabs[(at + by + tabs.length) % tabs.length];
+      if (to !== undefined) navigate({ at: "session", sid, tab: to });
+    };
+  useAction("main.prev-tab", { enabled: () => tabs.length > 1, run: step(-1) });
+  useAction("main.next-tab", { enabled: () => tabs.length > 1, run: step(1) });
   return (
     <nav class="tabs" aria-label="セッションの見方">
       {tabs.map((one) => (
@@ -89,6 +103,7 @@ function Session({ at }: { at: Extract<Route, { at: "session" }> }) {
 
 export function Main() {
   const at = route.value;
+  const scope = useScope();
   return (
     <>
       {at.at === "sessions" && <Nothing />}
@@ -106,7 +121,7 @@ export function Main() {
               onClick={(event: MouseEvent) => {
                 if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
                 event.preventDefault();
-                navigate({ at: "session", sid: at.sid, tab: "timeline" });
+                run("app.open-parent-session", scope);
               }}
             >
               ← 親のセッション
@@ -124,14 +139,7 @@ export function Main() {
           <p class="empty">
             <code>{at.path}</code> は知らない URL です。
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              navigate({ at: "sessions" });
-            }}
-          >
-            一覧に戻る
-          </button>
+          <Act action="app.open-sessions" />
         </section>
       )}
     </>

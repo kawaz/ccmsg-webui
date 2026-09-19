@@ -27,8 +27,25 @@ export const ACTIONS: readonly Action[] = [
   // 画面ぜんぶ。読み込み直しはどの姿にも居り、残る 2 つは接続後だけ
   // (DR-0004 §2.5)。
   { id: "app.reload", title: "読み込み直す" },
+  { id: "app.connect", title: "接続する" },
   { id: "app.disconnect", title: "切断する" },
   { id: "app.sign-out", title: "ログアウトする", destructive: true },
+
+  // 他の画面への道。押す所は今も各画面の中に散っているが、**担当は木の上の
+  // 1 か所に集まる** (付録 A) — どこから起こしても同じ所に着く。
+  { id: "app.open-sessions", title: "セッションの一覧へ" },
+  { id: "app.open-terminals", title: "端末の一覧へ" },
+  { id: "app.open-parent-session", title: "親のセッションに戻る" },
+  { id: "app.open-usage", title: "使用量とクオータを開く" },
+  { id: "app.open-settings", title: "設定を開く" },
+
+  // メインコンテンツ
+  { id: "main.prev-tab", title: "前の見方へ" },
+  { id: "main.next-tab", title: "次の見方へ" },
+
+  // 端末。行が自分の端末を対象に担当するので、綴りは木の節を指していない
+  // (一覧の行からも端末の一覧からも同じ 1 つを起こす)。
+  { id: "terminal.open", title: "端末を開く" },
 
   // 区画をまたぐ移動 (workspace が担当)。押す所を持たない — 押す所を作ると、
   // 押した時点でそこがフォーカスを持ってしまい、目的の「手を離さず辿る」が

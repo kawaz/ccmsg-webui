@@ -10,6 +10,8 @@ import {
 } from "../terminals.ts";
 import { terminalUrl } from "../terminal-url.ts";
 import { navigate, peers, runRows, terminalGateway, terminalGroups, terminals } from "../state.ts";
+import { run } from "../actions/tree.ts";
+import { Holder, useAction, useScope } from "./Scope.tsx";
 import { TerminalFrame } from "./TerminalPanel.tsx";
 
 /** 端末の一覧と、端末 1 つの画面。
@@ -30,8 +32,26 @@ function go(event: MouseEvent, id: string): void {
 
 /** 端末を gateway の画面で開くリンク。新しいタブに出すのは一覧の行と同じ理由で、
  * 見ていたものを見失わずに端末を覗けるから。届かない端末には何も出さない。 */
-function OpenLink({ id, strong }: { id: string; strong?: boolean }) {
+export function OpenLink({ id, strong }: { id: string; strong?: boolean }) {
+  return (
+    <Holder name={`terminal ${id}`}>
+      <OpenTerminal id={id} strong={strong} />
+    </Holder>
+  );
+}
+
+/** 行が**自分の端末を対象に**「端末を開く」を担当する (DR-0003 §2.3)。押す所は
+ * リンクのままで、`onClick` はアクションを起こす 1 行になる。 */
+function OpenTerminal({ id, strong }: { id: string; strong?: boolean }) {
+  const scope = useScope();
   const url = terminalUrl(terminalGateway.value, id);
+  useAction("terminal.open", {
+    enabled: () => terminalUrl(terminalGateway.value, id) !== undefined,
+    run: () => {
+      const to = terminalUrl(terminalGateway.value, id);
+      if (to !== undefined) window.open(to, "_blank", "noreferrer");
+    },
+  });
   if (url === undefined) return null;
   return (
     <a
@@ -40,6 +60,11 @@ function OpenLink({ id, strong }: { id: string; strong?: boolean }) {
       target="_blank"
       rel="noreferrer"
       title="端末を開く"
+      onClick={(event: MouseEvent) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        run("terminal.open", scope);
+      }}
     >
       端末
     </a>
@@ -161,6 +186,7 @@ export function Terminal({ id }: { id: string }) {
 /** 名指された端末が一覧に無い時。閉じたか、その host の instance に繋がって
  * いないか — どちらも「今は無い」ので、無いと言って一覧へ返す。 */
 function Gone({ id }: { id: string }) {
+  const scope = useScope();
   return (
     <section class="section terminal">
       <h2>この端末はありません</h2>
@@ -174,7 +200,7 @@ function Gone({ id }: { id: string }) {
           onClick={(event: MouseEvent) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
             event.preventDefault();
-            navigate({ at: "terminals" });
+            run("app.open-terminals", scope);
           }}
         >
           端末の一覧へ

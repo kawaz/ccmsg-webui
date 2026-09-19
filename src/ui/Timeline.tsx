@@ -659,18 +659,11 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                 セッションで、worker 自身は instance に繋いでいない。 */}
                 {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
                 <p class="footer">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigate(
-                        agent === undefined
-                          ? { at: "sessions" }
-                          : { at: "session", sid: view.sid, tab: "timeline" },
-                      );
-                    }}
-                  >
-                    {agent === undefined ? "一覧に戻る" : "親のセッションに戻る"}
-                  </button>
+                  {agent === undefined ? (
+                    <Act action="app.open-sessions" />
+                  ) : (
+                    <Act action="app.open-parent-session" />
+                  )}
                 </p>
               </section>
             </Pane>

@@ -14,8 +14,9 @@ import {
   signOut,
   toggleSessionsOpen,
 } from "../state.ts";
+import { run } from "../actions/tree.ts";
 import { Reload } from "./Reload.tsx";
-import { useAction } from "./Scope.tsx";
+import { useAction, useScope } from "./Scope.tsx";
 import { StatusMark } from "./StatusMark.tsx";
 
 /** 接続後の画面の入口たち (DR-0004 §2.4)。
@@ -27,7 +28,52 @@ import { StatusMark } from "./StatusMark.tsx";
  * 設定へ入れるのは接続後だけ — 繋ぐ前の人に出す設定は、出した分だけ「繋ぐ」
  * 以外の道を増やす (§2.5)。 */
 
-function Go({ at, title, children }: { at: Route; title?: string; children: ComponentChildren }) {
+/** 他の画面への道が担当を名乗る所 (DR-0003 付録 A)。
+ *
+ * 押す所は今も各画面の中に散っている (transcript の footer、端末の「一覧へ」)
+ * が、**担当は木の上の 1 か所に集まる** — どこから起こしても同じ所に着き、
+ * 行き先を知っている場所が 1 つで済む。
+ *
+ * 描くものが無いのにコンポーネントなのは、担当を名乗るのがその節の中に居る
+ * ことだから (`Shell.tsx` の `PaneMoves` と同じ)。 */
+function Ways() {
+  const go =
+    (to: Route): (() => void) =>
+    () => {
+      navigate(to);
+    };
+  useAction("app.open-sessions", { enabled: () => true, run: go({ at: "sessions" }) });
+  useAction("app.open-terminals", { enabled: () => true, run: go({ at: "terminals" }) });
+  useAction("app.open-settings", { enabled: () => true, run: go({ at: "settings" }) });
+  useAction("app.open-usage", {
+    // 使用量を聞ける instance が居なければ、開いても書くことが無い。
+    enabled: () => can("llm_usage") || can("llm_status"),
+    run: go({ at: "usage" }),
+  });
+  useAction("app.open-parent-session", {
+    // 親が居るのは worker を主語に読んでいる時だけ。
+    enabled: () => route.value.at === "agent",
+    run: () => {
+      const at = route.value;
+      if (at.at === "agent") navigate({ at: "session", sid: at.sid, tab: "timeline" });
+    },
+  });
+  return null;
+}
+
+function Go({
+  at,
+  action,
+  title,
+  children,
+}: {
+  at: Route;
+  /** 起こすアクション。省くと、道そのものを持たない入口としてその場で移る。 */
+  action?: string;
+  title?: string;
+  children: ComponentChildren;
+}) {
+  const scope = useScope();
   return (
     <a
       href={href(at)}
@@ -35,7 +81,8 @@ function Go({ at, title, children }: { at: Route; title?: string; children: Comp
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
-        navigate(at);
+        if (action === undefined) navigate(at);
+        else run(action, scope);
       }}
     >
       {children}
@@ -76,6 +123,7 @@ function SessionsToggle() {
  * 複数の instance から報告が届く mesh では、最も悪いものが印になる: 出せるのは
  * 「今いちばん困っていること」だけ。 */
 function UsageLink() {
+  const scope = useScope();
   const reports = llmStatusReports.value;
   const worst = reports
     .map((slot) => statusBadge(slot.data))
@@ -90,7 +138,7 @@ function UsageLink() {
       onClick={(event: MouseEvent) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
-        navigate({ at: "usage" });
+        run("app.open-usage", scope);
       }}
     >
       {worst === undefined ? "使用量" : `${worst.mark} ${worst.words}`}
@@ -132,13 +180,14 @@ function Leaving() {
 export function GlobalNav() {
   return (
     <nav class="global-nav" aria-label="画面ぜんぶの道">
+      <Ways />
       <StatusMark />
       <SessionsToggle />
       <UsageLink />
       <Go at={{ at: "account" }} title="自分の passkey と、持っている instance">
         アカウント
       </Go>
-      <Go at={{ at: "settings" }} title="設定">
+      <Go at={{ at: "settings" }} action="app.open-settings" title="設定">
         設定
       </Go>
       <Leaving />

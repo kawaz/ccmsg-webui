@@ -2,6 +2,7 @@ import { useSignal } from "@preact/signals";
 import type { ConnectionStatus } from "../connection.ts";
 import { connect, endpoint, setEndpoint, status, statusDetail } from "../state.ts";
 import { Reload } from "./Reload.tsx";
+import { Act, useAction } from "./Scope.tsx";
 
 /** 接続前の主役 (DR-0004 §2.4、DR-0003 §2.2)。
  *
@@ -80,20 +81,20 @@ function EndpointField() {
 export function ConnectionBar({ words = true }: { words?: boolean }) {
   const state = status.value;
   const said = words ? WORDS[state] : undefined;
+  // 押せるかどうかは**アクションの「できるか」と同じ所から出る** (DR-0003
+  // §2.4) — 住所がまだ無いなら繋ぎに行く先が無い。
+  useAction("app.connect", {
+    enabled: () => endpoint.value !== undefined,
+    run: () => {
+      void connect();
+    },
+  });
   return (
     <div class="bar app-bar">
       <span class={`dot ${state === "open" ? "open" : state === "closed" ? "closed" : ""}`} />
       {said !== undefined && <span>{said}</span>}
       <EndpointField />
-      <button
-        type="button"
-        disabled={endpoint.value === undefined}
-        onClick={() => {
-          void connect();
-        }}
-      >
-        接続
-      </button>
+      <Act action="app.connect">接続</Act>
       <Reload />
       {statusDetail.value !== undefined && <span class="meta">{statusDetail.value}</span>}
     </div>

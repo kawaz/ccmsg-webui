@@ -28,7 +28,6 @@ import {
 import { listUnits, stepCursor, unitAt, unitKey } from "../sessions-cursor.ts";
 import { cacheRingStyle, sessionCacheWindows } from "../llm/cache-ring.ts";
 import { describeRefusal } from "../refusal.ts";
-import { terminalUrl } from "../terminal-url.ts";
 import {
   agents,
   answering,
@@ -58,12 +57,13 @@ import {
   sortKey,
   startingRuns,
   status,
-  terminalGateway,
   terminalIdOfSession,
   unkilled,
 } from "../state.ts";
+import { run } from "../actions/tree.ts";
 import { Act, Holder, standOn, useAction, useScope, useScopeKeys } from "./Scope.tsx";
 import { terminalLabel } from "../terminals.ts";
+import { OpenLink } from "./Terminals.tsx";
 
 /** セッションごとの、輪を描く窓。frame は系列ごとに 1 行来るので、行に 1 つを
  * ここで選ぶ。 */
@@ -81,13 +81,8 @@ function when(at: number | undefined): string {
  * この画面ではなく新しいタブに出す — 一覧を見失わずに端末を覗ける。端末に
  * 届かない行には何も出さない。 */
 function TerminalLink({ terminalId }: { terminalId: string | undefined }) {
-  const url = terminalUrl(terminalGateway.value, terminalId);
-  if (url === undefined) return null;
-  return (
-    <a class="terminal-link" href={url} target="_blank" rel="noreferrer" title="端末を開く">
-      端末
-    </a>
-  );
+  if (terminalId === undefined) return null;
+  return <OpenLink id={terminalId} />;
 }
 
 /** 見出しに立つ名前と、その下に何行あるか。 */
@@ -568,6 +563,7 @@ function ListActions({
 /** The list a person starts from: the sessions every instance knows, grouped by
  * how they stand, what the harness itself reports, and the mesh they sit in. */
 export function SessionList() {
+  const scope = useScope();
   const connected = status.value === "open";
   // そのセッションの inbox で待っている通数。誰が言った分も入る — 人が
   // 眺めているのは instance の inbox そのもので、この画面の控えではない。
@@ -622,7 +618,7 @@ export function SessionList() {
           onClick={(event: MouseEvent) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
             event.preventDefault();
-            navigate({ at: "terminals" });
+            run("app.open-terminals", scope);
           }}
         >
           端末
