@@ -1,6 +1,6 @@
 ---
 title: visual の基準撮り直し後、一覧の並びが落ち着く前の絵が混ざる
-status: open
+status: resolved
 category: bug
 created: 2026-09-19T17:23:05+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-19T20:58:12+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:真因 3 つ全部潰した (377120b9)、just visual 3 回連続 0 failed (154 passed x3)、残る FAB 枠 1px は別 issue visual-fab-window-frame-1px-misaligned"]
 blocked_by:
 origin: ccmsg
 ---
