@@ -75,6 +75,13 @@ test("並び順はアイコンから開いて選ぶ", async ({ ui: page, instanc
   await menu.getByRole("button", { name: "接続した順" }).click();
   await expect(menu).toBeHidden();
   await expect(page.getByRole("button", { name: "並び: 接続した順" })).toBeVisible();
+
+  // 選んだ並びはこのブラウザが覚えるので、**元に戻してから出る**。共有の頁で
+  // 変えたまま去ると、この後に撮る画面ぜんぶが別の並びで焼かれ、しかも
+  // 「接続した順」の中では同じ瞬間に名乗ったセッションの前後が決まらない。
+  await open.click();
+  await menu.getByRole("button", { name: "人が話しかけた順" }).click();
+  await expect(page.getByRole("button", { name: "並び: 人が話しかけた順" })).toBeVisible();
 });
 
 /** 改名は `terminal` の能力を持つ instance にだけ出る (instance が端末に打鍵を

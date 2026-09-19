@@ -148,6 +148,10 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
   await prompt.getByRole("textbox", { name: "セッションへのメッセージ" }).fill("FAB から 1 通");
   await prompt.getByRole("button", { name: "送信" }).click();
   await expect(prompt).toBeHidden({ timeout: 20_000 });
+  // 受け付けられた 1 通は宛先の行に待ち数として出る。**それが出るまで待って
+  // から出る** — 後に立つブラウザは instance の snapshot からこの数を受け取る
+  // ので、立った後に届くと、後で撮る画面がバッジのある絵と無い絵に割れる。
+  await expect(page.locator(".waiting-badge")).toHaveText("1", { timeout: 20_000 });
 });
 
 /** 口は掴んで動かせて、窓は口に付いて動く (DR-0003 §2.7)。

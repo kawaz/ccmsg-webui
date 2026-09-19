@@ -163,6 +163,7 @@ export const test = base.extend<object, Fixtures>({
       const { url, code } = await instance.passkey();
       await page.goto(url);
       await register(page, code);
+      await rowsArrived(page, instance);
       await use(page);
       await context.close();
     },
@@ -179,6 +180,7 @@ export const test = base.extend<object, Fixtures>({
       const { url, code } = await instance.passkey();
       await page.goto(url);
       await register(page, code);
+      await rowsArrived(page, instance);
       await use(page);
       await context.close();
     },
@@ -197,6 +199,7 @@ export const test = base.extend<object, Fixtures>({
       const { url, code } = await instance.passkey();
       await page.goto(url);
       await register(page, code);
+      await rowsArrived(page, instance);
       await use(page);
       await context.close();
     },
@@ -219,6 +222,7 @@ export const test = base.extend<object, Fixtures>({
       const { url, code } = await instance.passkey();
       await page.goto(url);
       await register(page, code);
+      await rowsArrived(page, instance);
       await use(page);
       await context.close();
     },
@@ -393,6 +397,7 @@ export async function ownBrowser(browser: Browser, instance: Instance): Promise<
   const { url, code } = await instance.passkey();
   await page.goto(url);
   await register(page, code);
+  await rowsArrived(page, instance);
   return page;
 }
 
@@ -503,6 +508,41 @@ export async function shot(
  * 1 つになる。語ではなく class で読むのは、印が言うのも色と形だから。 */
 export async function connected(page: Page): Promise<void> {
   await expect(page.locator(".status-mark.open")).toBeVisible();
+}
+
+/** 一覧に出揃うべき行の名前ぜんぶ。
+ *
+ * fixture が立てたセッション 9 つと、まだ名乗っていないハーネスの行、そして
+ * 名乗った instance の行。**この集合が揃った時が「一覧が届き切った」**で、
+ * `data-settled` はそこまで言っていない — 属性は snapshot が来たかを言うだけ
+ * で、起動中のハーネスの行はその後 (実測で約 1 秒後) に別の topic から届く。
+ * 揃う前に撮ると、その 1 行がある絵と無い絵が走るたびに入れ替わる。 */
+const LIST_ROWS: readonly string[] = [
+  "二重に走っているセッション",
+  "束 0 を片付ける",
+  "topic の畳み方を書く",
+  "端末で動いているセッション",
+  "話しかけて確かめる",
+  "基準画像の置き場を決める",
+  "追記を見る",
+  "長い transcript",
+  "頁をまたぐ呼びと答え",
+  "claude",
+];
+
+/** 上の集合が揃うまで待つ。
+ *
+ * 待つのは**状態**で、時間でも frame 数でもない: 揃ったかどうかを名前の集合で
+ * 言う。区画を畳む test や行を留める test が後から並びや見え方を変えるので、
+ * 見るのは順番ではなく集合、置く場所は `shot()` ではなく**ブラウザを立てた
+ * 直後の 1 回**にする (一度届いたものはその頁が持ち続ける)。 */
+async function rowsArrived(page: Page, instance: Instance): Promise<void> {
+  const want = [...LIST_ROWS, instance.endpoint].sort();
+  await expect
+    .poll(async () => [...(await page.locator(".pane-list .row .name").allTextContents())].sort(), {
+      timeout: 30_000,
+    })
+    .toEqual(want);
 }
 
 /** 接続後のハンバーガーを開く。
