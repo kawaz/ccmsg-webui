@@ -1,6 +1,6 @@
 ---
 title: visual: account (dark) が GitHub CI (Linux) で 1 件だけ flaky に落ちる
-status: open
+status: resolved
 category: bug
 created: 2026-09-19T21:11:52+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-19T22:12:37+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: user id を .user-id で mask (7c42c4fc 系)、just visual-accept / CI redraw_baselines を --update-snapshots=all に変更"]
 blocked_by:
 origin: webui
 ---
