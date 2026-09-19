@@ -119,6 +119,14 @@ test("FAB はセッションを名指す画面にだけ出て、composer を重�
   // 閉じる手は重なりの持ち物 (Escape)。
   await page.keyboard.press("Escape");
   await expect(prompt).toBeHidden();
+
+  // 送れたら閉じる。重なりは用が済んだら消えるもので、続けて書くならもう一度
+  // 開く (下書きは同じ所に残っている)。
+  await fab.click();
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole("textbox", { name: "セッションへのメッセージ" }).fill("FAB から 1 通");
+  await prompt.getByRole("button", { name: "送信" }).click();
+  await expect(prompt).toBeHidden({ timeout: 20_000 });
 });
 
 /** 誤って押されて困るものと、開きに行く時にしか要らないものはメニューの中

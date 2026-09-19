@@ -710,7 +710,7 @@ composer が有効なのは、**どれかの run に届くセッション**だ�
   - session 単位: `ccmsg.<feature>:<instance>:<sid>` の 2 段 (agent の drilldown はさらに `<sid>/<agentKey>`)。書きかけの本文 (`ccmsg.draft:<instance>:<sid>`)、Files タブが覚えている選択 (`ccmsg.files:<instance>:<sid>`) がこれ
   - instance 単位: `ccmsg.<feature>:<instance>` の 1 段。ペインの幅 (`ccmsg.layout.split:<instance>`)、留めたセッション (`ccmsg.sessions.pinned:<instance>`) がこれ — 留めた印は instance の sid を並べているので、instance を名乗る鍵に置く
 - **読み方の好みは全体で 1 つ**。色の見え方 (`ccmsg.theme`) と型ごとの表示属性 (`ccmsg.timeline.display:<main|sub>`) がこれで、instance も sid も名前に入らない。「思考は畳む」「道具はトップ層に並べる」は**この人の読み方**であって、どの instance のどのセッションを見ているかの都合ではない — instance で分けると、同じ人が別の instance を開くたびに読み方を決め直すことになる。分かれるのは主語の面 (main / worker) だけで、これは読む理由そのものが違うから
-- **ログアウトは既定で全部消す** (DR-0004 §2.6)。`ccmsg.` の付くこの origin のキーを、好みも含めて 1 つ残らず消す — 降りた端末に跡が残るのが既定であってはならない。**残すのは設定を入れた時だけ**で (「ログアウト時にローカルの設定を残す」、既定 off)、その時に残るのは**名前にユーザ・instance・sid のどれも含まないもの** (読み方の好み、並べ方、設定そのもの、ペインの開閉)。**認証・接続・セッションに属するキーはその設定でも残らない** — 名前がそのどれかを名乗るもの (書きかけ、Files の選択、ペインの幅、留めたセッション) と、繋ぎ先そのものの記憶 (`ccmsg.endpoint`) がこれ。残す物を別に列挙しないのは、キーが増えた時にその列挙だけが古くなるから — 名前を作る所がそのまま「これは好みだ」と名乗る (`keepOnSignOut`)
+- **ログアウトは既定で全部消す** (DR-0004 §2.6)。`ccmsg.` の付くこの origin のキーを、好みも含めて 1 つ残らず消す — 降りた端末に跡が残るのが既定であってはならない。**残すのは設定を入れた時だけ**で (「切断時にローカルの設定を残す」、既定 off)、その時に残るのは**名前にユーザ・instance・sid のどれも含まないもの** (読み方の好み、並べ方、設定そのもの、ペインの開閉)。**認証・接続・セッションに属するキーはその設定でも残らない** — 名前がそのどれかを名乗るもの (書きかけ、Files の選択、ペインの幅、留めたセッション) と、繋ぎ先そのものの記憶 (`ccmsg.endpoint`) がこれ。残す物を別に列挙しないのは、キーが増えた時にその列挙だけが古くなるから — 名前を作る所がそのまま「これは好みだ」と名乗る (`keepOnSignOut`)
 - 消える範囲に**タブ間の取り決めの名前は入らない**。`ccmsg.auth:<endpoint>:<user>` と `ccmsg.auth.refresh:<endpoint>:<user>` は BroadcastChannel と Web Locks の名前で、store には何も書いていない
 
 ## 契約の検証は契約の検証器で

@@ -19,6 +19,7 @@ export function Composer({
   live,
   why,
   focused,
+  onSent,
 }: {
   sid: Sid;
   live: boolean;
@@ -26,6 +27,9 @@ export function Composer({
   /** 開いた時に手がここに居ることが分かっている所 (重なりの中) から渡る。
    * 版組の中に居る composer は、頁を開いただけで入力が焦点を奪わない方がよい。 */
   focused?: boolean;
+  /** 送れた時に、包んでいるもの (重なり) へ知らせる手。断られた時は呼ばない —
+   * 直して送り直す相手が、閉じられて消えてしまう。 */
+  onSent?: () => void;
 }) {
   const instance = hello.value?.instance;
   const key = instance === undefined ? undefined : draftKey(instance, sid);
@@ -61,7 +65,8 @@ export function Composer({
       .then((result) => {
         outcome.value = describeSendOutcome(result);
         remember("");
-        box.current?.focus();
+        if (onSent === undefined) box.current?.focus();
+        else onSent();
       })
       .catch((cause: unknown) => {
         outcome.value = `送れませんでした: ${describeRefusal(cause)}`;

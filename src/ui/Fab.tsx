@@ -55,7 +55,16 @@ export function Fab() {
             open.value = false;
           }}
         >
-          <Composer sid={sid} focused {...sendability(sid)} />
+          {/* 送れたら閉じる。重なりは用が済んだら消えるもので、続けて書くなら
+              もう一度開けばよい (下書きは同じ所に残っている)。 */}
+          <Composer
+            sid={sid}
+            focused
+            onSent={() => {
+              open.value = false;
+            }}
+            {...sendability(sid)}
+          />
         </Modal>
       )}
     </>
