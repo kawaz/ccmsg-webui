@@ -1,5 +1,13 @@
+import type { Page } from "@playwright/test";
 import { STATUS_SID } from "./fixture.ts";
-import { expect, listSettled, nothingOverflows, shot, test } from "./harness.ts";
+import { expect, listSettled, nothingOverflows, openMenu, shot, test } from "./harness.ts";
+
+/** 一覧の出し入れはハンバーガーの中 (DR-0004 §2.4)。狭い画面ではこれが一覧へ
+ * 戻る道にもなる。 */
+async function openList(page: Page): Promise<void> {
+  await openMenu(page);
+  await page.getByRole("button", { name: "一覧", exact: true }).click();
+}
 
 /** 一覧と本文の並べ方。
  *
@@ -22,14 +30,14 @@ test("広い画面では左右に並び、本文が残り幅を全部使う", as
 
 test("一覧は畳める。畳んだことはこのブラウザが覚える", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
-  await page.getByRole("button", { name: "一覧", exact: true }).click();
+  await openList(page);
   await expect(page.locator(".pane-list")).toBeHidden();
   await shot(page, "layout-list-off.png");
 
   // 読み込み直しても畳んだまま (覚えは localStorage)。
   await page.reload();
   await expect(page.locator(".pane-list")).toBeHidden();
-  await page.getByRole("button", { name: "一覧", exact: true }).click();
+  await openList(page);
   await expect(page.locator(".pane-list")).toBeVisible();
 });
 
@@ -94,7 +102,7 @@ test("狭い画面では並べず、選ぶと本文へ滑る", async ({ phone: p
   // 位置と幅で見る (上の assert)。
 
   // バーの「一覧」で戻る (狭い画面ではこれが戻る道)。
-  await page.getByRole("button", { name: "一覧", exact: true }).click();
+  await openList(page);
   await expect
     .poll(async () => Math.round((await page.locator(".pane-list").boundingBox())?.x ?? -1))
     .toBe(Math.round(panes?.x ?? 0));

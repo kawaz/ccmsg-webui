@@ -1,5 +1,5 @@
 import { SID } from "./fixture.ts";
-import { expect, nothingOverflows, ownBrowser, shot, test } from "./harness.ts";
+import { expect, nothingOverflows, openMenu, ownBrowser, shot, test } from "./harness.ts";
 
 /** 上流とクオータの画面、そして prompt cache の輪。
  *
@@ -149,7 +149,7 @@ test("切断は持ち物ごと畳み、passkey からやり直せば戻る", asy
 
   // 常時露出していない (誤タップで降りては困る)。取り返しが付かない側なので、
   // 押してから一度確かめる。
-  await page.getByRole("button", { name: "メニュー" }).click();
+  await openMenu(page);
   await page.getByRole("button", { name: "切断", exact: true }).click();
   await page.locator("dialog.confirm").getByRole("button", { name: "切断する" }).click();
   await expect(page.getByRole("button", { name: "接続", exact: true })).toBeVisible();

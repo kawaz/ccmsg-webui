@@ -1,5 +1,5 @@
 import { SID } from "./fixture.ts";
-import { expect, shot, test } from "./harness.ts";
+import { expect, openMenu, shot, test } from "./harness.ts";
 
 /** 操作がアクションになった所の見た目 (DR-0003)。
  *
@@ -123,15 +123,16 @@ test("FAB はセッションを名指す画面にだけ出て、composer を重�
 
 /** 誤って押されて困るものと、開きに行く時にしか要らないものはメニューの中
  * (DR-0004 §2.4)。 */
-test("ハンバーガーにアカウント・設定・切断が畳まれている", async ({ ui: page, instance }) => {
+test("ハンバーガーに行き先と切断が畳まれている", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
   await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
   // 道に出ているのは「今どうなっているか」と、何度も押すものだけ。
   await expect(page.getByRole("button", { name: "切断", exact: true })).toBeHidden();
 
-  await page.getByRole("button", { name: "メニュー" }).click();
+  await openMenu(page);
   const menu = page.locator("#global-menu");
-  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("button", { name: "一覧", exact: true })).toBeVisible();
+  await expect(menu.getByRole("link", { name: /使用量/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: "アカウント" })).toBeVisible();
   await expect(menu.getByRole("link", { name: "設定" })).toBeVisible();
   await expect(menu.getByRole("button", { name: "切断", exact: true })).toBeVisible();
@@ -140,4 +141,31 @@ test("ハンバーガーにアカウント・設定・切断が畳まれてい�
   // 閉じる手は popover の持ち物。
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
+});
+
+/** 戻る / 進むは**この画面が持つ** (DR-0004 §2.4)。ホーム画面に追加した PWA や
+ * 全画面にはブラウザの戻る手が無いので、端末によって在ったり無かったりする道具を
+ * 当てにしない。押せるかは自分で数えた履歴の深さが言う。 */
+test("戻る / 進むは履歴の深さの分だけ押せる", async ({ ui: page, instance }) => {
+  await page.goto(instance.endpoint);
+  await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
+  const back = page.getByRole("button", { name: "戻る" });
+  const forward = page.getByRole("button", { name: "進む" });
+  // 開いたばかりの頁は、手前も先も無い。
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeDisabled();
+
+  await page.getByRole("button", { name: /topic の畳み方/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/s/${SID}/timeline$`));
+  await expect(back).toBeEnabled();
+  await expect(forward).toBeDisabled();
+
+  await back.click();
+  await expect(page).toHaveURL(new RegExp(`${instance.endpoint}$`));
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeEnabled();
+
+  await forward.click();
+  await expect(page).toHaveURL(new RegExp(`/s/${SID}/timeline$`));
+  await expect(forward).toBeDisabled();
 });

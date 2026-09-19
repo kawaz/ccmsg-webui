@@ -176,6 +176,7 @@ export function Act({
   action,
   label,
   title,
+  icon,
   class: className,
   children,
 }: {
@@ -183,6 +184,10 @@ export function Act({
   /** 読み上げに渡す名前。省くと題がそのまま名前になる。 */
   label?: string;
   title?: string;
+  /** 絵だけで出す形。横幅に余裕が無い並び (接続後のツールバー) のためのもので、
+   * **題は消えない** — 絵は目に見せるだけで、読み上げにも指にも題がそのまま
+   * `aria-label` と `title` で届く (§2.4 の「題が 1 か所から出る」)。 */
+  icon?: string;
   class?: string;
   /** 押す所に出す語。省くとアクションの題が出る。 */
   children?: ComponentChildren;
@@ -191,18 +196,20 @@ export function Act({
   // 見えているボタンが「今どこにフォーカスがあるか」で押せなくなることはない。
   const scope = useScope();
   const known = actionOf(action);
+  const said = known?.title ?? action;
   return (
     <button
       type="button"
       class={className}
       disabled={!canRun(action, scope)}
+      {...(icon === undefined ? {} : { "aria-label": label ?? said, title: title ?? said })}
       {...(label === undefined ? {} : { "aria-label": label })}
       {...(title === undefined ? {} : { title })}
       onClick={() => {
         run(action, scope);
       }}
     >
-      {children ?? known?.title ?? action}
+      {icon === undefined ? (children ?? said) : <span aria-hidden="true">{icon}</span>}
     </button>
   );
 }

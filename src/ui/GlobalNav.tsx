@@ -6,6 +6,8 @@ import type { Route } from "../route.ts";
 import {
   askFirst,
   can,
+  canGoBack,
+  canGoForward,
   endpoint,
   llmStatusReports,
   navigate,
@@ -16,21 +18,24 @@ import {
 } from "../state.ts";
 import { run } from "../actions/tree.ts";
 import { Reload } from "./Reload.tsx";
-import { useAction, useScope } from "./Scope.tsx";
+import { Act, useAction, useScope } from "./Scope.tsx";
 import { StatusMark } from "./StatusMark.tsx";
 
-/** 接続後の画面の入口たち (DR-0004 §2.4)。
+/** 接続後の細いツールバー (DR-0004 §2.4)。
  *
  * **帯ではない**。接続前の主役だった住所の入力も接続のボタンもここには無く、
- * あるのは他の画面への道と、状態の小部品と、常設の読み込み直しだけ。住所は
- * フッタに極小で出る (`GlobalFooter`)。
+ * 載るのは 5 つだけ — 接続状態の印、戻る、進む、読み込み直し、ハンバーガー。
+ * スマホのステータスバーと同じ扱いで、**絵だけ**を並べて題は読み上げと
+ * tooltip に出す (横に文字を並べる幅が無い)。住所はフッタに極小で出る
+ * (`GlobalFooter`)。
  *
- * 常時出すのは「今どうなっているか」を見せるものと、見ている最中に何度も押す
- * ものだけ。誤って押されると困るもの (切断) と、開きに行く時にしか要らないもの
- * (設定・アカウント) はハンバーガーの中に畳む (§2.4)。
+ * 戻る / 進む / 読み込み直しをこの画面が持つのは、**ブラウザの chrome が無い
+ * 場面のため** — ホーム画面に追加した PWA や iPad の全画面には戻る手も読み
+ * 込み直す手も無く、端末によって在ったり無かったりする道具は当てにならない。
  *
- * 設定へ入れるのは接続後だけ — 繋ぐ前の人に出す設定は、出した分だけ「繋ぐ」
- * 以外の道を増やす (§2.5)。 */
+ * 行き先 (アカウント・使用量・設定) と、誤って押されると困るもの (切断)、
+ * 一覧の出し入れはハンバーガーの中に畳む。設定へ入れるのは接続後だけ — 繋ぐ前の
+ * 人に出す設定は、出した分だけ「繋ぐ」以外の道を増やす (§2.5)。 */
 
 /** 他の画面への道が担当を名乗る所 (DR-0003 付録 A)。
  *
@@ -54,6 +59,8 @@ function Ways() {
     enabled: () => can("llm_usage") || can("llm_status"),
     run: go({ at: "usage" }),
   });
+  useAction("app.back", { enabled: canGoBack, run: () => history.back() });
+  useAction("app.forward", { enabled: canGoForward, run: () => history.forward() });
   useAction("app.open-parent-session", {
     // 親が居るのは worker を主語に読んでいる時だけ。
     enabled: () => route.value.at === "agent",
@@ -102,12 +109,13 @@ function Go({
  *
  * 広い画面では左のペインを畳む / 出す。狭い画面では 2 枚が並んでいないので、
  * これは**一覧へ戻る道**になる (押すと URL が一覧を指し、画面がそちらへ滑る)。 */
-function SessionsToggle() {
+function SessionsToggle({ onDone }: { onDone: () => void }) {
   const at = route.value;
   const open = sessionsOpen.value;
   // 並べているかどうかは **CSS が正本** (幅の境目は 1 か所に持つ)。押した瞬間の
   // 形を読むので、hook で覚えた古い値で振る舞いが決まることはない。
   const press = (): void => {
+    onDone();
     const panes = document.querySelector(".panes");
     const side = panes === null || getComputedStyle(panes).display !== "grid";
     if (side) {
@@ -123,14 +131,14 @@ function SessionsToggle() {
   );
 }
 
-/** 上流に問題がある時だけ出る印と、使用量の画面への入口。
+/** 使用量の画面への入口と、上流に問題がある時にそこへ添う言葉。
  *
- * 正常は知らせることが無いので何も出さない — いつも出ている印は、出ている
- * ことが意味を持たなくなる。押すと、その印が何のことかを書いてある所へ行く。
+ * ツールバーには絵しか並べられないので、**状態の言葉はこの行に添える** — 正常な
+ * 間は何も足さない (いつも出ている知らせは、出ていることが意味を持たなくなる)。
  *
- * 複数の instance から報告が届く mesh では、最も悪いものが印になる: 出せるのは
+ * 複数の instance から報告が届く mesh では、最も悪いものが出る: 言えるのは
  * 「今いちばん困っていること」だけ。 */
-function UsageLink() {
+function UsageLink({ onDone }: { onDone: () => void }) {
   const scope = useScope();
   const reports = llmStatusReports.value;
   const worst = reports
@@ -147,9 +155,10 @@ function UsageLink() {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
         run("app.open-usage", scope);
+        onDone();
       }}
     >
-      {worst === undefined ? "使用量" : `${worst.mark} ${worst.words}`}
+      {worst === undefined ? "使用量" : `使用量 — ${worst.mark} ${worst.words}`}
     </a>
   );
 }
@@ -216,6 +225,8 @@ function Menu() {
         ☰
       </button>
       <div ref={box} id="global-menu" class="global-menu" popover="auto">
+        <SessionsToggle onDone={close} />
+        <UsageLink onDone={close} />
         <Go at={{ at: "account" }} title="自分の passkey と、持っている instance" onGo={close}>
           アカウント
         </Go>
@@ -233,8 +244,9 @@ export function GlobalNav() {
     <nav class="global-nav" aria-label="画面ぜんぶの道">
       <Ways />
       <StatusMark />
-      <SessionsToggle />
-      <UsageLink />
+      <span class="global-nav-gap" />
+      <Act action="app.back" class="nav-icon" icon="←" />
+      <Act action="app.forward" class="nav-icon" icon="→" />
       <Reload />
       <Menu />
     </nav>

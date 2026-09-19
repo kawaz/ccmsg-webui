@@ -5,6 +5,7 @@ import {
   expect,
   forgetPasskeys,
   listSettled,
+  openMenu,
   ownBrowser,
   shot,
   test,
@@ -103,7 +104,7 @@ test("切断は family を失効させ、この端末の覚えも残さない", 
   });
 
   // 押す所から起こす。取り返しが付かない側なので、一度確かめてから。
-  await page.getByRole("button", { name: "メニュー" }).click();
+  await openMenu(page);
   await page.getByRole("button", { name: "切断", exact: true }).click();
   await page.locator("dialog.confirm").getByRole("button", { name: "切断する" }).click();
 

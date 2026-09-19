@@ -10,17 +10,21 @@ import { askReauth, authLost, status, statusDetail } from "../state.ts";
  * 語ではなく印なのは、接続後の画面で場所を取らないため。語は `title` と読み上げ
  * にだけ出す — 目で読む人には色と形で足り、耳で読む人には印が何も言わない。
  *
+ * ここが言うのは**起きたこと**であって、人が押す「切断」ではない (DR-0004
+ * §2.6) — 同じ文字が操作と状態の両方に出ると、切れたことを自分がやったのだと
+ * 読む人が出る。
+ *
  * **許可が切れている間だけ、押せる所になる**。再認証の頼みは閉じられるので
  * (§2.5 の「読むことはできる」)、閉じた後にもう一度頼む道が要る — 状態を言って
  * いる所がそのまま入口になれば、押す所を新しく増やさずに済む。 */
 
 const MARKS: Readonly<Record<ConnectionStatus, { readonly mark: string; readonly words: string }>> =
   {
-    idle: { mark: "○", words: "未接続" },
-    connecting: { mark: "◌", words: "接続中" },
+    idle: { mark: "○", words: "繋いでいません" },
+    connecting: { mark: "◌", words: "接続し直しています" },
     greeting: { mark: "◌", words: "hello 送信中" },
     open: { mark: "●", words: "接続済み" },
-    closed: { mark: "◍", words: "切断中" },
+    closed: { mark: "◍", words: "接続が切れました" },
   };
 
 export function StatusMark() {

@@ -11,16 +11,16 @@ import { Act, useAction } from "./Scope.tsx";
  * アカウントも使用量もここには無い: 繋ぐ前の画面に「繋ぐ」以外の道を増やすと、
  * 増やした分だけ人がどれを押すか考えることになる (§2.5)。 */
 
-/** socket が今していることを言う語。
+/** 押している最中の題。
  *
- * まだ何も始めていない時 (`idle`) だけ語が無い — ドットが灰のままであることが
- * それで、隣に「未接続」と書くのは同じことを 2 度言っている。何かをしている
- * 間は、ドットの色だけでは何をしているかまでは言えないので語が要る。 */
-const WORDS: Partial<Record<ConnectionStatus, string>> = {
-  connecting: "接続中",
-  greeting: "hello 送信中",
+ * **この画面に状態の印は置かない** (DR-0004 §2.4) — トップで取りうる状態は
+ * 「まだ繋いでいない」しかなく、印が 1 つの値しか取らないなら、出ていることが
+ * 何も言わない。繋ぎに行っている間だけは何かが起きているので、それは**押した
+ * ボタンそのもの**が題で言う (押せない間の語がそのまま今の状態になる)。 */
+const BUSY: Partial<Record<ConnectionStatus, string>> = {
+  connecting: "接続中…",
+  greeting: "hello 送信中…",
   open: "接続済み",
-  closed: "切断",
 };
 
 /** どの instance に繋ぐか。
@@ -75,26 +75,24 @@ function EndpointField() {
 
 /** 住所と、繋ぐこと。
  *
- * 押す所は 1 つ (「接続」) で、切断は接続後の画面にしか無い — 繋がっていない
- * 画面に切断を置いても押すものが無い。認証の画面が立っている間は語を出さない:
- * 何が起きているかはその画面の本文が言っていて、ここが重ねて言うことは無い。 */
-export function ConnectionBar({ words = true }: { words?: boolean }) {
-  const state = status.value;
-  const said = words ? WORDS[state] : undefined;
+ * 押す所は 1 つ (「接続」) で、降りる手 (「切断」) は接続後の画面にしか無い —
+ * 繋がっていない画面に置いても、降りる先が無い。何が起きているかは押した
+ * ボタンの題が言うので、状態の印も語も別に置かない。 */
+export function ConnectionBar() {
+  const busy = BUSY[status.value];
   // 押せるかどうかは**アクションの「できるか」と同じ所から出る** (DR-0003
-  // §2.4) — 住所がまだ無いなら繋ぎに行く先が無い。
+  // §2.4) — 住所がまだ無いなら繋ぎに行く先が無く、もう繋ぎに行っている間は
+  // もう一度頼むことが無い。
   useAction("app.connect", {
-    enabled: () => endpoint.value !== undefined,
+    enabled: () => endpoint.value !== undefined && BUSY[status.value] === undefined,
     run: () => {
       void connect();
     },
   });
   return (
     <div class="bar app-bar">
-      <span class={`dot ${state === "open" ? "open" : state === "closed" ? "closed" : ""}`} />
-      {said !== undefined && <span>{said}</span>}
       <EndpointField />
-      <Act action="app.connect">接続</Act>
+      <Act action="app.connect">{busy ?? "接続"}</Act>
       <Reload />
       {statusDetail.value !== undefined && <span class="meta">{statusDetail.value}</span>}
     </div>

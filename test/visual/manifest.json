@@ -2,328 +2,328 @@
   "webui_version": "1.11.1",
   "screens": {
     "account": {
-      "darwin/dark": "c94fb2118284afacab86483ec8ce001a19f4bdb9b9d1d7bf4c09145e38058911",
-      "darwin/light": "81fb1a71c44710762c0ea418458a71834eea17105d435acbd0ee9577b91a9ed2",
+      "darwin/dark": "080847dc6791e93e3b46f8d56b007062ccda198fa9a7843145e9ec9d150a04b4",
+      "darwin/light": "9bb42ced031eb78395ef611088a407f4bb39568793243941e419048303664a35",
       "linux/dark": "972c2bbe7e65a95b70241d26325abb62ae10aa75d872344fa391e1e71f42653e",
       "linux/light": "51d6a15441f04f98c54e850a13d23828c572699d37f78e4761dc8572d9c2418a"
     },
     "actions-chosen-message": {
-      "darwin/dark": "832552064c822291b651783e0aa95fac47d5f4b99f11dcdcf890aae9928754df",
-      "darwin/light": "4d4ccad1bfc1ebbadb8dfa4c75737e6ac3a9b2b047f8eecdb8ea2a8bb09b3251",
+      "darwin/dark": "3dce98fe18b9b4fe928f7cd4e9ac370266da2d1c78423e5cbe11ebe6aae456e5",
+      "darwin/light": "5a7caa72b089713bdcec5eb9e3a43052f91fa265fe3c2446db102becccb64d81",
       "linux/dark": "e7a070bac35d544cca6b4a221bbe8a254cf2d23007bbf0daa028533c7f4b916d",
       "linux/light": "2edeabaae75d09d588134bcd50cb67a8536926fd2174e3f091a9ffba3528ea09"
     },
     "actions-collapsed-section": {
-      "darwin/dark": "4b8a547503fc3fa2177d23508905797a27841c135b35125981582bf99f92cb0e",
-      "darwin/light": "ff364ea1eb23f8299d881d46c4caa5b01139f0c9e5356013a5c98137058d58a5",
+      "darwin/dark": "bd001b4abfcdd78244c9ff026b6532b57dba64cc7eb346259b2194dc1e881fac",
+      "darwin/light": "1664610c314da55e7b8e48efc0ac6440f4f401e3319e89308a06916b0aa97817",
       "linux/dark": "8dcb1e3ca8137110c3c77cc239b75dc01d28fc418d288a011f063ad92cd58482",
       "linux/light": "343f416ad0a238a32ee83956ff7282fd7b755cdf4ac905fd46e95346f872cacc"
     },
     "actions-key-bindings": {
-      "darwin/dark": "33a7753a26e54f2f58771b7296fa311f8a072c67b1a5742bb46913862344f554",
-      "darwin/light": "ca7e40a59dbf920ee848fa5b1f5577205de5f88bd7842ad17916255d54739e43",
+      "darwin/dark": "3c4e59cea76fbace03a0dd27f521db81c904c21b225c389fc59816431356a291",
+      "darwin/light": "aef38fdd861ba327e2a963080bc151fcb2e03ba6f384c766dd0a802602563ea8",
       "linux/dark": "2f71a8fecfd2c1aa1bc2ae0016a095639c9bbdda826c9d886b2d499029531a9a",
       "linux/light": "10cc1a61bee7b07209408834cad9fa809f34b538306c24f3a47c13b8d5036ce5"
     },
     "actions-menu": {
-      "darwin/dark": "a8ed09c94fed882cf98e7f66d8e144cd3bede264897d6603263f1b997bcb5fe2",
-      "darwin/light": "b3734ed8b5de47c54522f7d0b1f5189b03172e1114621e705779cc7de3d4e1fe"
+      "darwin/dark": "eb87ac2cb82295a2176d4f3ac88cd6a4bdf1043a31bfff342f3ed54515ebdfdc",
+      "darwin/light": "ca0c5873c8fbd00ed4c6dd5f349e1415010afcc24c5115f739a425b4a1bd7572"
     },
     "actions-prompt": {
-      "darwin/dark": "72fb1b3a534e0ca0f955217b97b8c904da24c2f8da374c97249e6f9c6741bd90",
-      "darwin/light": "df9f7d91b2e13afc0deea238e0269413af430de75f02128963d12a876b50233b"
+      "darwin/dark": "bd8ff8b35d45edcf8eb889ecfa00e33b270e24ff008e2de2da651f69819b66c4",
+      "darwin/light": "ee056ef0094efeb7a9c6133cbc95e89d013d37bc4ccd80d4eae1e8739bb1b8f5"
     },
     "actions-standing-list": {
-      "darwin/dark": "6ec0f8db13ad8959ec639ec20d565ae5010058a541aa694b1df348cd37303432",
-      "darwin/light": "8e33cd91c472ea0ca89948b7b74c01cb2deed211604aa4bd80224e82c49e3025",
+      "darwin/dark": "52029cead9b39d9153daca296f91a25b65f8db4e1e980b272da7c549bb970dae",
+      "darwin/light": "315a50563570c9d13c6beb79adc726a7e7bfcedc2308e326f1e09c75fab1bd9f",
       "linux/dark": "c817a7546b633a5cf47dcad2fecfe9fba8f5544391c09bea62e5ed90d8734184",
       "linux/light": "3ddbe541fb44453f35353eb609c80876ccd47f77bfb3123122c71d82894927af"
     },
     "conversation": {
-      "darwin/dark": "e23bb4dccd2bf04b665b83038f1271bee816e18e84f40449b077288a277ca91d",
-      "darwin/light": "9b1e35f02de60c9979774ae6440da84ce54290f1a4d9ae4cf250e52e420e9ac2",
+      "darwin/dark": "06b81bcba7ebe97c54d089bb7ff0b53eabad84219a7dcc99165171d81babc3fa",
+      "darwin/light": "6f194d76a5971f94952ece5541bdc28daf9231c4338c90c1564c007b8927e672",
       "linux/dark": "6a9fc99fbe3cba9486cd1bc6a0b5e2b1e6a5eacd5f8ce102d56f149ac332555e",
       "linux/light": "28d24354a4f5b92b7748034dbb5c8557241fde909f08412ce03cd4f0c5dda747"
     },
     "file-word-bubble": {
-      "darwin/dark": "47dd3bc9a63dd0ac21d69275232bc8fed8e3c8065ce21739ef7ddcca0397bf9d",
-      "darwin/light": "bebd4c6e8c4f3028ced8bda986e366a9f755c2b13a2102aba581bb785dc31451",
+      "darwin/dark": "b8e67b629e6f4988d186b062b2182e1d473d2d69c0053ee98c77fa69abf2b870",
+      "darwin/light": "ba7e46b16d2b12ee184ee4a04281cbc0dedd2b325e9e031f3c04a9464747e678",
       "linux/dark": "83e9940e1f77613d99c13a817a8e105ec647d4e7ff95e72e7ab829f0c222db77",
       "linux/light": "70e6e0eb5fd9ea4f312fd6a652b458910dc3413c9911292352ffb59c408efc6c"
     },
     "file-word-candidates": {
-      "darwin/dark": "b72487388067e9d9db1630d9d8bb789558231fa7e1c745058f28c6d7d6abc64b",
-      "darwin/light": "36b4c74125748f0e495868f1cc1041aa689a1ea4ab3d868055e80ea27507f657",
+      "darwin/dark": "0fac6026336b922de866ab842b9ed899753c12128413fd9e2ee41d4f535da5c0",
+      "darwin/light": "49ec6ad13f0dc006a540011925c341fae24b5ac3f9e6ad1d83bc1b272dc1a00f",
       "linux/dark": "04e296cc7fdbac36e5b4d51e4e25d9046a4535d503248be9193af3166b135d06",
       "linux/light": "014a81e21018cdfd09e60c950dc5654d1871452fa426cf01f10031ef1eb5b65c"
     },
     "files-code": {
-      "darwin/dark": "96e5a4e848b7922bde38a40b75e1f277ce3838c6baed26fc3cb46e427d330bf8",
-      "darwin/light": "03f03d1b15f1d80546acd1d31c7c9570448fd8b7bc1de60f021b1fffe87517eb",
+      "darwin/dark": "8853d2793a420c6989ade6b19a1152daec523961ede8bfb5997b462b5a84cbd4",
+      "darwin/light": "6ee2a65ce3445244fc1097bf5ea3933ce6416c50b2db44907324395843f9ca2e",
       "linux/dark": "407ca215604600eef6c995fb893c40109693f54bc3423d15e3418f11716e3bf3",
       "linux/light": "ae9068c92beae67dc4e65334d751c9469ee0fd463aa86f9b5b7022915d332b74"
     },
     "files-markdown": {
-      "darwin/dark": "02cc09b715b517b11e9211c430954e1f2e51e48481f8ecac6e2eafca5c823610",
-      "darwin/light": "45bdc65a250fd627cde95963354e84ec11d7a2a246d13fd56fbb1e8ff12a064e",
+      "darwin/dark": "4986aa4e6f6c0139c49c073be616d6680b22e0b42ce9ca5e03feb91c8049f6d3",
+      "darwin/light": "fb43203fa2df284afc4f0c96881a90fa083635bfdabddb5b60c57e843ca1042f",
       "linux/dark": "70ef7dcbbb4a6222e9fbb07279467d82f1aabdf9685b61ab2992cba40f2a3073",
       "linux/light": "11628fc247e72e3034e1674583c01fc0f951d29ac23940c1d40c415a2a866da4"
     },
     "first-connect": {
-      "darwin/dark": "dfceb164f5473e9133d9be5364bb5c850cc64c198855ec2845c62450df2fe44e",
-      "darwin/light": "f7cb586f10cd6851345d2e712f061d87ecf02e1c2b2f825417bd8577590fb879",
+      "darwin/dark": "0859b91d2a7a60aa77b3a45bbf057d6f59cbf03fbe2df020d7d14092bc0dcf37",
+      "darwin/light": "e00b34e813c2fcc55a5ce1187373a766c455fcdc0669af6dcb80a7f2b91a6ac0",
       "linux/dark": "900f2748f4fc66098eb6425a20d2d617edb068d44b1aaa6b9d28bc4ecf0488a4",
       "linux/light": "543085646de18dbe71ae42b1e9daaa1c713290d2d6b07d424b8743a4b251a26b"
     },
     "launcher": {
-      "darwin/dark": "56e98131a43e3156797da4a851235da830668a2852cad219e7d398ea21b410d5",
-      "darwin/light": "f12013d7c7ea3c6535ad4321a9d6500ad37e58ece7e63e8adeec1e97d5dc69b2",
+      "darwin/dark": "c5fd76b6753a69bc9561c4f747ba353a882a0b54b4fdbdf43ba6e308a0efb6bf",
+      "darwin/light": "de48f0a366b29d5cc63649421438ed4392cba58e29661791b11878bde7be0f7e",
       "linux/dark": "38c8731218c012bb5d0642690733427a9967bc5624fddbd0a4d387bc604e607f",
       "linux/light": "d0c6fa7a790f04c5cf7a573d12a3dac7fac25fda83a215c78911fa357131bb1c"
     },
     "layout-list-off": {
-      "darwin/dark": "0008424905d2ca44e07ab6999c39d9a685db070c9f3470f95720db19467ef8c8",
-      "darwin/light": "fea18125413d54a9970d0e50c5eabab20c5527ad0e2f1fd5caaa442f7ace47d3",
+      "darwin/dark": "8cfa13622b639b764bc0a4421db226fa5f250ae45e4d6c876637ec823b2c8f6c",
+      "darwin/light": "ebe70d174995bde0dad8d10cd026859439ba647c002d9b84b8a3e96d7d88e8a6",
       "linux/dark": "10ad5297591fae87759576e425bd33e204ffe1a2d0ac8f3ca5cdc20d4cbd1093",
       "linux/light": "7941e0fa24ab7bc878255e4465a25d3acd1154e867ff42bb6fb833db4d898c11"
     },
     "layout-split": {
-      "darwin/dark": "45affb6b819b1eaad2ac91ed613ec5a9c4644007bae2948d29dd9dd228ecc9bd",
-      "darwin/light": "bc6685cf170a7df2b7a6b2ebed27442fc17cae0b519d0f3a2ffe3e491393ed74",
+      "darwin/dark": "ce6c9a301965e34c4d20bd70663df35a787368d7ac6de0a11e27c7b34f01b148",
+      "darwin/light": "f3a15d121b637773dae25888963695818a978ebc9d75024ef8f31f7b2ad97509",
       "linux/dark": "d93392fa74a3113b4adc0977a25c3c2f86f655e513e77f07871d085c05ead96e",
       "linux/light": "93526855dbcca23d27ecebb62e6a8f844ab4d4faefccc7bfb809e0acc7199e66"
     },
     "layout-tail": {
-      "darwin/dark": "0a67b911f4a1df3a506d0f05371ce56efe3a1899c06543f0786589c5878552e6",
-      "darwin/light": "563f64da458c5c1408e65adac46f27e355f1f52042eda1831c3d7512bef8bb23",
+      "darwin/dark": "a9dae8e046abb9c71bb9751e58667ac069c8824a6f77b9c44513d1fedcc30193",
+      "darwin/light": "a2c395528c07288b5a0c991ff489b22625a9596d4ce177c823cd2724eccefab9",
       "linux/dark": "6a378ab7b58d20f117976675edd4b247bafd1de2c976d462705a76e2d4cb0e81",
       "linux/light": "aa2580ba71f01cee7afc61dc840de98d715e9b331a8093618aa719501a468ed0"
     },
     "notification": {
-      "darwin/dark": "f97131326c964caaa5695f0999e000df24d68c0524d45678f665ebd0c28f13b3",
-      "darwin/light": "3c185941967cccb1ec54417711a8b234fb14bfa6949ded8f4c3b296412105e46",
+      "darwin/dark": "557ea0f7463842de9662758f69ebb237b58eb3c9d2ef25634f86c7cf26b9eebc",
+      "darwin/light": "c8d9baa5c146a0aca082d4440441454f3a12460a14e0dc5f84854b0ba65b7f01",
       "linux/dark": "e8df703d984ab2376438ea0cfbd2f29fab86436932b29fef071d3fa68c57ce1c",
       "linux/light": "acb3e05626d302e46dfcfc436ed9937fd5a92227be6298a70801244e4134d82c"
     },
     "phone-list": {
-      "darwin/dark": "d7a1f57465dba82a70bbff1c23d57645cc232dbb47082f460b80a86ec4c7deb7",
-      "darwin/light": "cb5d1da6a4a564cf6319820798102635f27b4cfb17598e8ef1accc3983d97e4f",
+      "darwin/dark": "dacf1751bc567e082f7b541115b38cddcca8059e342f3948dcec5cce137c1381",
+      "darwin/light": "90c7cf2a50ea8e9ee44a6261b6d1036542ec38e1c524fb997722c6833315149f",
       "linux/dark": "173b261af29fb13e41a53b54db5264623e922c949a43010629a348051c02491d",
       "linux/light": "c79299f526a9c0c791c7e47b82f04f1b5e414847ad9310c894a6e2dec4ac6488"
     },
     "phone-timeline": {
-      "darwin/dark": "f3992c6702eae11268829e3c276ddd946f5270caa659b047b336841bc278ad3d",
-      "darwin/light": "40a780f466af01d8f25e896e1dcb6a1f1233743d6f5e7b96a46844c19d53f5fd",
+      "darwin/dark": "1b9669986dc553c0ca51a32de63a2e65ba0d1478a21a85cee855a8c66129a757",
+      "darwin/light": "ff7aeba165772c6b07ff8e98e93f4b84b2e3b6c61f309153d1d754c83349f916",
       "linux/dark": "71389b695d45f11342f9de057a2232e12419ed5b5d0d33c1220602bdcbf0ae92",
       "linux/light": "f0877a2702905ab9d1f54c1be09b9dc1deefa3db31e56d7736f425431941ebd1"
     },
     "phone-usage": {
-      "darwin/dark": "186855e2f6d71b852ceba6d56341d80154c0a4e10cf3af310871f90e3ea36f3e",
-      "darwin/light": "642f67942bace6214f3f55e3fea850c7bc87c94e6e44badfd3af1d06485b7f9b",
+      "darwin/dark": "e2378cf1359a62b118094a57e91e6c42e82a4cb6fdac0fd9749ae1a5df069817",
+      "darwin/light": "6adf5477a4eef9737fd28e68015e6d586ce8869cb4929e3d9c139e4cfc9ae1e4",
       "linux/dark": "5fa8f552eb1d33e1669112bad929e06def0fec8a1909c8ffdcb0db2ba20aacff",
       "linux/light": "f8fc3a0ef453291f29d075421f707d730b685f206dc93ff9829325bab8412c96"
     },
     "reauth": {
-      "darwin/dark": "1816e2ece73635728ef43a33dd561988ddbaa102e788caa457feae49704af63b",
-      "darwin/light": "6340395f49ffa87d1dcd6cf58697c36e997e9dd177b5723eace52810dfba392d",
+      "darwin/dark": "9c66bbec51503e452e52387ee41082bce34d6f6f228eb333ad72ff0e6231254d",
+      "darwin/light": "91489e976e872ebbf30564e84d27392959a2cec8afbe9431951f12ca50b422f3",
       "linux/dark": "0464ebbaff25d3b546b57c2f22626610797287aec2b08ff54cb2a2b289ff8760",
       "linux/light": "2cdf14a0e904d17c2bd696168c10c54e509e04dbac46add5a8f5418cf56a5d96"
     },
     "reauth-closed": {
-      "darwin/dark": "f6cc071002b966186e9db31d3149754adbff6dd6f40c41fe49b94c4d3a52e7e2",
-      "darwin/light": "bb771637c5631b764e96860f5e43754dae1126d15414d172bcc344ffa5db72cb",
+      "darwin/dark": "37fecd8b7e991be2238496d679a9b739235e7bb1cb82750e9ea13e1b0c5d02e5",
+      "darwin/light": "eb6d88c68f317f7205cc7d6ef5390d5c9694e8bfe22a1bdf6e4ffb30e3f63d78",
       "linux/dark": "3de3c4f9ff0dc6b68433e4a9dc5ead809cf844de63de0345d888bc45aaff3eec",
       "linux/light": "96a55f8901ed4148af6fdc3a6771f93f7929b3720fcc70bf42a0c5a378cc2c79"
     },
     "register": {
-      "darwin/dark": "aabe1135b85014e455f0438687da59bbd9328507d35ce273e28f32722ce24c70",
-      "darwin/light": "bd3969bae2eaf311cc2a1c01f5d1b27c8d8c3b1141d05a4d5ec8c2333ec83549",
+      "darwin/dark": "1a05554557069ffc0c62324804eff4f8076fe2f597aacd6b2a5cfb288c6e6a4b",
+      "darwin/light": "dfe402fa82ea3b097ce7993b30d33c82ad67edb88ddb6e68db7f2785638afdcb",
       "linux/dark": "d51703cc5fe89ec34335715b723a5ae82e64da99ea2687ac9cdd06febf3a8823",
       "linux/light": "16f3c216b508a2fef322ea615c1e2e0ba1df0042cc2cebd209552e5a3fc6f560"
     },
     "register-expired": {
-      "darwin/dark": "9504a7a97a7a2491fe589f53e3d702b27c87cfd2d55e3281f4b1e0b530771aea",
-      "darwin/light": "ae1470db2c57bba36a1d594eeb83b258daf1d7d74dbc65782df290ee15c91947",
+      "darwin/dark": "805fe8469fa01b4980e27589e288ea9a076cfb0397f735ef1d66fa20aef19784",
+      "darwin/light": "8b1cb9f23d4585ccb744315fa64959512c72dcb713010158cc26171918a09ca8",
       "linux/dark": "0213c073dcf031bfe9e9baa6d7c3a54db57b27a0190352bfa536d2bffd9323bc",
       "linux/light": "0d18a7cc7a2d06ee9d178dd855fdfd4b11b6c397b7e2e8e8bfc760f4d9ab6c73"
     },
     "register-unusable": {
-      "darwin/dark": "947a0923871676f654ffd6d60190998808e80516e8032c7ed59482a3b273ca0e",
-      "darwin/light": "05742ca16cb39fe114f6344a491a2ce0e92596c342b090995749e2efe03d330a",
+      "darwin/dark": "3429c48ad6f9f897bd9c042e988691e4e3ee68c5056d8517a2225195a513be39",
+      "darwin/light": "69ff5daa12db2edf2ca2282362c44fe36c86c211082be14ea6bfaa240636d05f",
       "linux/dark": "6c818224d7b1a0fa13a60524484114dd84c00d7b4294e9363628693766277be4",
       "linux/light": "61c216c14b1270c46e928a98bdcaa2341d27d5f6feb4e90f892e59ac7e303a5c"
     },
     "runs-choice": {
-      "darwin/dark": "92bac7a5cb42409e7d011bd4ebcf0de41ed73c58f1419ac9ca3424de08538c6f",
-      "darwin/light": "960b7effa05769d8012956f96ec00f65da7966ff23cc7a5d8db47c54e3923ebd",
+      "darwin/dark": "63a48f5449e85c2568941f4931740ff721e3c67121a03b215880e3b341827168",
+      "darwin/light": "b772bd52aebfc3e584c6129413177a1ecce72296c1928a253ae91f48b63d26a1",
       "linux/dark": "43570a61fc0ecfb6a537980fd11c62ce1e8161bffa0ced83ab7c46bf52fc1ee3",
       "linux/light": "fa0a50979705e3405a6c9cf6ffe33aebc18609543355daafeb4c844e67306ede"
     },
     "runs-ended": {
-      "darwin/dark": "dca8a110f15b34bfd477f41aa6c5dcef6dd912ceaa018b1ab8b0116cd7a18ea4",
-      "darwin/light": "b79555ad962637bc48621c63a5b58e2eac6e43b03fd9a5311e227e7d868edbf8",
+      "darwin/dark": "d08056dec1ec0bebb64f9337ceae703fe631b6f07118edeea7b69261ca6ef305",
+      "darwin/light": "b70824121981e88ab660ad8bdbfae25157c5186451ca867f41a76e326ca600cd",
       "linux/dark": "47d12fd49a9c6a6f7e7bdf08101f8a2eaaf64492a38dd1f387463198db8fd71c",
       "linux/light": "93c9e0aa7d73b0a1a83748d17fa1a86734bef08f6d0a1480b7ab8451dc0c3f09"
     },
     "runs-restricted": {
-      "darwin/dark": "b60cdf28e64f2190d3ae0c240afafaa5d45e97d09894225b7675e21eb22d29da",
-      "darwin/light": "2c1df6825ba378ad7a9a7cdbd8ef6ad4eb21eec8b2d417a7dca224335fe2ae7a",
+      "darwin/dark": "f4afceaeb832ced71be00793f13801884d6ddcc422305be7f90f6d571ca422e5",
+      "darwin/light": "f028c3c144fde233dbeafb222de3dfe096153edaad9ce2ef4691dc9bf7a8895d",
       "linux/dark": "bdffa7858ab128087d1677d5830232ea9a15f179e3ced6703d52887baf03f105",
       "linux/light": "a8aee8613e76bfd8b5c1874d1da55a0e28925e2f518d890c90c47c3afa7027e2"
     },
     "session-dump": {
-      "darwin/dark": "1d659691fd72023145f4af4613a1975aebaccbd08a0ee4c2ebfca87dded9381c",
-      "darwin/light": "73f226c91d8cd6368009797b61e0a5518c6757e1477a973b3a3381379a43b096",
+      "darwin/dark": "adcefe471657d1eab86e466e3522fe568710353644877fd0b8875059c2b11b99",
+      "darwin/light": "c200c6f17aecd4eecee12f811971cab0127efcdea872d462bf1596097c3e1cb9",
       "linux/dark": "d82c0c47e7bf3f397baf3c03c9d613327d271425a932745bf7540fef69572b0c",
       "linux/light": "582076c7792e59064cf256ed7192b080154a4d841795b2e11a4772ef2f7809b2"
     },
     "session-inbox-waiting": {
-      "darwin/dark": "45f2cd30b84f674f04935d34a6be595eab8d61e10bbc5f2bebe3faee9e037a22",
-      "darwin/light": "20a1c8cd6a8b3c31ce12e7abf7d74faed10feb8cef64abfa616167ed01cc2119",
+      "darwin/dark": "f836986240fc6fa6b9ad72feda95a7eb69dc4e3bd6992881d0afad80adb97dcb",
+      "darwin/light": "94c266b130f5fe33db430e36d3c6af497a058901643683ad13cc905a7fe679d2",
       "linux/dark": "51546e8f4a2f113338d32377d8989927c47288cf57319e7f0dd619f4ce034971",
       "linux/light": "ded0eb20f2bb0c3fad3bd8110257eaade5cd95e134ccd45fa2d256a6a8c4a886"
     },
     "session-kill-confirm": {
-      "darwin/dark": "fa529cb8a8c7137fb1671694a8b4905e1decb101c1cd81f6f5d0c0a585404457",
-      "darwin/light": "04d6898bee79c56d7f4ba5c104d757db3727a4f53f09a0b68633d3cfbfd3c17a",
+      "darwin/dark": "c7cdeebae33e406a31959d0e900bd6bc4e6f74d9bc4639721c758ef6be133c2b",
+      "darwin/light": "913f2aa0aff41f28a01968c29a00255fa15c92f26374794fd3b73210926ee509",
       "linux/dark": "23ca5e1e31915e6c81264628c6de0ebc0e821780ae1809c2cca99807e0695cb3",
       "linux/light": "88947abdc177cf9221f737de1af587c97fcb3b9fb85a7e4452cecfb7e71d87f7"
     },
     "session-pinned": {
-      "darwin/dark": "82c16ebfb8a32607a30f567f01367fb5b19dcdd45abfd744da1e5e086443f981",
-      "darwin/light": "5db1a5dcae9d8b076b267245d56b687c7380f321d6b221d56cdd94ca35edb6ff",
+      "darwin/dark": "e8b3a36458a0db60dfd8818c78fd81982c7a43051f68acaed9ed33833ca890af",
+      "darwin/light": "9214f0041b3922faa05d890be8b90e60865620944b9fe90cabc6784d3ff0289a",
       "linux/dark": "a73577df0bfce66e977c30b9071cb013eafd7b9c2f490a0e7b393d032bec55e2",
       "linux/light": "90a6b375f26abae8827c22ccfe39d32d426bbb2c03f0e5d9f2ceb4dda19a6c7e"
     },
     "session-search": {
-      "darwin/dark": "04ed744b48f33af52709f9dc21dbe4ae9823d99a53e3db3f2364c1d6439c14be",
-      "darwin/light": "61f2729d0914db34ef8bb0261f7da42895ce8bf86606f386cdaf2c596f224d53",
+      "darwin/dark": "6dcf3682a06cb21cecbcb595183708f3d90e2498dc39838886760ac6ba7eb94d",
+      "darwin/light": "4ae80f0e4239d007ead86824c0b799f9f6963f7a682e42c77660162750f2f80b",
       "linux/dark": "6fb4b8c7da4825f08e96f3304a533f46536c8ea8bb15e3c5713430c7e16946dc",
       "linux/light": "d87f0137f2fd6efd4fb49b19edd39ccb51db3816d141ea7ca920dee7ab8368e9"
     },
     "session-status": {
-      "darwin/dark": "45affb6b819b1eaad2ac91ed613ec5a9c4644007bae2948d29dd9dd228ecc9bd",
-      "darwin/light": "bc6685cf170a7df2b7a6b2ebed27442fc17cae0b519d0f3a2ffe3e491393ed74",
+      "darwin/dark": "ce6c9a301965e34c4d20bd70663df35a787368d7ac6de0a11e27c7b34f01b148",
+      "darwin/light": "f3a15d121b637773dae25888963695818a978ebc9d75024ef8f31f7b2ad97509",
       "linux/dark": "d93392fa74a3113b4adc0977a25c3c2f86f655e513e77f07871d085c05ead96e",
       "linux/light": "fec1a5a96a8cf2ad4dff5bb2dddb64be03c85b63da95aa46107876965a178758"
     },
     "sessions": {
-      "darwin/dark": "23ac033c197b2c0bdf4937f8d2f9fda6b14ca85c45b6c377e783d6007ed78973",
-      "darwin/light": "29214365faa90fcd641892dd4a53d8026256f44539a04d11233c2c224d6c47d0",
+      "darwin/dark": "5684ffbf13e72ae60b58ab4fa82c0a0d82a30cd6a16fe9391632c27533737b2c",
+      "darwin/light": "3d865bf9bd7e90f1ce73dc5f66c5bd658ceff51c6ea5b22bfb253a16c78c1d33",
       "linux/dark": "506f52e2ff4154a069a8067a7a897cd6cf77190d48db19cfc4c74ad37a747670",
       "linux/light": "2e070072b0d5ec92338970a7e0bb71cbcbdb6ee9e1024136a79ca75447ec7d71"
     },
     "sessions-cache-ring": {
-      "darwin/dark": "0a09b126e72330b80f69a2df665650f87499e53bf23e83c69f15154045c5d4cc",
-      "darwin/light": "2059a44aae8d29c7a415c77e32c47851d675c20b93f3af255c08533c09e14325",
+      "darwin/dark": "38585a159c93c3a9a101953e151f3d3e8a97af61e311ba15ec95504b550158ae",
+      "darwin/light": "a19b46c4fa748f3568170636880db76c799aa34b7fb4a5d551d5dde3a0580247",
       "linux/dark": "2d0ba79179f4a050e36853cc2656f3d267653eb6992ddefc9f261d6077693601",
       "linux/light": "a44b91271d420976da51b747cc375e877054e11e52df403ba623fd926f98531c"
     },
     "settings": {
-      "darwin/dark": "bbafc99efa0813eb3fadd970894ac3f85863ec5062cb7abec735faaa89fcedf8",
-      "darwin/light": "4b9fe942915ee6a5d2c4dde554bc56a7ddad9dab11f1bbe304dc7037bfe8b1b7",
+      "darwin/dark": "2404813447719175204cc4cb4f98047f4880aa88050c7ed700be1530371b346a",
+      "darwin/light": "abe65556b61a0c0a3ce0f538406f46d345400e51be3f155694320abb3b17b8db",
       "linux/dark": "1dbc7c6481b32c6535c58e09f455dfd2cee30e929653e561f4a9f8d2d2dddaeb",
       "linux/light": "698c1174ffe3611b5737c61c228bcccc03a16c50eb38e8f8e1d87a61b547a8ac"
     },
     "settings-changed": {
-      "darwin/dark": "c61a81a0442247b5a2f1a5146177bc4c026cef5da35bf52535c2a1225f7074de",
-      "darwin/light": "607178b7885d9f8c79b10da1d5b00f0f838d9d4e69ad0afdcf05d1940c48fb02",
+      "darwin/dark": "aa72f833f505786af71793f9f5d25d68666da4744be9966c9b296f8db3e88b2e",
+      "darwin/light": "9543e5ecd84172caf5ec409bcb61d5d710906e886066c5615818a6d8d27076cf",
       "linux/dark": "a8f7eb48610c903d2b507e35f0f14f2cc3a7a36c43b7b59152bc8ea50788dcd7",
       "linux/light": "81d987c93c3ef996c0b855095cb608583ea85e0ea58710ff0783680f30419887"
     },
     "settings-detail": {
-      "darwin/dark": "c4a1ff1c184a37834df08bfc828840e150627697e6cc9a8ae903f8287069f5c1",
-      "darwin/light": "ff71d8bbb23ace55593afc9f5c1b80b8ac926eb997d04835024136c1ac91b69b",
+      "darwin/dark": "7f4d7880a17f524da3d13a248e1b86d44105d1f0f8fdd80d16ef7c16e36f8268",
+      "darwin/light": "b3e029042e1279c21062ea22a773d8aa13dff7ce9b072c74b7d09396ebf9fb00",
       "linux/dark": "ec54b2746066b1f94ce0ae573b4badc8e02562d9775fbdbf39780f7b12f9d880",
       "linux/light": "af4f1cd8dd08ee7aba273b1465ef387162921bbe1203b2f802402d198ccb6ae3"
     },
     "sign-in": {
-      "darwin/dark": "7fc29614aa1b20a676653dab06422707e6c18ddcbd7bfd3e3965a48f7093a646",
-      "darwin/light": "94376a9fa18dcafd8c822bb98cd22e414c67d374f2a47a01b33b0e2157a182be",
+      "darwin/dark": "62d923c054828858c1c2402cc681b825ba25daea6d7caf6b5bcd9a934a2cc4de",
+      "darwin/light": "1c140a63ee94434f10bec733d9e2f9e0d915bee2093c728f407e803ef161398a",
       "linux/dark": "a37499e3e7a02574b0c70a7d7694e2a5681606521f182fc7083fd482c02e6679",
       "linux/light": "64228621274864ef3e0d16c664c1d9030ee145d1a04dd612ee01784be68f5dca"
     },
     "terminal": {
-      "darwin/dark": "7b5f2e092ee589e7ff34f79bfcbf779d8bfcfafa4f4876c27468b31d8ee7ae61",
-      "darwin/light": "420ce360e249ddb64db4d393d699759b9697693423ddb43425cfe8a10d31d1cf",
+      "darwin/dark": "27258611933df64304069d6ace9773cbcd61dd5f0b2eb7fb091b757ad2c50406",
+      "darwin/light": "774db752fac93dd9357e64d63ffd4d7ab29f684f9094b14b36a31cb7038f5299",
       "linux/dark": "c1bb50fc0982d2e1c0ab8919df11e71c697b65ef0bc7953c9bc196ca4294f779",
       "linux/light": "969f3bb6844ce0d6a71feb4998b26b5d500a5e9bfeae75a8e2c0cf9aa16b5e44"
     },
     "terminal-one": {
-      "darwin/dark": "bba81889ea539efa898f094ef88b177333cc45c8502a7e5b7ab6164a8af6eb57",
-      "darwin/light": "0179ff8e24bed39c49331e415d1172e2901335f58a366564279f4a12a02dd287",
+      "darwin/dark": "c04611e6e738450438e744a1c11337750151fa975861aad8f014c4a72a08eaf4",
+      "darwin/light": "585247e4e51c1d48e8dac776935537fc838a8be89dbc878e798c561981a4a9a2",
       "linux/dark": "c6b8ee6853b7b8d8253738b0be79bbc89e545fa0d3d0930717419dcbc0a6b395",
       "linux/light": "d1e474cbaea4433cdb657afc15c33541f259a355c40e3f4cf7ecbc8e48c0efbe"
     },
     "terminal-starting": {
-      "darwin/dark": "f78cc4c0a02ffc1ed4ee026c407864727896725731f361903517a9d33345106a",
-      "darwin/light": "0628f39bf275bb1108fff41bb8621ebf1b48b57d595f7574a91968da87061090",
+      "darwin/dark": "5eb8a5afb0fd9d352d9528f0bc7d2deb6ac9ce8dbe293f7ecd79b5825993743c",
+      "darwin/light": "4774ea2a0f7d8c3e66bce01d91153110e5ad87f6fa8072c457c03c252ff3a2c4",
       "linux/dark": "8e5db32ef2c8824bc0ed15192c1410dc7bb9c7ced8fe8f84b7c52413819528c4",
       "linux/light": "82717049fa3ea29b42a8d3ee1d41082cb95ce6fccf3dc7cf8b9906ccd49d2f2c"
     },
     "terminals": {
-      "darwin/dark": "14350a7cb4af679a6e7d3c739f104e100848579e634d905d38bf6e838b05aa52",
-      "darwin/light": "d6a92788d61136544b1d1f218a064087c2664b1ae7eb5012422c27ddf2326d88",
+      "darwin/dark": "0c38404f0e80752d81d91a38cafe2358f26a17f4cb9c1f5b5aa805468f62241c",
+      "darwin/light": "058acf1b5bebf545f6bd18610c01aaaf155e0f2ffb0b20bb92ab93014f2a6a14",
       "linux/dark": "4b9cee49c6893c78cc4599b54cefe5149f1d2701cbb15a93198850fe9ce63324",
       "linux/light": "f30e40b74f16325ed74b62dfb252cfec43ce292265f607981d4575e0469673cc"
     },
     "timeline": {
-      "darwin/dark": "2152601308bb2302905fed60607c2d648b3b745007f7a1641ef8922951a44d5b",
-      "darwin/light": "34f0c452775c2baf34b056f8fbcb017eb52ff84c794e6494a8a2cbbffc4a6ed5",
+      "darwin/dark": "5d1d9b32b807cfb0bcb3531967c4462a20278e3b70ee188d9f1475316f8717cd",
+      "darwin/light": "d80fd17d648bb057fd2ccbfe42c6db13ceb4431c0bf06c3099edf71345a78fe1",
       "linux/dark": "6037cf60add79f0f5c645176bc10b026e32454b4c2e1764da1d94dd11204192f",
       "linux/light": "ee908de0c51a41001f9a2953b54fc84198887a32bc34c9ebe7a24a9111d2a042"
     },
     "timeline-agent": {
-      "darwin/dark": "0ff72e314d68fbba8f8a402386180b8e020c5a5a26cfc3703f52f67a7d8dc3a7",
-      "darwin/light": "bc51fac0d333c5ed329c04fb3394fe5682260bc612592f61d3b68ac7d3d48b95",
+      "darwin/dark": "e5165f74ea4d14db8adff0c374c4fd9874a280b8c0764f7e889e55e1359cbd20",
+      "darwin/light": "55955fb01c0e6e057fad7bbc4d312aad3a8c698e06898c52ba75391e5d2b0897",
       "linux/dark": "2091e47588b0a514dd9409b730915bb7eac0a8ab073e26dfc3fbbce36b7d310a",
       "linux/light": "9c26402b347838704442707a956965e5e15a9bc84b448ad2f9b600d9ba9462f6"
     },
     "timeline-display": {
-      "darwin/dark": "02376a21a5a0d9254698225ed0b517e324dc4ac0686009baf58903ffd7febdf0",
-      "darwin/light": "15adb71d04b70b050ddb17b14c703c6ad5b908eac219e284d4be1d292c186f83",
+      "darwin/dark": "b3180af15e0a884c6f434180620d8c06f5dd6a7a397b1b97addc551eb257fe9f",
+      "darwin/light": "3e9c91ae2ca63e90a083b25700a7aa55dc9f1be5c73f3b4e3db9a310fc5d905f",
       "linux/dark": "ed108677e75f7f5d07ccef156b7a107fc0393b5bb361a2adaae8a1fcd57f4bcf",
       "linux/light": "421e4d83fa1656cf77f45f560ccb7a23799984daaa9464c5acbf522ff02a7256"
     },
     "timeline-fold-open": {
-      "darwin/dark": "672511325599527a51b1d80fbf5b95d22892cf80790d1a67c452c7db12aa9c5d",
-      "darwin/light": "e362408a91303349732150dffc34135aeb3687279de5f54ecc63a9ba1016b59b",
+      "darwin/dark": "6e9ab3eb046710564ba7fb6f209c78372053de781c1794f7aed6edb884d46c6c",
+      "darwin/light": "3dbdf5196c57b6c41acd57ada3b7cc6aa5a32d2a312ca8e69872157941058523",
       "linux/dark": "0a1366650ad55c359ac406dcb950b1ed1bad5550cf7773ec8cc0b66a69be03b2",
       "linux/light": "f0c2d829330a0dbfd6381abd6f40269e2aba52d3605345b5c814ef6af1bf075b"
     },
     "timeline-raw-record": {
-      "darwin/dark": "e7805ae37889686261b64b4e98a0f140b04051541ff979a8fbd3dfe9f2ebe9c9",
-      "darwin/light": "8a191dcebeabde4bc1cfa8f1c5c40443cc8c6b545c9e841abed06d62a31ea0d1",
+      "darwin/dark": "a0bd1369d0957dc51e7a68dd728e4a3ca1d6d096d18932a1cf313e7dfc750338",
+      "darwin/light": "3f25b1bd9f1267d773ed488aa613c6ba0ed3a21df698ed00955d4260c98cb95f",
       "linux/dark": "d5dd9908baaf0a315328a9bf32cc33b63edacefacc7c0b1f10f4449d25bc93e8",
       "linux/light": "5dd242da266bcf97a771ddfbecf175629d138b232f1ff8ea5c30baa566189ff5"
     },
     "timeline-search": {
-      "darwin/dark": "1a89d6f36bc4d3734bebeb826c627b4f522937d5003c3f7eec32b7cb1891bcf6",
-      "darwin/light": "718cb8ebb8305ae1840568fb1dfa1cdefbc02a2334ed6478ba70a9994ca8fa9d",
+      "darwin/dark": "db34513fd74ca62505d120d2f9ca4141b31a7ef88474dcbae694f141d7e16a99",
+      "darwin/light": "24882e6811053f57b59567a404164839b1472036f353a980e4d600f9dae68d42",
       "linux/dark": "b74beccd8d4efdc693eabe724c220aee66d87ec4684d33c02c2394d316237fe5",
       "linux/light": "288e7678b86fe6baf60b292959f364087bbe51702c3204cd79a98da81019f5eb"
     },
     "timeline-translated": {
-      "darwin/dark": "d5367b53c466c130ce1efc7403a64df4896adf91ffa5b7a1f311f3f5189f305b",
-      "darwin/light": "36a982df86fff3e42b08904f7e967d63b26c0eab697d29415298fb199d53f3b5",
+      "darwin/dark": "3dd3a8176e75b3ec24c7af1396146dae93356e76ba486cd7af328da5ed959600",
+      "darwin/light": "c01214f99de961f3224889e7b43576e95410683a5774c4e35723fa7cbcb791c7",
       "linux/dark": "be6cef188affc316835b464ad99a2199f0e1e81cae46c322ee7d8edca77d2527",
       "linux/light": "7efb675cc9a9c0f9af59350405d93e4b7ef74125febd0678e76f95a1e03c3189"
     },
     "usage": {
-      "darwin/dark": "cf08e2659729afad0355a5c6edf682a7eab0990bee35308ae892a2f66740f390",
-      "darwin/light": "d1c6abbfc2ddb53a7b6f5348eb77e0243a74196727ca7ec09574c0484fffa1b9",
+      "darwin/dark": "590f276ec2601c4c375c0fe7565201d313cfc451441003518ed6fe25e9803202",
+      "darwin/light": "da547907a5e07ddd2799562421d5b94c7fa92fb82a10928b2c02fa578a2cfb7e",
       "linux/dark": "d448b3f700245727dffdb9ba7a5f8393f94e1692e76c14aa145b79553ac41e96",
       "linux/light": "0302a42e056d9c7d9f9693f084d6fdc506ee98a255cbd7a58feac326e66e891a"
     },
     "usage-probed": {
-      "darwin/dark": "53feea2de1d1b99bc78cb7bcb54304fed045b3c9d15ba1dae4fd6c52b6ce0131",
-      "darwin/light": "93f317cae880839b6c5b8e8d71e25ac7b6193ab50fc3715f8ef5028c7330a2e2",
+      "darwin/dark": "3fbc95b9f376deef85a0d0a9a7ab519c069bc1744da943969b83b729d29b7f52",
+      "darwin/light": "038ba3bc114bb4ffe106d431288b2c08649ae481a89f38bb44e429cedc76ee1d",
       "linux/dark": "5524cea65e7362167efd694f595f0d2e9da537dcce6b9666668d9f7756dc8abb",
       "linux/light": "3baef60283566fcf649950ede6c6941b04019f75cf90e752e3d16f3948d355e9"
     },
     "usage-spend": {
-      "darwin/dark": "2939c4288e4c40b334fa95957d16108effd786650c1d559440b1082d753bd856",
-      "darwin/light": "d1c6abbfc2ddb53a7b6f5348eb77e0243a74196727ca7ec09574c0484fffa1b9",
+      "darwin/dark": "590f276ec2601c4c375c0fe7565201d313cfc451441003518ed6fe25e9803202",
+      "darwin/light": "da547907a5e07ddd2799562421d5b94c7fa92fb82a10928b2c02fa578a2cfb7e",
       "linux/dark": "ca84dbb653e7095709a7347b9e1ccddbaf0078ddaf3fd4df8b61a8842e535e20",
       "linux/light": "0302a42e056d9c7d9f9693f084d6fdc506ee98a255cbd7a58feac326e66e891a"
     }

@@ -34,6 +34,12 @@ export const ACTIONS: readonly Action[] = [
   // つもりの人の cookie が残る。取り返しが付かない側なので印が付く。
   { id: "app.disconnect", title: "切断する", destructive: true },
 
+  // 頁の行き来。**ブラウザの chrome が無い場面のため**にこの画面が持つ (ホーム
+  // 画面に追加した PWA、iPad の全画面) — 戻る手が端末によって在ったり無かったり
+  // するのは、道具として当てにならない (読み込み直しと同じ理由、DR-0004 §2.4)。
+  { id: "app.back", title: "戻る" },
+  { id: "app.forward", title: "進む" },
+
   // 他の画面への道。押す所は今も各画面の中に散っているが、**担当は木の上の
   // 1 か所に集まる** (付録 A) — どこから起こしても同じ所に着く。
   { id: "app.open-sessions", title: "セッションの一覧へ" },

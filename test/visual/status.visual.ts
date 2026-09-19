@@ -1,5 +1,5 @@
 import { STATUS_SID } from "./fixture.ts";
-import { expect, ownBrowser, shot, test } from "./harness.ts";
+import { expect, openMenu, ownBrowser, shot, test } from "./harness.ts";
 
 /** セッションが今何をしているか。
  *
@@ -31,7 +31,7 @@ test("繋いでいない間は、状態も畳んだ答えを出さない", async
   const page = await ownBrowser(browser, instance);
   await page.goto(`${instance.endpoint}s/${STATUS_SID}/status`);
   await expect(page.locator(".status-subject", { hasText: "束 0 を片付ける" })).toBeVisible();
-  await page.getByRole("button", { name: "メニュー" }).click();
+  await openMenu(page);
   await page.getByRole("button", { name: "切断", exact: true }).click();
   await page.locator("dialog.confirm").getByRole("button", { name: "切断する" }).click();
   // 明示的な切断は持ち物を畳むので、状態の画面ごと接続の画面に戻る。

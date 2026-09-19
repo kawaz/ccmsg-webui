@@ -504,6 +504,15 @@ export async function connected(page: Page): Promise<void> {
   await expect(page.locator(".status-mark.open")).toBeVisible();
 }
 
+/** 接続後のハンバーガーを開く。
+ *
+ * ツールバーに載るのは印と頁を動かす手だけなので (DR-0004 §2.4)、行き先も
+ * 一覧の出し入れも切断もここを通る。 */
+export async function openMenu(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "メニュー" }).click();
+  await expect(page.locator("#global-menu")).toBeVisible();
+}
+
 /** 一覧が「届くべきものを受け取り切った」と言うまで待つ。
  *
  * 待つのは**状態**で、時間ではない: 画面は受け取った snapshot から

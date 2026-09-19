@@ -208,6 +208,14 @@ code,
   overflow: clip auto;
 }
 
+/* トップ (未接続と登録の画面)。用件が繋ぐことしか無いので、縦に余りがあれば
+   中央に置く。`safe` を付けるのは、余りが無い時に**上から流す**ため — 中央に
+   寄せたまま溢れると、狭い画面でソフトキーボードが出た時に押す所が画面の外へ
+   出て、触れなくなる。 */
+.app.top {
+  justify-content: safe center;
+}
+
 .bar {
   display: flex;
   flex-wrap: wrap;
@@ -3147,7 +3155,6 @@ button.status-mark {
 /* 常設の読み込み直し。ホーム画面に追加した PWA にはブラウザの再読み込みが
    無いので、これが唯一の手になる。 */
 .reload {
-  margin-left: auto;
   flex: none;
   padding: 4px 9px;
   line-height: 1;
@@ -3224,8 +3231,25 @@ button.status-mark {
   background: none;
 }
 
+/* ツールバーの絵だけのボタン。並ぶのは戻る・進む・読み込み直し・ハンバーガーで、
+   題は読み上げと tooltip にだけ出る (横に文字を並べる幅が無い)。 */
+.nav-icon {
+  flex: none;
+  padding: 4px 9px;
+  line-height: 1;
+}
+
+.nav-icon:disabled {
+  opacity: 0.4;
+}
+
+/* 印と押す所の間。ここから右が「頁を動かす手」で、左は状態。 */
+.global-nav-gap {
+  flex: 1 1 auto;
+}
+
 /* ハンバーガー。誤タップで困るもの (降りる) と、開きに行く時にしか要らない
-   もの (設定・アカウント) をここに畳む。 */
+   もの (設定・アカウント・使用量・一覧の出し入れ) をここに畳む。 */
 .global-menu-open {
   flex: none;
   padding: 4px 9px;
@@ -3260,4 +3284,9 @@ button.status-mark {
 
 .global-menu > a {
   padding: 2px 0;
+}
+
+/* メニューの中では、一覧の出し入れも使用量も 1 行の項目として並ぶ。 */
+.global-menu > button {
+  text-align: start;
 }

@@ -13,8 +13,12 @@ import { SignIn } from "./SignIn.tsx";
  * 誰も点検していない裁定を作る (§1.2)。読んでよいのは中身を出す側だけで、
  * 「読まないこと」は文章ではなく test が守る (`test/phase.test.ts`)。
  *
- * 未接続の 5 つは接続の帯が主役で、その下に本文が立つ。接続後の 2 つは帯を
- * 持たず、`Shell` が workspace ごと組み立てる (§2.4)。
+ * 未接続の 5 つ (= トップ) は接続の帯が主役で、その下に本文が立つ。**用件が
+ * 繋ぐことしか無いので、縦に余りがあれば画面の中央に置く** (`app top`) —
+ * 余りが無ければ上から流す (狭い画面でソフトキーボードが出た時に、押す所が
+ * 画面の外へ出ないため)。登録 URL を開いた画面も同じトップの仲間。
+ *
+ * 接続後の 2 つは帯を持たず、`Shell` が workspace ごと組み立てる (§2.4)。
  *
  * 持たないもの: 並べ方 (= `Shell`)、どの画面か (= `Main`)、何を読むか (= 各画面)。 */
 export function App() {
@@ -24,16 +28,15 @@ export function App() {
       // 置き換えるのが正しい (§7 Q3)。捨てているように見えるものは instance が
       // 持っていて、読み込み直すか繋ぎ直せば戻る。
       return (
-        <div class="app">
+        <div class="app top">
           <ConnectionBar />
           <Enrolment held={enrolment.value} />
         </div>
       );
     case "authenticating":
       return (
-        <div class="app">
-          {/* 何が起きているかは本文が言うので、帯は語を出さない。 */}
-          <ConnectionBar words={false} />
+        <div class="app top">
+          <ConnectionBar />
           <SignIn />
         </div>
       );
@@ -43,7 +46,7 @@ export function App() {
       // 一覧も transcript も「instance が今そう言っていること」なので、一度も
       // 聞いていない間は本文を描かない (空の一覧は「1 つも無い」という嘘になる)。
       return (
-        <div class="app">
+        <div class="app top">
           <ConnectionBar />
           <Disconnected />
         </div>

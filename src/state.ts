@@ -1130,7 +1130,7 @@ export function takeSignOutWord(): void {
   const hash = location.hash;
   if (!hash.startsWith(SIGNED_OUT)) return;
   const refused = decodeURIComponent(hash.slice(SIGNED_OUT.length));
-  history.replaceState(null, "", location.pathname + location.search);
+  history.replaceState(history.state, "", location.pathname + location.search);
   authProblem.value = `この端末からは降りましたが、instance に失効を頼めませんでした (${refused})。別のタブが繋がったままのことがあります。`;
 }
 
@@ -1563,15 +1563,65 @@ function loadSortKey(): SortKey {
  * `replace` is for a move the person did not ask for — restoring the file that
  * was open when the tab is entered without one named — so the back button does
  * not have to walk through the app's own bookkeeping. */
+/** 履歴のどこに居るか。
+ *
+ * ブラウザは「戻れるか」を教えてくれない (`history.length` は前に進んだ分も
+ * 数える) ので、**自分で置いた数を数える**。この画面の遷移は全部 `navigate` を
+ * 通るので、押した回数が深さになり、`popstate` で戻った時はその頁に書いてある
+ * 数が今の位置を言う。
+ *
+ * 進めるかは「一度でも戻ったか」で決まるので、見た中でいちばん深い所を覚える。
+ * 読み込み直すと覚えは 0 から始まる — 頁をまたいで数を持ち歩くと、別のタブや
+ * 別の頁の履歴を自分のものとして数えることになる。 */
+interface HistoryMark {
+  readonly at: number;
+}
+
+function markOf(state: unknown): number {
+  if (typeof state !== "object" || state === null) return 0;
+  const at = (state as { at?: unknown }).at;
+  return typeof at === "number" ? at : 0;
+}
+
+export const historyAt = signal(0);
+export const historyDeepest = signal(0);
+
+/** 今の頁に数が書いていなければ書く (この頁から数え始める)。 */
+export function adoptHistory(): void {
+  const at = markOf(history.state);
+  if (history.state === null) history.replaceState({ at } satisfies HistoryMark, "");
+  historyAt.value = at;
+  historyDeepest.value = Math.max(historyDeepest.peek(), at);
+}
+
+export function canGoBack(): boolean {
+  return historyAt.value > 0;
+}
+
+export function canGoForward(): boolean {
+  return historyAt.value < historyDeepest.value;
+}
+
 export function navigate(next: Route, options?: { replace?: boolean }): void {
   route.value = next;
   const path = href(next);
-  if (options?.replace === true) history.replaceState(null, "", path);
-  else history.pushState(null, "", path);
+  if (options?.replace === true) {
+    history.replaceState({ at: historyAt.peek() } satisfies HistoryMark, "", path);
+    return;
+  }
+  const at = historyAt.peek() + 1;
+  history.pushState({ at } satisfies HistoryMark, "", path);
+  historyAt.value = at;
+  // 進んだ先が今までのいちばん深い所になる (分岐した時は、戻って別の道へ進んだ
+  // 時点でその先は無くなっている)。
+  historyDeepest.value = at;
 }
 
 export function adoptLocation(): void {
   route.value = locationRoute();
+  const at = markOf(history.state);
+  historyAt.value = at;
+  historyDeepest.value = Math.max(historyDeepest.peek(), at);
 }
 
 /** gateway に聞いた、日ごとの費用。`days` は「どれだけ遡るか」で、gateway は
