@@ -15,13 +15,28 @@ import { Pane, useScope } from "./Scope.tsx";
  * **閉じ方は 1 つ**。`Escape` も、後ろの窓の閉じる仕草も、中身が置いたボタンも
  * `close` に集まるので、閉じた時にすることを 2 回書かずに済む。 */
 
-/** 開いた時点でここが立っている区画になる。 */
-function StandHere() {
+/** 開いた時点でここが立っている区画になる。
+ *
+ * 重なりも、口に付く窓も、開いた先が宛先になることは同じ — 器が dialog か
+ * popover かは、キーがどこへ届くかとは関わらない。 */
+export function StandHere() {
   const scope = useScope();
   useEffect(() => {
     standing.value = scope;
   }, [scope]);
   return null;
+}
+
+/** 開く前に立っていた区画を覚えておき、閉じたらそこへ返す。 */
+export function useStandingReturn(): void {
+  const was = useRef<Scope | undefined>(undefined);
+  useEffect(() => {
+    was.current = standing.peek();
+    return () => {
+      const back = was.current;
+      if (back !== undefined) standing.value = back;
+    };
+  }, []);
 }
 
 export function Modal({
@@ -38,16 +53,7 @@ export function Modal({
   readonly children: ComponentChildren;
 }) {
   const box = useRef<HTMLDialogElement>(null);
-  /** 開く前に立っていた区画。閉じたら宛先はそこへ戻る。 */
-  const was = useRef<Scope | undefined>(undefined);
-
-  useEffect(() => {
-    was.current = standing.peek();
-    return () => {
-      const back = was.current;
-      if (back !== undefined) standing.value = back;
-    };
-  }, []);
+  useStandingReturn();
 
   useEffect(() => {
     const at = box.current;

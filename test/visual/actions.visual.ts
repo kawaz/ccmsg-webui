@@ -1,5 +1,5 @@
 import { SID } from "./fixture.ts";
-import { expect, openMenu, shot, test } from "./harness.ts";
+import { expect, openMenu, ownBrowser, shot, test } from "./harness.ts";
 
 /** 操作がアクションになった所の見た目 (DR-0003)。
  *
@@ -95,10 +95,7 @@ test("キーバインドの設定は、綴りと今の環境での姿を並べ�
  * 宛先は URL が名指すセッションなので、transcript を開いていない見方 (ここでは
  * ファイル) からでも同じ 1 つが起きる。セッションを名指していない画面には出ない
  * — 届く先が無い所に押す所を置かない。 */
-test("FAB はセッションを名指す画面にだけ出て、composer を重ねる", async ({
-  ui: page,
-  instance,
-}) => {
+test("FAB はセッションを名指す画面にだけ出て、口に付く窓を開く", async ({ ui: page, instance }) => {
   await page.goto(instance.endpoint);
   await expect(page.getByRole("heading", { name: /^起動中 / })).toBeVisible();
   // 一覧だけを見ている間は宛先が無い。
@@ -107,26 +104,131 @@ test("FAB はセッションを名指す画面にだけ出て、composer を重�
   await page.goto(`${instance.endpoint}s/${SID}/files`);
   const fab = page.locator("button.fab");
   await expect(fab).toBeVisible();
+  await shot(page, "actions-fab.png");
   await fab.click();
 
-  // 開いた先は確認と同じ重なりの節で、載っているのは transcript の下と同じ
-  // composer (送れるかの判定も下書きの置き場も 1 通り)。
-  const prompt = page.locator("dialog.confirm.prompt");
+  // 開いた先は口に付く窓で、載っているのは transcript の下と同じ composer
+  // (送れるかの判定も下書きの置き場も 1 通り)。
+  const prompt = page.locator(".fab-window");
   await expect(prompt).toBeVisible();
   await expect(prompt.getByRole("textbox", { name: "セッションへのメッセージ" })).toBeFocused();
   await shot(page, "actions-prompt.png");
 
-  // 閉じる手は重なりの持ち物 (Escape)。
+  // 後ろは不活にならない — 読んでいた所をそのまま触っていられる。
+  await expect(page.locator(".pane-list")).not.toHaveAttribute("inert", /.*/);
+
+  // 閉じる手は 3 つ。まずは窓が持っている押す所。
+  await prompt.getByRole("button", { name: "閉じる" }).click();
+  await expect(prompt).toBeHidden();
+
+  // 次に窓の外。口の上は「外」ではないので、別の所を押す。
+  await fab.click();
+  await expect(prompt).toBeVisible();
+  await page.mouse.click(20, 20);
+  await expect(prompt).toBeHidden();
+
+  // 最後に Escape。
+  await fab.click();
+  await expect(prompt).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(prompt).toBeHidden();
 
-  // 送れたら閉じる。重なりは用が済んだら消えるもので、続けて書くならもう一度
+  // 送れたら閉じる。窓は用が済んだら消えるもので、続けて書くならもう一度
   // 開く (下書きは同じ所に残っている)。
   await fab.click();
   await expect(prompt).toBeVisible();
   await prompt.getByRole("textbox", { name: "セッションへのメッセージ" }).fill("FAB から 1 通");
   await prompt.getByRole("button", { name: "送信" }).click();
   await expect(prompt).toBeHidden({ timeout: 20_000 });
+});
+
+/** 口は掴んで動かせて、窓は口に付いて動く (DR-0003 §2.7)。
+ *
+ * 動かした先はこのブラウザが覚える (DR-0002 の section 1 つ) ので、読み込み
+ * 直しても同じ所に出る — 置き直させるなら覚えている意味が無い。 */
+test("FAB は掴んで動かせて、窓ごと付いてくる", async ({ browser, instance }) => {
+  // 自分の browser を要る: 口の居場所はこのブラウザが覚えるもので、読み込み
+  // 直して確かめる手も要る。絵を撮るブラウザを共有したまま動かすと、口が写る
+  // 画面ぜんぶが「どの test が先に走ったか」で変わる。
+  const page = await ownBrowser(browser, instance);
+  await page.goto(`${instance.endpoint}s/${SID}/files`);
+  const fab = page.locator("button.fab");
+  await expect(fab).toBeVisible();
+  const before = await fab.boundingBox();
+  expect(before).not.toBeNull();
+
+  // 窓を開いたまま掴む。掴んでいる間に閉じては、窓ごと動かせない。
+  await fab.click();
+  const prompt = page.locator(".fab-window");
+  await expect(prompt).toBeVisible();
+  const windowBefore = await prompt.boundingBox();
+  expect(windowBefore).not.toBeNull();
+
+  await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(before!.x - 160, before!.y - 90, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(prompt).toBeVisible();
+  const after = await fab.boundingBox();
+  expect(after!.x).toBeLessThan(before!.x - 100);
+  expect(after!.y).toBeLessThan(before!.y - 50);
+  const windowAfter = await prompt.boundingBox();
+  expect(windowAfter!.x).toBeLessThan(windowBefore!.x);
+  await shot(page, "actions-fab-moved.png");
+
+  // 掴んで離した指は押していない — 窓は開いたままで、閉じてもいない。
+  await expect(prompt.getByRole("textbox", { name: "セッションへのメッセージ" })).toBeVisible();
+
+  // 置いた所は覚えてある。読み込み直しても同じ所に出る。
+  await page.reload();
+  await expect(fab).toBeVisible();
+  const again = await fab.boundingBox();
+  expect(Math.abs(again!.x - after!.x)).toBeLessThan(2);
+  expect(Math.abs(again!.y - after!.y)).toBeLessThan(2);
+
+  await page.context().close();
+});
+
+/** 書く所は上にも下にも引ける。高さもこのブラウザが覚える。 */
+test("書く所は上下の縁で広げられる", async ({ browser, instance }) => {
+  const page = await ownBrowser(browser, instance);
+  await page.goto(`${instance.endpoint}s/${SID}/files`);
+  await page.locator("button.fab").click();
+  const prompt = page.locator(".fab-window");
+  const box = prompt.getByRole("textbox", { name: "セッションへのメッセージ" });
+  await expect(box).toBeVisible();
+  const before = await box.boundingBox();
+
+  // 上の縁を引き上げる。窓は口の上に開いているので、伸びる先は上。
+  const grip = prompt.locator(".fab-grip.top");
+  const at = await grip.boundingBox();
+  await page.mouse.move(at!.x + at!.width / 2, at!.y + at!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(at!.x + at!.width / 2, at!.y - 120, { steps: 8 });
+  await page.mouse.up();
+
+  const after = await box.boundingBox();
+  expect(after!.height).toBeGreaterThan(before!.height + 90);
+
+  // 下の縁で戻せる。2 本あることが、窓がどちらに開いていても引ける理由。
+  const foot = prompt.locator(".fab-grip.bottom");
+  const low = await foot.boundingBox();
+  await page.mouse.move(low!.x + low!.width / 2, low!.y + low!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(low!.x + low!.width / 2, low!.y - 60, { steps: 6 });
+  await page.mouse.up();
+  const back = await box.boundingBox();
+  expect(back!.height).toBeLessThan(after!.height - 50);
+
+  // 高さも覚えてある。
+  await page.reload();
+  await page.locator("button.fab").click();
+  await expect(box).toBeVisible();
+  const again = await box.boundingBox();
+  expect(Math.abs(again!.height - back!.height)).toBeLessThan(2);
+
+  await page.context().close();
 });
 
 /** 誤って押されて困るものと、開きに行く時にしか要らないものはメニューの中

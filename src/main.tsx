@@ -12,6 +12,7 @@ import {
 import { applySaved } from "./settings-section.ts";
 import "./theme.ts";
 import "./actions/keys.ts";
+import "./fab-place.ts";
 import { App } from "./ui/App.tsx";
 import { listenForKeys } from "./ui/Scope.tsx";
 

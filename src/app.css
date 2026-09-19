@@ -3196,23 +3196,47 @@ button.status-mark {
 
 /* どこからでも話しかける口 (DR-0003 §2.7)。メインコンテンツの中身の手前に
    浮くので、版組の中に場所を取らない — 読んでいる所を狭めずに、話しかける手を
-   常に見えている所へ置く。 */
-.fab {
+   常に見えている所へ置く。
+
+   居場所は手で動かせる (`src/fab-place.ts`)。数は右下からの距離 2 つで、口も、
+   口に付く窓も同じ 1 つを読む。 */
+.fab-place {
   position: fixed;
-  inset-block-end: 28px;
-  inset-inline-end: 20px;
+  right: var(--fab-right, 20px);
+  bottom: var(--fab-bottom, 28px);
   z-index: 2;
-  width: 44px;
-  height: 44px;
+  width: var(--fab-size, 56px);
+  height: var(--fab-size, 56px);
+  /* 窓がここを基準に出る。 */
+  anchor-name: --fab;
+  /* 掴んで動かす所なので、指の縦振りを画面のスクロールに取られない。 */
+  touch-action: none;
+}
+
+.fab {
+  width: 100%;
+  height: 100%;
   padding: 0;
-  border: 1px solid var(--brand-fg);
+  border: 1px solid var(--brand-fill);
   border-radius: 50%;
-  background: var(--surface);
-  color: var(--brand-fg);
-  font-size: 18px;
+  background: var(--brand-fill);
+  color: var(--on-fill);
+  font-size: 24px;
   line-height: 1;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
-  cursor: pointer;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 35%);
+  cursor: grab;
+}
+
+/* 塗ってある押す所なので、指が乗っても薄い面へ退かない — 目立つことがこの口の
+   役目で、触れた時にそれを手放す理由が無い。 */
+.fab:hover {
+  border-color: var(--brand-fill);
+  background: var(--brand-fill);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+}
+
+.fab:active {
+  cursor: grabbing;
 }
 
 .fab:disabled {
@@ -3220,17 +3244,86 @@ button.status-mark {
   cursor: default;
 }
 
-/* 話しかける重なり。確認と同じ器で、違うのは中身だけ (§2.8)。危ない操作では
-   ないので、縁は確認の色を取り下げる。 */
-.confirm.prompt {
-  width: min(42em, 92vw);
-  border-color: var(--border);
+/* 話しかける窓。口に付いて出る非モーダルで、後ろは不活にならない — 読んでいた
+   所を触ったまま書ける (DR-0003 §2.7)。 */
+.fab-window {
+  position: fixed;
+  position-anchor: --fab;
+  /* 既定は口の上、口の側から内側へ広がる。口が上端や逆の端に寄っていれば、
+     入る向きへ倒す。 */
+  position-area: block-start span-inline-start;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  width: min(40em, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  margin: 8px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
+  overflow: auto;
 }
 
-.confirm.prompt .composer {
+.fab-window:not(:popover-open) {
+  display: none;
+}
+
+.fab-window-body {
+  padding: 10px 12px 12px;
+}
+
+.fab-window-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 6px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.fab-close {
+  flex: none;
+  padding: 2px 8px;
+  line-height: 1.2;
+}
+
+.fab-window .composer {
   position: static;
   margin-top: 0;
   background: none;
+}
+
+.fab-window .composer textarea {
+  height: var(--fab-prompt-height, 96px);
+  /* 高さは縁で決める。ブラウザ既定の右下の摘みが別経路になると、覚える所が
+     2 つになる。 */
+  resize: none;
+}
+
+/* 書く所の縁。上下 2 本あり、窓がどちらに開いていても引ける方がある。 */
+.fab-grip {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--border-subtle);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.fab-grip.top {
+  margin: 0 0 4px;
+}
+
+.fab-grip.bottom {
+  margin: 4px 0 0;
+}
+
+.fab-grip:hover {
+  background: var(--border-strong);
 }
 
 /* ツールバーの絵だけのボタン。並ぶのは戻る・進む・読み込み直し・ハンバーガーで、
