@@ -1,5 +1,5 @@
 import { createContext } from "preact";
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
+import { useContext, useEffect, useMemo, useRef } from "preact/hooks";
 import { computed, useSignal } from "@preact/signals";
 import type { Sid, TranscriptItem } from "@ccmsg/protocol";
 import { filesRouteFor } from "../files/path-link.ts";
@@ -46,27 +46,7 @@ import {
 } from "../timeline/display.ts";
 import { matchingKeys, type SearchWord, splitForHighlight } from "../search/in-view-search.ts";
 import { groupIndexByUnitKey, timelineSearchUnits } from "../search/timeline-units.ts";
-import {
-  type Anchor,
-  anchorAt,
-  anchorCentering,
-  HeightBook,
-  isAtBottom,
-  sameRange,
-  scrollTopAt,
-  scrollTopByGrowth,
-  totalHeight,
-  visibleRange,
-} from "../timeline/virtual-window.ts";
-import {
-  metricsOf,
-  scrollBoxTo,
-  ScrollerContext,
-  scrollHeightOf,
-  scrollTopOf,
-  topOf,
-  viewportOf,
-} from "../layout/scroller.ts";
+import { scrollBoxTo, ScrollerContext, scrollTopOf, viewportOf } from "../layout/scroller.ts";
 import type { TranscriptItemsView } from "../timeline/items-view.ts";
 import { type WaitingMessage, waitingFor } from "../conversation/inbox.ts";
 import {
@@ -119,10 +99,6 @@ import { hasVoiceNeighbour, stepInVoice, stepItem } from "../timeline/voice-nav.
  * the bottom they are watching it happen, and anywhere else they are reading,
  * which is why an append moves the view only in the first case. */
 
-/** How close to an edge counts as being at it. A few pixels, since a wheel
- * rarely lands exactly on the end and a fractional device pixel never does. */
-const EDGE_PX = 24;
-
 /** Where a path written in this transcript opens.
  *
  * Carried in a context rather than handed down: every level between the
@@ -148,7 +124,10 @@ function useTimelinePathLinker(sid: Sid): MarkdownPathLinker | undefined {
   const session = sessionPaths(sid);
   const { cwd, root } = session;
   return useMemo(() => {
-    const from = { ...(cwd === undefined ? {} : { cwd }), ...(root === undefined ? {} : { root }) };
+    const from = {
+      ...(cwd === undefined ? {} : { cwd }),
+      ...(root === undefined ? {} : { root }),
+    };
     return (ref) => {
       const to = filesRouteFor(sid, ref, from);
       if (to === undefined) return undefined;
@@ -173,37 +152,11 @@ function useTimelineFileWords(sid: Sid): FileWordCtx {
   const base =
     cwd === undefined
       ? ROOT
-      : (displayPathFor(cwd, { cwd, ...(root === undefined ? {} : { root }) }) ?? ROOT);
+      : (displayPathFor(cwd, {
+          cwd,
+          ...(root === undefined ? {} : { root }),
+        }) ?? ROOT);
   return useFileWords(sid, isAbsolutePath(base) ? ROOT : base, navigate);
-}
-
-/** How far from the top an older page is asked for — before the top, so the
- * page is usually there by the time it is reached. */
-const REACH_PX = 400;
-
-/** How much beyond the viewport is drawn, above and below. A finger moves
- * further than a frame lasts, so what is drawn has to reach past what is
- * seen. */
-const OVERSCAN_PX = 600;
-
-/** 何も測れていない間の 1 行の高さ。最初の描画で 1 つでも測れば、以降は測った
- * 分の平均が使われる (`HeightBook`)。 */
-const ESTIMATE_PX = 48;
-
-/** 描く範囲を決めている今の値。scroll のたびにではなく、**描く範囲が変わった
- * 時にだけ**書き換える — 指の動きの細かさで transcript を描き直さないため。 */
-interface Layout {
-  readonly scrollTop: number;
-  readonly viewport: number;
-  /** 頁の先頭から数えて、窓が始まる高さ。窓の上には接続バーも見出しも端の 1 行も
-   * 載っている。
-   *
-   * 測るのは**空白ごと**の入れ物 (`.tl-window`) の上端で、描いている行の並びの
-   * 上端ではない: 上の空白は描く範囲が変わるたびに伸び縮みするので、そこを
-   * 起点にすると「どこを描くか」が「どこを描いているか」に依存して往復する。 */
-  readonly listTop: number;
-  /** 高さを測り直した回数。測った結果を描画に持ち込むための目印。 */
-  readonly tick: number;
 }
 
 export function Timeline({ sid }: { sid: Sid }) {
@@ -217,34 +170,11 @@ export function Timeline({ sid }: { sid: Sid }) {
 }
 
 function TimelineBody({ view }: { view: TranscriptItemsView }) {
-  /** 窓が置かれている所。動かすのは本文のペインなので、ここは測る起点と、この
-   * 画面の中だけを探すための囲いとして持つ。 */
   const pane = useRef<HTMLDivElement>(null);
-  /** 動かす箱 (`Shell` が持つ本文のペイン)。まだ組み上がっていない間は何も
-   * できないので、測る所も動かす所もここが答えるまで待つ。 */
+  const top = useRef<HTMLParagraphElement>(null);
   const scroller = useContext(ScrollerContext);
   const room = (): HTMLElement | null => scroller?.current ?? null;
-  /** 空白ごとの入れ物と、描いている行の並び。前者が窓の起点で、後者が測る対象。 */
-  const box = useRef<HTMLDivElement>(null);
-  const items = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
-  /** 末尾へ置き直した時の、末尾の位置。追っている間ずっと末尾へ引き戻すと、端の
-   * 数 px の中で上へ動こうとしている指を毎描画奪う。
-   *
-   * 中身の高さではなく末尾の位置を覚えるのは、画面が縮んだ時も末尾が動くから
-   * (中身は 1 px も変わらないのに、末尾は viewport が縮んだ分だけ下がる)。 */
-  const stuck = useRef(-1);
-  /** 行と行の隙間 (CSS が決める)。行の高さに足して 1 行ぶんとして数えるので、
-   * 覚えている高さの合計がそのまま窓の長さになる。 */
-  const gap = useRef(0);
-  /** 読んでいる行と、その上端からのずれ。上に行が足されても、高さを測り直して
-   * も、この 1 行を同じ所に置き直すことで画面が動かない。 */
-  const anchor = useRef<Anchor | undefined>(undefined);
-  /** 置き直した時の窓の長さ。錨の行ごと形が変わった時の逃げ道に使う。 */
-  const spanned = useRef(0);
   const held = view.items.value;
-  // まだ渡っていない 1 通は、そのセッションに宛てて言われたもの。worker には
-  // 宛先が無いので (話しかける相手は起動した側のセッション)、ここにも出ない。
   const rowsWaiting = waitingMessages.value;
   const gone = departedMessages.value;
   const groups = view.groups.value;
@@ -255,158 +185,40 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
         : groups,
     [groups, rowsWaiting, gone, view.sid, view.agentId],
   );
-  // 選べるのは**メッセージ**だけ。声の軸は「誰が言ったか」の軸なので、道具の
-  // 1 行や思考が列に混ざると、辿った先に選んだ印の出る所が無い。
   const messages = useMemo(() => held.filter((one) => one.type.startsWith("message.")), [held]);
   const search = useInViewSearch();
   const words = search.words.value;
   const units = useMemo(() => timelineSearchUnits(nodes), [nodes]);
-  // 一致の並びは computed で持つ。押す所の「できるか」がここを読むので、ただの
-  // 値だと数が変わったことが伝わらない (`SearchBar` の `matched` を読む)。
   const matched = useMemo(
     () => computed(() => matchingKeys(units, search.words.value)),
     [units, search],
   );
   const nodesByUnit = useMemo(() => groupIndexByUnitKey(nodes), [nodes]);
-  // 通知が「何に答えたか」と言う mid から、その 1 通が居る所へ。
   const itemsByMid = useMemo(() => itemIdsByMid(held), [held]);
-  // 設定画面に並べる型は、この画面が実際に見たもの。窓が手放した分は消えるが、
-  // 付けた値は型名で覚えているので、同じ型が戻ってくれば同じ行に戻る。
   const seenTypes = useMemo(() => {
-    const seen: Record<Subject, Set<string>> = { main: new Set(), sub: new Set() };
+    const seen: Record<Subject, Set<string>> = {
+      main: new Set(),
+      sub: new Set(),
+    };
     for (const item of held) seen[faceSubject(item.subject)].add(item.type);
     return seen;
   }, [held]);
-
-  const book = useMemo(() => new HeightBook(ESTIMATE_PX), []);
   const keys = useMemo(() => nodes.map(nodeKey), [nodes]);
-  const layout = useSignal<Layout>({ scrollTop: 0, viewport: 0, listTop: 0, tick: 0 });
-  /** 今の描画が使っている高さ。effect の中は描画の外なので、描いた時の値を
-   * そのまま読めるようにここに置く。 */
-  const shownHeights = useRef<readonly number[]>([]);
-  const { scrollTop, viewport, listTop, tick } = layout.value;
-  const heights = useMemo(() => book.heights(keys), [book, keys, tick]);
-  shownHeights.current = heights;
-  const range = visibleRange(heights, scrollTop - listTop, viewport, OVERSCAN_PX);
 
-  /** 今の DOM を読んで、描く範囲を決めている値を書き直す。範囲が変わらない
-   * 限り何もしない (`bump` は測り直しを描画へ渡すためのもの)。 */
-  const sync = (bump = false) => {
-    const outer = box.current;
-    const at = room();
-    if (outer === null || at === null) return;
-    const now = layout.peek();
-    const next: Layout = {
-      scrollTop: scrollTopOf(at),
-      viewport: viewportOf(at),
-      listTop: topOf(at, outer),
-      tick: now.tick + (bump ? 1 : 0),
-    };
-    if (bump || next.viewport !== now.viewport || next.listTop !== now.listTop) {
-      layout.value = next;
-      return;
-    }
-    const was = visibleRange(
-      shownHeights.current,
-      now.scrollTop - now.listTop,
-      now.viewport,
-      OVERSCAN_PX,
-    );
-    const to = visibleRange(
-      shownHeights.current,
-      next.scrollTop - next.listTop,
-      next.viewport,
-      OVERSCAN_PX,
-    );
-    if (!sameRange(was, to)) layout.value = next;
-  };
-
-  /** 読んでいる所を覚え直す。
-   *
-   * 錨を打つのは**最初に目に入っている行**で、描き始めている行ではない。上下に
-   * 広めに描いている分は読み手には見えていない。 */
-  const remember = () => {
-    const outer = box.current;
-    const at = room();
-    if (outer === null || at === null) return;
-    const local = scrollTopOf(at) - topOf(at, outer);
-    const seen = visibleRange(shownHeights.current, local, viewportOf(at), 0);
-    anchor.current = anchorAt(keys, shownHeights.current, local, seen.first);
-    spanned.current = totalHeight(shownHeights.current);
-  };
-
-  /** 追っているなら末尾へ、読んでいるなら覚えている行の所へ置き直す。
-   *
-   * 追っている間の置き直しは**中身の高さが変わった時だけ**。端とみなす数 px の
-   * 中には、末尾から離れようとしている指も居るので、高さが動いてもいないのに
-   * 引き戻すと、その指が毎描画奪われる。 */
-  const place = () => {
-    const outer = box.current;
-    const at = room();
-    if (outer === null || at === null) return;
-    let to: number | undefined;
-    if (following.current) {
-      const bottom = scrollHeightOf(at) - viewportOf(at);
-      if (bottom === stuck.current) return;
-      stuck.current = bottom;
-      to = bottom;
-    } else {
-      stuck.current = -1;
-      const kept = anchor.current;
-      if (kept === undefined) return;
-      const found = scrollTopAt(keys, shownHeights.current, kept);
-      const now = totalHeight(shownHeights.current);
-      // 窓の手前 (端の 1 行の所) を読んでいる錨は負で来る。丸めるのはここ —
-      // 窓が箱のどこから始まるかを知っているのはこちら側。
-      to =
-        found === undefined
-          ? scrollTopByGrowth(scrollTopOf(at), spanned.current, now)
-          : Math.max(0, topOf(at, outer) + found);
-      spanned.current = now;
-    }
-    // 端数だけの違いで書き戻さない: 代入のたびに丸められて、描くたびに少しずつ
-    // 位置がずれていく。
-    if (Math.abs(scrollTopOf(at) - to) >= 0.5) scrollBoxTo(at, to);
-  };
-
-  // 一致した行を出す。畳まれている中の一致にも辿り着けるように、囲む fold を
-  // 先に開く — 閉じた fold の中身はまだ描かれていないので、開ける前に探しても
-  // その要素はまだ無い。描かれていない行も同じで、まず覚えている高さから位置を
-  // 出して窓ごとそこへ動かし、要素が出てから真ん中に寄せ直す。
   const reveal = (key: string) => {
-    for (const foldKey of foldPathsById(nodes).get(key) ?? []) {
+    for (const foldKey of foldPathsById(nodes).get(key) ?? [])
       timelineFolds.value.set(foldKey, true);
-    }
-    // 探して当たった行の名前でも、かたまりそのものの名前でも辿り着ける —
-    // 通知が指すのは行で、まだ渡っていない 1 通はかたまりの側にしか居ない。
     const own = keys.indexOf(key);
     const index = nodesByUnit.get(key) ?? (own < 0 ? undefined : own);
     const node = index === undefined ? undefined : keys[index];
-    const at = room();
-    if (node !== undefined && at !== null) {
-      // 錨をその行に打ってから動かす。間に居る行の高さが見積もりから実測に
-      // 変わっても、置き直しの先はその行のままになる。
-      const kept = anchorCentering(keys, shownHeights.current, node, viewportOf(at));
-      if (kept !== undefined) {
-        following.current = false;
-        anchor.current = kept;
-        place();
-        sync();
-      }
-    }
+    if (node === undefined) return;
     requestAnimationFrame(() => {
-      const found = pane.current?.querySelector(`[data-search-key="${CSS.escape(key)}"]`);
-      if (found === null || found === undefined) return;
-      found.scrollIntoView({ block: "center" });
-      // 寄せた先を錨にし直す。かたまりの中の 40 行目のような一致では、かたまり
-      // の上端を覚えたままだと、この後の測り直しがここで寄せた分を巻き戻す。
-      remember();
-      sync();
+      pane.current
+        ?.querySelector(`[data-search-key="${CSS.escape(key)}"]`)
+        ?.scrollIntoView({ block: "center" });
     });
   };
 
-  // ハイライトを押したら、その行を今見ている番号にする (DR-0022: この数字の
-  // 変化ではスクロールしない — 押した所は既に目の前にある)。
   const onClickIn = (event: MouseEvent) => {
     const target = event.target;
     if (!(target instanceof Element) || target.closest(".search-hl") === null) return;
@@ -415,141 +227,38 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
     if (at >= 0) search.index.value = at + 1;
   };
 
-  // 窓が動いた時。手放された行の高さは忘れ、読んでいる行を置き直す。
-  useLayoutEffect(() => {
-    book.keep(keys);
-    // 追記は必ず末尾へ寄せる: 落ちた先頭と足された末尾が同じ高さなら、末尾は
-    // 動いていないように見えてしまう。
-    stuck.current = -1;
-    place();
-    sync();
-  }, [keys, held]);
-
-  // 描いたものを測る。測り直しは上に居る行の高さを変えうるので、覚えている行を
-  // 置き直してから、新しい高さで描き直す。
-  const measure = () => {
-    const list = items.current;
-    if (list === null) return;
-    const drawn = Array.from(list.children, (child) => child.getBoundingClientRect());
-    // 行と行の隙間も 1 行ぶんに含めて数える (CSS が決めた値をここに書き写すと、
-    // 片方だけ変えられた時に窓の長さが静かにずれる)。
-    const first = drawn[0];
-    const second = drawn[1];
-    if (first !== undefined && second !== undefined) gap.current = second.top - first.bottom;
-    let changed = false;
-    for (const [at, rect] of drawn.entries()) {
-      const key = keys[range.first + at];
-      if (key === undefined) continue;
-      if (book.measured(key, rect.height + gap.current)) changed = true;
-    }
-    if (changed) shownHeights.current = book.heights(keys);
-    place();
-    sync(changed);
-  };
-
-  useLayoutEffect(measure);
-
-  /** 今の描画の測り方。描画の外から呼ぶ道は、いつでも最新のものを通る。 */
-  const remeasure = useRef(measure);
-  remeasure.current = measure;
-
-  // 行は自分で高さを変える: fold が開き、コードに色が付き、画面の幅が変わる。
-  // どれも TimelineBody を描き直さないので、描画の外でも測り直す。
   useEffect(() => {
-    const outer = pane.current;
-    const list = items.current;
-    if (outer === null || list === null) return;
-    const watch = new ResizeObserver(() => {
-      remeasure.current();
-    });
-    watch.observe(outer);
-    watch.observe(list);
-    return () => {
-      watch.disconnect();
-    };
-  }, []);
+    const edge = top.current;
+    const root = room();
+    if (edge === null || root === null || view.atBeginning.value) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting === true) void view.readOlder();
+      },
+      { root, rootMargin: "400px 0px 0px" },
+    );
+    observer.observe(edge);
+    return () => observer.disconnect();
+  }, [view, nodes.length]);
 
-  useEffect(() => {
-    // A transcript shorter than the pane's own viewport never scrolls, so the
-    // first page cannot be reached by scrolling to ask for the next. Nothing
-    // drawn is not that case: the first page is already on its way, and
-    // reading past it here would fetch a second page nobody has scrolled
-    // towards.
-    if (nodes.length === 0) return;
-    const at = room();
-    if (at !== null && scrollHeightOf(at) <= viewportOf(at)) void view.readOlder();
-  }, [nodes, view]);
-
-  /** 箱が動いた時。動かしているのは本文のペインなので、受けるのもそのペイン。 */
-  const onScroll = () => {
-    // 窓の上端は箱の途中なので、「遡りを頼む所」も箱の先頭からの距離ではなく
-    // **窓の上端からの距離**で測る。
-    const outer = box.current;
-    const at = room();
-    if (at === null) return;
-    following.current = isAtBottom(metricsOf(at), EDGE_PX);
-    sync();
-    remember();
-    if (outer !== null && scrollTopOf(at) - topOf(at, outer) <= REACH_PX) void view.readOlder();
-  };
-
-  /** 描画の外から呼ばれる道は、いつでも最新のものを通る (`remeasure` と同じ)。 */
-  const onScrollNow = useRef(onScroll);
-  onScrollNow.current = onScroll;
-
-  useEffect(() => {
-    const at = scroller?.current;
-    if (at === undefined || at === null) return;
-    const listen = () => {
-      onScrollNow.current();
-    };
-    at.addEventListener("scroll", listen, { passive: true });
-    // 窓が広くなると、見える範囲も末尾の位置も変わる。箱の中の要素は
-    // ResizeObserver が見ているが、箱そのものの高さはこちらでしか分からない。
-    window.addEventListener("resize", listen);
-    return () => {
-      at.removeEventListener("scroll", listen);
-      window.removeEventListener("resize", listen);
-    };
-  }, [scroller]);
-
-  /** 1 通を選ぶ。**選んだ所は画面の中に居る** — 畳まれていれば開き、描かれて
-   * いなければ窓ごとそこへ動かす (`reveal` と同じ道を通る)。 */
   const select = (id: string | undefined): void => {
     if (id === undefined) return;
     selectedItem.value = id;
     reveal(id);
   };
 
-  /** 1 画面ぶん動かして、その先で最初に目に入る 1 通を選ぶ。
-   *
-   * **スクロールと選択の両方に効く** (§2.2 の表)。選択だけ動かすと画面が付いて
-   * 来ず、スクロールだけだと選んでいる 1 通が画面の外に残る。 */
   const page = (step: 1 | -1): void => {
     const at = room();
-    const outer = box.current;
-    if (at === null || outer === null) return;
-    const span = viewportOf(at);
-    following.current = false;
-    scrollBoxTo(at, scrollTopOf(at) + span * step);
-    const local = scrollTopOf(at) - topOf(at, outer);
-    const seen = visibleRange(shownHeights.current, local, span, 0);
-    // 見えている最初のかたまりの中の 1 通。かたまりなら先頭の行を採る。
-    for (let index = seen.first; index < seen.last; index += 1) {
-      const node = nodes[index];
-      const id =
-        node === undefined
-          ? undefined
-          : node.kind === "row"
-            ? node.row.item.id
-            : node.kind === "fold"
-              ? node.rows[0]?.item.id
-              : undefined;
-      if (id !== undefined) {
-        selectedItem.value = id;
-        return;
-      }
-    }
+    if (at === null) return;
+    scrollBoxTo(at, scrollTopOf(at) + viewportOf(at) * step);
+    requestAnimationFrame(() => {
+      const x = at.getBoundingClientRect().left + at.clientWidth / 2;
+      const y =
+        step < 0 ? at.getBoundingClientRect().top + 1 : at.getBoundingClientRect().bottom - 1;
+      const line = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-search-key]");
+      const id = line?.dataset["searchKey"];
+      if (id !== undefined) selectedItem.value = id;
+    });
   };
 
   const pathLinker = useTimelinePathLinker(view.sid);
@@ -570,35 +279,38 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                 }}
               />
               <section class="section timeline">
-                <h2>
-                  {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
-                </h2>
-                {agent !== undefined && (
-                  <p class="tl-note">
-                    worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
-                    セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
-                  </p>
-                )}
-                <ReadingTabs />
+                <div class="timeline-head">
+                  <h2>
+                    {agent === undefined ? "transcript" : `worker ${agent}`} — {held.length} item
+                  </h2>
+                  {agent !== undefined && (
+                    <p class="tl-note">
+                      worker の transcript は読むだけで、追記は追いません — 追記を運ぶ topic は
+                      セッションのもので、worker のものは契約にありません。続きは読み直すと出ます。
+                    </p>
+                  )}
+                  <ReadingTabs />
+                  <SearchBar search={search} matched={matched} onReveal={reveal} />
+                </div>
                 <DisplayPanel types={seenTypes} />
-                <SearchBar search={search} matched={matched} onReveal={reveal} />
                 {view.failure.value !== undefined && <p class="banner">{view.failure.value}</p>}
                 <div class="tl-pane" ref={pane} onClick={onClickIn}>
-                  <p class="empty tl-edge">
+                  <p class="empty tl-edge" ref={top}>
                     {view.atBeginning.value
                       ? "— 先頭 —"
                       : view.loading.value
                         ? "読み込み中…"
                         : "上にスクロールすると遡ります"}
                   </p>
-                  <div class="tl-window" ref={box}>
-                    <div class="tl-space" style={{ height: `${range.before}px` }} />
-                    <div class="tl-items" ref={items}>
-                      {nodes.slice(range.first, range.last).map((node, index) => (
-                        <NodeView key={keys[range.first + index]} node={node} />
+                  <div class="tl-window">
+                    <div class="tl-items">
+                      {nodes.map((node, index) => (
+                        <div class="tl-item" key={keys[index]}>
+                          <NodeView node={node} />
+                        </div>
                       ))}
                     </div>
-                    <div class="tl-space" style={{ height: `${range.after}px` }} />
+                    <div class="tl-tail" aria-hidden="true" />
                   </div>
                   {nodes.length === 0 && !view.loading.value && (
                     <p class="empty">まだ transcript がありません。</p>

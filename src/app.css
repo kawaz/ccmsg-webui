@@ -458,12 +458,27 @@ select {
   min-height: 0;
 }
 
-/* 窓が置かれている所。動かすのは頁そのものなので、ここは高さも持たず溢れも
-   受けない。仮想化で DOM の中身が入れ替わる以上、ブラウザ自身の scroll
-   anchoring は当てにできない (消える行を掴む) ので、ここでは切って、錨は
-   Timeline が自分で打つ。 */
+.pane-main > .tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  min-height: 36px;
+  background: var(--bg);
+}
+
+.timeline-head {
+  position: sticky;
+  top: 36px;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.timeline-head .search {
+  position: static;
+}
+
 .tl-pane {
-  overflow-anchor: none;
+  overflow-anchor: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -498,6 +513,20 @@ select {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.tl-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+.tl-tail {
+  height: 1px;
+  scroll-snap-align: end;
+}
+
+.pane-main {
+  scroll-snap-type: y proximity;
 }
 
 /* 型付きの 1 行は、item 本体と、その下に置かれる元 record の入口が縦に積む。
@@ -2595,7 +2624,7 @@ select {
 @media (max-width: 720px) {
   .panes {
     overflow-x: auto;
-    scroll-snap-type: x mandatory;
+    scroll-snap-type: x proximity;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
   }
