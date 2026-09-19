@@ -186,7 +186,7 @@ test("timeline-agent", async ({ ui: page, instance }) => {
   // 親から降りる: 起動した所がそのまま入口になっているかを、URL を打つのでは
   // なく押して確かめる。
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  await page.getByRole("link", { name: "この worker を開く" }).first().click();
+  await page.getByRole("link", { name: "worker を主語に開く" }).first().click();
   await expect(page).toHaveURL(new RegExp(`/agent/${AGENT_ID}/timeline$`));
   await expect(page.getByRole("heading", { name: new RegExp(`worker ${AGENT_ID}`) })).toBeVisible();
   await expect(page.getByText("窓を持つのは")).toBeVisible();
