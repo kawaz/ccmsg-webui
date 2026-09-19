@@ -10,7 +10,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | 2026-09-19 | bug | open | [visual-file-word-bubble-vertical-drift](./2026-09-19-visual-file-word-bubble-vertical-drift.md) | visual test の file-word-bubble が縦位置ずれで落ちる (原因未特定) |
 | 2026-09-19 | bug | open | [visual-webkit-needs-https-and-passkey-alternative](./2026-09-19-visual-webkit-needs-https-and-passkey-alternative.md) | webkit で webui 本体の画面を観測できない (passkey が chromium 専用、__Secure- cookie が http に置けない) |
 | 2026-09-19 | bug | open | [visual-fab-window-frame-1px-misaligned](./2026-09-19-visual-fab-window-frame-1px-misaligned.md) | 口の窓と本文の枠が、同じ幾何のまま 1px 違う所に焼ける (actions-fab-moved.png が時々落ちる) |
-| 2026-09-19 | bug | open | [visual-account-dark-flaky-on-linux](./2026-09-19-visual-account-dark-flaky-on-linux.md) | visual の account (dark) が GitHub CI (Linux) で 1 件だけ flaky に落ちる (真因未特定) |
+| 2026-09-19 | bug | open | [visual-account-dark-flaky-on-linux](./2026-09-19-visual-account-dark-flaky-on-linux.md) | visual の account (dark) が GitHub CI (Linux) で 1 件だけ flaky に落ちる (真因は人の id の揮発と古い linux 基準、linux 撮り直し待ち) |
 | 2026-09-18 | design | open | [pinned-key-missing-instance](./2026-09-18-pinned-key-missing-instance.md) | 留めたセッションの鍵が instance を名乗っていない (ccmsg.sessions.pinned) |
 | 2026-09-18 | bug | open | [markdown-code-span-url-becomes-link](./2026-09-18-markdown-code-span-url-becomes-link.md) | メッセージ本文の markdown で、インライン code に書かれた URL がリンクにならない |
 | 2026-09-17 | request | open | [request-hyoui-iframe-allow-publickey-credentials-get](./2026-09-17-request-hyoui-iframe-allow-publickey-credentials-get.md) | hyoui を埋め込む iframe の `allow` に `publickey-credentials-get` を足す (hyoui DR-0036 passkey 認証) |
