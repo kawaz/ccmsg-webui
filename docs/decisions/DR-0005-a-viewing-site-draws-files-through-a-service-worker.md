@@ -71,7 +71,7 @@ webui の頁 ──┬─ 接続 (WS / 将来は DataChannel) ── instance
 - webui の頁は接続中のチャネルの `file.read` で取り、ポートに返す
 - SW はそれを `Response` に組んで返す。**ブラウザから見れば、ただの HTTP 応答**
 
-**「別タブで開く」「新しい窓で開く」は提供しない**。ホーム画面に追加した PWA では、トップレベルで別 FQDN へ遷移すると **scope の外に出て戻れない** — 閲覧 site は定義上 webui と site が違う (§2.1) ので、トップレベルで開いた瞬間にそれが起きる。閲覧が常に iframe の中に居ることは、この形の**要件であって副作用ではない**。iframe の中から外へ出る経路 (`<a target="_blank">`、`window.open`、`top` への遷移) も同じ理由で塞ぐ (§7 FV-Q6 の CSP と `sandbox` 属性で)。
+**「別タブで開く」「新しい窓で開く」は提供しない**。ホーム画面に追加した PWA では、トップレベルで別 FQDN へ遷移すると **scope の外に出て戻れない** — 閲覧 site は定義上 webui と site が違う (§2.1) ので、トップレベルで開いた瞬間にそれが起きる。閲覧が常に iframe の中に居ることは、この形の**要件であって副作用ではない**。iframe の中からトップレベルへ出る経路 (`top` への遷移) も同じ理由で塞ぐ。`<a target="_blank">` / `window.open` は許す — 開いた窓は sandbox を継ぎ、PWA で動かないのは PWA の制限として受ける (§6)。
 
 これは iframe + `MessageChannel` を選ぶ理由の 1 つでもある。別タブ方式は §5 の「親が生きている必要」を外せるように見えるが、**PWA では入口そのものが無い**。
 
@@ -186,7 +186,7 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 | FV-Q13 | 別タブ / 別窓で開けるようにするか | **提供しない**。閲覧は常に webui の頁の中の iframe で、トップレベルの遷移を伴わない。iframe から外へ出る経路も塞ぐ | PWA ではトップレベルで別 FQDN へ出ると scope の外になり、戻れない / 開けない (§2.2) |
 | FV-Q7 | 閲覧 site の FQDN をどう決め、webui はそれをどこから知るか | **ビルド時の定数** | webui を build するのは hosting で、閲覧 site を配るのも hosting。同じ場所で決まる値を 2 か所に持たない。自分で立てる人も build は必ず通る |
 | FV-Q8 | ポートを渡す前の相手の確かめ方 | **親は `targetOrigin` に閲覧 site を指定し、閲覧 site は `event.origin` で親が webui であることを確かめる** | 渡せる物は親自身の接続だけで実害は薄いが、確かめない理由も無い。確かめる側が 1 行で済む |
-| FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぎ、`_blank` / `window.open` も `allow-popups` なしで封じる** | PWA では `_blank` / `window.open` は元々動かず、`_top` は scope 外へ出て戻れなくなる。script の可否は §7 に残る |
+| FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぐ。`_blank` / `window.open` は `allow-popups` で許す** (`allow-popups-to-escape-sandbox` は付けず、開いた窓も sandbox を継ぐ) | `_top` は PWA の scope 外へ出て戻れなくなる。`_blank` は PWA では動かないことがあるが、それは PWA の制限として受ける。閲覧 site 自身の URL を新しい窓で開いてもポートが無く白紙になるので、実質の効き目は外部リンクが開けること。script の可否は §7 に残る |
 
 ## 7. 要裁定
 
