@@ -2615,11 +2615,14 @@ select {
    (送っている最中に隣が見えるのは構わない)。
 
    送るのは scroll そのもの (scroll-snap)。transform で滑らせると、指で送る手が
-   別に要るが、頁として並べれば**スワイプはブラウザの持ち物のまま**になる。 */
+   別に要るが、頁として並べれば**スワイプはブラウザの持ち物のまま**になる。
+
+   これは横スクロールではなく頁の遷移なので、**途中では止まれない** — 指を離した
+   所に関わらず必ずどちらかの頁に着く (mandatory + snap-stop)。 */
 @media (max-width: 720px) {
   .panes {
     overflow-x: auto;
-    scroll-snap-type: x proximity;
+    scroll-snap-type: x mandatory;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
   }
@@ -2635,6 +2638,7 @@ select {
     flex: 0 0 100%;
     width: 100%;
     scroll-snap-align: start;
+    scroll-snap-stop: always;
   }
 
   .panes-split {
