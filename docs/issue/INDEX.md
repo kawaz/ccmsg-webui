@@ -24,7 +24,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | 2026-09-12 | bug | open | [translate-selector-placement](./2026-09-12-translate-selector-placement.md) | 翻訳の言語/道具セレクタが transcript 上端にあり、末尾読み中の切り替えでスクロール位置が飛ぶ |
 | 2026-09-12 | bug | open | [visual-accept-stale-module](./2026-09-12-visual-accept-stale-module.md) | visual-accept が dev server の古い module を撮って基準が実は古いまま通ることがある |
 | 2026-09-11 | request | open | [team-overview-view](./2026-09-11-team-overview-view.md) | teammate 同士の会話を俯瞰する view (team overview) |
-| 2026-09-11 | bug | open | [anchor-snapshot-one-frame-stale](./2026-09-11-anchor-snapshot-one-frame-stale.md) | Timeline 遡り読みの錨が scroll 事象 1 フレーム分だけ古くなる |
 | 2026-09-14 | request | wip | [markdown-preview-fuzzy-file-links](./2026-09-14-markdown-preview-fuzzy-file-links.md) | Markdown プレビューで、省略されたファイル名の言及をプロジェクト内ファイルへのリンクにする |
 
 <!--
