@@ -15,7 +15,7 @@ test("二重に走っているセッションは、run を選ばせる", async (
   ).toBeVisible();
   // 選ぶ材料が run の数だけ並ぶ。
   await expect(page.locator(".runs .run")).toHaveCount(2);
-  // 送る所も、読む所も出さない。
+  // 据え置きの送る所も、読む所も出さない (送るのは口の窓だけ)。
   await expect(page.locator(".composer")).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "セッションの見方" })).toHaveCount(0);
   await shot(page, "runs-choice.png");

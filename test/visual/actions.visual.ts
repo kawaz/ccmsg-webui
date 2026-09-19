@@ -107,8 +107,8 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
   await shot(page, "actions-fab.png");
   await fab.click();
 
-  // 開いた先は口に付く窓で、載っているのは transcript の下と同じ composer
-  // (送れるかの判定も下書きの置き場も 1 通り)。
+  // 開いた先は口に付く窓で、載っているのは 1 つしかない composer (送れるかの
+  // 判定も下書きの置き場も 1 通り)。transcript の下に据え置きの入力欄は無い。
   const prompt = page.locator(".fab-window");
   await expect(prompt).toBeVisible();
   await expect(prompt.getByRole("textbox", { name: "セッションへのメッセージ" })).toBeFocused();
@@ -121,13 +121,14 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
   await prompt.getByRole("button", { name: "閉じる" }).click();
   await expect(prompt).toBeHidden();
 
-  // 次に窓の外。口の上は「外」ではないので、別の所を押す。
+  // 次に窓の外 (popover のライトディスミス)。口の上は「外」ではないので、別の
+  // 所を押す。
   await fab.click();
   await expect(prompt).toBeVisible();
   await page.mouse.click(20, 20);
   await expect(prompt).toBeHidden();
 
-  // 最後に Escape。
+  // 最後に Escape (同じくライトディスミス)。
   await fab.click();
   await expect(prompt).toBeVisible();
   await page.keyboard.press("Escape");
@@ -144,8 +145,8 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
 
 /** 口は掴んで動かせて、窓は口に付いて動く (DR-0003 §2.7)。
  *
- * 動かした先はこのブラウザが覚える (DR-0002 の section 1 つ) ので、読み込み
- * 直しても同じ所に出る — 置き直させるなら覚えている意味が無い。 */
+ * 覚えるのは**近い側の辺とそこからの距離**なので、読み込み直しても同じ隅に
+ * 出る — 素の座標で覚えると、窓の大きさが変わった時に置いた隅から離れる。 */
 test("FAB は掴んで動かせて、窓ごと付いてくる", async ({ browser, instance }) => {
   // 自分の browser を要る: 口の居場所はこのブラウザが覚えるもので、読み込み
   // 直して確かめる手も要る。絵を撮るブラウザを共有したまま動かすと、口が写る
@@ -180,18 +181,35 @@ test("FAB は掴んで動かせて、窓ごと付いてくる", async ({ browser
   // 掴んで離した指は押していない — 窓は開いたままで、閉じてもいない。
   await expect(prompt.getByRole("textbox", { name: "セッションへのメッセージ" })).toBeVisible();
 
-  // 置いた所は覚えてある。読み込み直しても同じ所に出る。
+  // 覚えたのは辺からの距離。読み込み直しても同じ所に出る。
   await page.reload();
   await expect(fab).toBeVisible();
   const again = await fab.boundingBox();
   expect(Math.abs(again!.x - after!.x)).toBeLessThan(2);
   expect(Math.abs(again!.y - after!.y)).toBeLessThan(2);
 
+  // 右下に置いたものは、窓を狭くしても右下に居る (辺から測っているので、
+  // 隅からの距離が変わらない)。置き直すのは窓の大きさが変わったと**聞いて
+  // から**なので、測るのはその後 — 変わった瞬間に測ると、まだ前の所に居る。
+  const wide = page.viewportSize()!;
+  const rightBefore = wide.width - (again!.x + again!.width);
+  const lowBefore = wide.height - (again!.y + again!.height);
+  await page.setViewportSize({ width: wide.width - 200, height: wide.height - 120 });
+  const narrow = page.viewportSize()!;
+  await expect
+    .poll(async () => {
+      const at = (await fab.boundingBox())!;
+      return Math.round(narrow.width - (at.x + at.width));
+    })
+    .toBe(Math.round(rightBefore));
+  const low = (await fab.boundingBox())!;
+  expect(Math.abs(narrow.height - (low.y + low.height) - lowBefore)).toBeLessThan(2);
+
   await page.context().close();
 });
 
-/** 書く所は上にも下にも引ける。高さもこのブラウザが覚える。 */
-test("書く所は上下の縁で広げられる", async ({ browser, instance }) => {
+/** 書く所は上の縁で広げられる (下へは textarea 自身の摘みが効く)。 */
+test("書く所は上の縁で広げられる", async ({ browser, instance }) => {
   const page = await ownBrowser(browser, instance);
   await page.goto(`${instance.endpoint}s/${SID}/files`);
   await page.locator("button.fab").click();
@@ -201,7 +219,7 @@ test("書く所は上下の縁で広げられる", async ({ browser, instance })
   const before = await box.boundingBox();
 
   // 上の縁を引き上げる。窓は口の上に開いているので、伸びる先は上。
-  const grip = prompt.locator(".fab-grip.top");
+  const grip = prompt.locator(".fab-grip");
   const at = await grip.boundingBox();
   await page.mouse.move(at!.x + at!.width / 2, at!.y + at!.height / 2);
   await page.mouse.down();
@@ -211,22 +229,12 @@ test("書く所は上下の縁で広げられる", async ({ browser, instance })
   const after = await box.boundingBox();
   expect(after!.height).toBeGreaterThan(before!.height + 90);
 
-  // 下の縁で戻せる。2 本あることが、窓がどちらに開いていても引ける理由。
-  const foot = prompt.locator(".fab-grip.bottom");
-  const low = await foot.boundingBox();
-  await page.mouse.move(low!.x + low!.width / 2, low!.y + low!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(low!.x + low!.width / 2, low!.y - 60, { steps: 6 });
-  await page.mouse.up();
-  const back = await box.boundingBox();
-  expect(back!.height).toBeLessThan(after!.height - 50);
-
   // 高さも覚えてある。
   await page.reload();
   await page.locator("button.fab").click();
   await expect(box).toBeVisible();
   const again = await box.boundingBox();
-  expect(Math.abs(again!.height - back!.height)).toBeLessThan(2);
+  expect(Math.abs(again!.height - after!.height)).toBeLessThan(2);
 
   await page.context().close();
 });

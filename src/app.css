@@ -1060,18 +1060,12 @@ select {
   border-left-color: var(--danger-border);
 }
 
-/* 話しかける所は画面の下に留まる。頁ぜんぶが動く以上、留めないと transcript を
-   遡った人は打つために末尾まで戻ることになる。 */
+/* 話しかける所。居るのは浮いている口の窓の中だけなので、本文に貼り付く手は
+   持たない (DR-0003 §2.7)。 */
 .composer {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: var(--gap);
-  padding-top: 6px;
-  background: var(--bg);
 }
 
 .composer > textarea {
@@ -3194,28 +3188,22 @@ button.status-mark {
   overflow-wrap: anywhere;
 }
 
-/* どこからでも話しかける口 (DR-0003 §2.7)。メインコンテンツの中身の手前に
-   浮くので、版組の中に場所を取らない — 読んでいる所を狭めずに、話しかける手を
-   常に見えている所へ置く。
+/* 話しかける口 (DR-0003 §2.7)。送る入口はこれ 1 つで、transcript の下に据え置きの
+   入力欄は無い。
 
-   居場所は手で動かせる (`src/fab-place.ts`)。数は右下からの距離 2 つで、口も、
-   口に付く窓も同じ 1 つを読む。 */
-.fab-place {
+   **既定の隅は CSS が持つ**。safe-area (ホームインジケータや丸い角) を避ける
+   余白はここにしか書けないので、人が動かすまでは CSS の置き方がそのまま効く。
+   動かした後は `--fab-left` / `--fab-top` が入り、反対側は `auto` に倒れる
+   (`src/fab-place.ts`)。 */
+.fab {
   position: fixed;
-  right: var(--fab-right, 20px);
-  bottom: var(--fab-bottom, 28px);
+  left: var(--fab-left, auto);
+  top: var(--fab-top, auto);
+  right: var(--fab-right, max(20px, env(safe-area-inset-right)));
+  bottom: var(--fab-bottom, max(20px, env(safe-area-inset-bottom)));
   z-index: 2;
   width: var(--fab-size, 56px);
   height: var(--fab-size, 56px);
-  /* 窓がここを基準に出る。 */
-  anchor-name: --fab;
-  /* 掴んで動かす所なので、指の縦振りを画面のスクロールに取られない。 */
-  touch-action: none;
-}
-
-.fab {
-  width: 100%;
-  height: 100%;
   padding: 0;
   border: 1px solid var(--brand-fill);
   border-radius: 50%;
@@ -3225,6 +3213,12 @@ button.status-mark {
   line-height: 1;
   box-shadow: 0 3px 12px rgb(0 0 0 / 35%);
   cursor: grab;
+  /* 窓がここを基準に出る。 */
+  anchor-name: --fab;
+  /* 掴んで動かす所。指の縦振りを画面のスクロールに取られると、口の直径分しか
+     動かせないように見える。長押しで文字の選択が始まるのも止める。 */
+  touch-action: none;
+  user-select: none;
 }
 
 /* 塗ってある押す所なので、指が乗っても薄い面へ退かない — 目立つことがこの口の
@@ -3245,12 +3239,12 @@ button.status-mark {
 }
 
 /* 話しかける窓。口に付いて出る非モーダルで、後ろは不活にならない — 読んでいた
-   所を触ったまま書ける (DR-0003 §2.7)。 */
+   所を触ったまま書ける。閉じる手 (外を押す / Escape) は `popover` の持ち物。 */
 .fab-window {
   position: fixed;
   position-anchor: --fab;
   /* 既定は口の上、口の側から内側へ広がる。口が上端や逆の端に寄っていれば、
-     入る向きへ倒す。 */
+     入る向きへ倒す — どこで折り返すかはブラウザが決める。 */
   position-area: block-start span-inline-start;
   position-try-fallbacks:
     flip-block,
@@ -3273,7 +3267,7 @@ button.status-mark {
 }
 
 .fab-window-body {
-  padding: 10px 12px 12px;
+  padding: 8px 12px 12px;
 }
 
 .fab-window-head {
@@ -3281,7 +3275,7 @@ button.status-mark {
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  margin: 0 0 6px;
+  margin: 6px 0;
   color: var(--fg-muted);
   font-size: 12px;
 }
@@ -3292,34 +3286,24 @@ button.status-mark {
   line-height: 1.2;
 }
 
-.fab-window .composer {
-  position: static;
-  margin-top: 0;
-  background: none;
+.fab-window .composer > textarea {
+  /* 覚えてある高さがあればそれ、無ければ**中身に合わせて伸びる**。下へ広げる
+     摘みは textarea 自身の持ち物 (`resize: vertical`)、上へ広げる縁だけが
+     こちらの仕事。 */
+  height: var(--fab-prompt-height);
+  field-sizing: content;
+  min-height: 56px;
+  max-height: 480px;
 }
 
-.fab-window .composer textarea {
-  height: var(--fab-prompt-height, 96px);
-  /* 高さは縁で決める。ブラウザ既定の右下の摘みが別経路になると、覚える所が
-     2 つになる。 */
-  resize: none;
-}
-
-/* 書く所の縁。上下 2 本あり、窓がどちらに開いていても引ける方がある。 */
+/* 書く所の上の縁。下は textarea の摘みが持っているので、こちらは 1 本。 */
 .fab-grip {
   height: 10px;
+  margin-bottom: 2px;
   border-radius: 5px;
   background: var(--border-subtle);
   cursor: ns-resize;
   touch-action: none;
-}
-
-.fab-grip.top {
-  margin: 0 0 4px;
-}
-
-.fab-grip.bottom {
-  margin: 4px 0 0;
 }
 
 .fab-grip:hover {

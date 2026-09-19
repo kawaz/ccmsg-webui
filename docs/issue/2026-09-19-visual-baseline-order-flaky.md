@@ -17,7 +17,7 @@ blocked_by:
 origin: ccmsg
 ---
 
-# visual の基準撮り直し後、一覧の並びが落ち着く前の絵が混ざる
+# visual の基準撮り直し後、落ち着く前の絵が混ざる (一覧の並び / 本文の錨)
 
 ## 概要
 
@@ -65,3 +65,37 @@ FAB の作り直し (口に付く非モーダルの窓 / 掴んで動かす、DR
 ## 受け入れ条件
 
 - [ ] {完了の判定基準}
+
+
+## 追記 (2026-09-19、FAB 一本化の後)
+
+据え置き Composer を外した後に撮り直したところ、**揺れる範囲が本文側にも広がった**。
+同じ基準に対する連続 2 回の `just visual` で、落ちる顔ぶれが 10 件 (light のみ) →
+12 件 (light と dark に分かれる) と変わる。基準が誤っているのではなく、撮る側が
+揺れていることの確認はこれで 3 回目。
+
+### 揺れの中身は 2 種類ある
+
+1. **サイドバーの行の並び** (`status` / `terminals` / `translate`) — 上に書いた分
+2. **本文の縦位置** (`screens` の `timeline` / `timeline-fold-open` /
+   `timeline-raw-record` / `timeline-search` / `conversation` / `notification` /
+   `file-word-bubble`、`phase` / `account`) — 差分画像では transcript が丸ごと
+   1 item 分ほど上下にずれている。`shot()` が通る `stillness()` は本文の箱の
+   `scrollTop` が 2 frame 続けて同じであることを待つが、最後の item の高さが
+   測り直される frame がその後に来ると、待ち終えた後に錨が動く。
+   既存の [anchor-snapshot-one-frame-stale](./2026-09-11-anchor-snapshot-one-frame-stale.md)
+   と同じ症状で、据え置き入力欄が消えて本文が高くなった分だけ出やすくなった
+
+### 試して**駄目だった**手 (繰り返さないため)
+
+- `shot()` に「一覧の行の名前が 2 frame 続けて同じ」を待つ関数を足す →
+  **悪化した** (落ちる件数が 10 → 27 に増え、本文側の screens がまとめて落ちた)。
+  待ちを 1 つ足すと撮る瞬間がずれ、別の未確定な所に当たる。撤回済み
+- 3 ファイルに既存の `settledOrder()` を足す → status の 1 本目で
+  「先頭の行が『束 0 を片付ける』」が成り立たず 5s timeout。あの述語は run の
+  早い時点でしか使えない。撤回済み
+
+### 次に当たる所
+
+`shot()` の待ちを 1 つずつ足すのではなく、**撮る前に「instance がもう何も
+push しない」と言える状態**を作る方向。`data-settled` はそこまで言っていない。

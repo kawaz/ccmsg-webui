@@ -150,8 +150,8 @@ describe("一覧に並ぶアクション", () => {
     expect(log).toEqual([]);
   });
 
-  test("プロンプト入力欄を開くが一覧に居る (FAB と打鍵が同じ 1 つを起こす)", () => {
-    expect(actionOf("main.open-prompt")?.title).toBe("プロンプト入力欄を開く");
+  test("プロンプト入力欄の出し入れが一覧に居る (FAB と打鍵が同じ 1 つを起こす)", () => {
+    expect(actionOf("main.open-prompt")?.title).toBe("プロンプト入力欄を出す / しまう");
     expect(isDestructive("main.open-prompt")).toBe(false);
   });
 });

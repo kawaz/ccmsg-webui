@@ -9,22 +9,28 @@ import { connected, expect, test } from "./harness.ts";
 test("受け付けられたら入力欄は空になり、結果が 1 行出る", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${TALK_SID}/timeline`);
   await connected(page);
-  const box = page.locator(".composer textarea");
+  // 送る入口は口の窓 1 つ (DR-0003 §2.7)。transcript の下に据え置きの入力欄は
+  // 無いので、打つ前に口を開ける。
+  await page.locator("button.fab").click();
+  const box = page.locator(".fab-window .composer textarea");
+  await expect(box).toBeVisible();
 
   // Enter はその場に改行を入れる (送らない)。
   await box.fill("下書き");
   await box.press("Enter");
   await expect(box).toHaveValue("下書き\n");
 
-  // 送るのは ⌘/Ctrl+Enter と送信ボタン。受け付けられた時だけ空にする。
+  // 送るのは ⌘/Ctrl+Enter と送信ボタン。送れたら窓は閉じるので、次の 1 通は
+  // もう一度開けてから打つ (下書きは同じ所に残っている)。
   await box.fill("⌘Enter で送る");
   await box.press("ControlOrMeta+Enter");
-  await expect(box).toHaveValue("");
-  await expect(page.locator(".composer-outcome")).toBeVisible();
+  await expect(page.locator(".fab-window")).toBeHidden();
 
-  await box.fill("ボタンで送る");
-  await page.locator(".composer button", { hasText: "送信" }).click();
+  await page.locator("button.fab").click();
   await expect(box).toHaveValue("");
+  await box.fill("ボタンで送る");
+  await page.locator(".fab-window .composer button", { hasText: "送信" }).click();
+  await expect(page.locator(".fab-window")).toBeHidden();
 });
 
 test("⌘F は横取りされない (結ばれた打鍵が 1 つも無いので)", async ({ ui: page, instance }) => {

@@ -3,20 +3,32 @@ import { holdSection, type Section } from "./settings-section.ts";
 /** 話しかける口をどこに置いて、どれだけ書けるようにしてあるか (DR-0002 の
  * section 1 つ)。
  *
+ * **覚えるのは近い側の辺と、そこからの距離**。素の x, y で覚えると、画面が
+ * 変わった時 (端末の回転、窓の幅を変えた、ソフトキーボードが出た) に口が置いた
+ * 隅から離れ、狭くなった側では画面の外へ出る。辺を覚えていれば、右下に置いた
+ * ものはどの大きさでも右下に居る。
+ *
  * **手で動かしたものが、そのまま覚えてある値になる**。触っている間は下書きが
  * 画面に効き (`edit`)、指を離した所で覚える (`save`) — 色や幅と違って「試して
  * みて、やっぱり保存」を挟む余地が無い操作なので、決める瞬間が指を離す所に
  * ある。
  *
- * 持つのは px 3 つだけ。効かせ方は `:root` のカスタムプロパティで、置き場も
- * 高さも CSS が読む — 位置を要素の `style` に書くと、口とその窓の 2 か所に
- * 同じ数を配ることになる。 */
+ * 効かせ方は `:root` のカスタムプロパティで、口も、口に付く窓も、書く所も CSS が
+ * 読む — 位置を要素の `style` に書くと、同じ数を 2 か所へ配ることになる。 */
+
+/** 横はどちらの辺から測るか。 */
+export type SideX = "left" | "right";
+/** 縦はどちらの辺から測るか。 */
+export type SideY = "top" | "bottom";
+
 export interface FabPlace {
-  /** 画面の右端からの距離。 */
-  readonly right?: number;
-  /** 画面の下端からの距離。 */
-  readonly bottom?: number;
-  /** 書く所の高さ。 */
+  readonly sideX?: SideX;
+  readonly sideY?: SideY;
+  /** `sideX` の辺からの距離。 */
+  readonly x?: number;
+  /** `sideY` の辺からの距離。 */
+  readonly y?: number;
+  /** 書く所の高さ。覚えていない間は中身に合わせて伸びる (`field-sizing`)。 */
   readonly height?: number;
 }
 
@@ -25,37 +37,60 @@ export const FAB_SIZE = 56;
 
 /** 既定は右下。`empty` が既定そのもので、覚えていないことが「既定のまま」。 */
 const EMPTY: FabPlace = {};
-const RIGHT = 20;
-const BOTTOM = 28;
-const HEIGHT = 96;
+const EDGE = 20;
 
-/** 書く所として意味のある高さの幅。掴んで引ける先をここに閉じる。 */
+/** 掴んで引ける高さの幅。 */
 export const MIN_HEIGHT = 56;
 export const MAX_HEIGHT = 480;
 
-export function placeRight(value: FabPlace): number {
-  return value.right ?? RIGHT;
+export function sideX(value: FabPlace): SideX {
+  return value.sideX ?? "right";
 }
 
-export function placeBottom(value: FabPlace): number {
-  return value.bottom ?? BOTTOM;
+export function sideY(value: FabPlace): SideY {
+  return value.sideY ?? "bottom";
 }
 
-export function placeHeight(value: FabPlace): number {
-  return value.height ?? HEIGHT;
+export function placeX(value: FabPlace): number {
+  return value.x ?? EDGE;
+}
+
+export function placeY(value: FabPlace): number {
+  return value.y ?? EDGE;
 }
 
 function clamp(value: number, low: number, high: number): number {
   return Math.min(Math.max(value, low), Math.max(low, high));
 }
 
-/** 画面の中に留める。覚えた時より狭い画面で開いても、口が画面の外に出ない。 */
-function inView(value: FabPlace): { right: number; bottom: number } {
-  const wide = globalThis.innerWidth || 0;
-  const tall = globalThis.innerHeight || 0;
+/** 今見えている所。**layout viewport ではなく visual viewport** を見る —
+ * ソフトキーボードが出ている間、`position: fixed` の座標系は変わらないのに
+ * 見えている高さだけが縮むので、そこへ収めないと口がキーボードの下に隠れる。 */
+export function seen(): { left: number; top: number; width: number; height: number } {
+  const vv = globalThis.visualViewport;
   return {
-    right: clamp(placeRight(value), 0, Math.max(0, wide - FAB_SIZE)),
-    bottom: clamp(placeBottom(value), 0, Math.max(0, tall - FAB_SIZE)),
+    left: vv?.offsetLeft ?? 0,
+    top: vv?.offsetTop ?? 0,
+    width: vv?.width ?? globalThis.innerWidth ?? 0,
+    height: vv?.height ?? globalThis.innerHeight ?? 0,
+  };
+}
+
+/** 画面の左上からの座標を、近い側の辺とそこからの距離に直す。
+ *
+ * どちらの辺が近いかは**置いた所で決まる**: 右半分に置いたものは右から測る。
+ * 窓が広がった時に口が真ん中へ流れていかないのは、この判定があるから。 */
+export function toEdges(left: number, top: number): FabPlace {
+  const view = seen();
+  const width = Math.max(0, view.width - FAB_SIZE);
+  const height = Math.max(0, view.height - FAB_SIZE);
+  const x = clamp(left - view.left, 0, width);
+  const y = clamp(top - view.top, 0, height);
+  return {
+    sideX: x * 2 < width ? "left" : "right",
+    sideY: y * 2 < height ? "top" : "bottom",
+    x: Math.round(x * 2 < width ? x : width - x),
+    y: Math.round(y * 2 < height ? y : height - y),
   };
 }
 
@@ -64,8 +99,8 @@ function readNumber(held: unknown): number | undefined {
 }
 
 const WORDS: Readonly<Record<string, string>> = {
-  right: "右からの距離",
-  bottom: "下からの距離",
+  x: "横の位置",
+  y: "縦の位置",
   height: "書く所の高さ",
 };
 
@@ -78,42 +113,83 @@ export const fabSection: Section<FabPlace> = {
   presets: [],
   parse(held) {
     if (typeof held !== "object" || held === null || Array.isArray(held)) return EMPTY;
-    const row = held as { right?: unknown; bottom?: unknown; height?: unknown };
-    const right = readNumber(row.right);
-    const bottom = readNumber(row.bottom);
+    const row = held as {
+      sideX?: unknown;
+      sideY?: unknown;
+      x?: unknown;
+      y?: unknown;
+      height?: unknown;
+    };
+    const kindX = row.sideX === "left" || row.sideX === "right" ? row.sideX : undefined;
+    const kindY = row.sideY === "top" || row.sideY === "bottom" ? row.sideY : undefined;
+    const x = readNumber(row.x);
+    const y = readNumber(row.y);
     const height = readNumber(row.height);
     return {
-      ...(right === undefined ? {} : { right }),
-      ...(bottom === undefined ? {} : { bottom }),
+      ...(kindX === undefined ? {} : { sideX: kindX }),
+      ...(kindY === undefined ? {} : { sideY: kindY }),
+      ...(x === undefined ? {} : { x: Math.max(0, x) }),
+      ...(y === undefined ? {} : { y: Math.max(0, y) }),
       ...(height === undefined ? {} : { height: clamp(height, MIN_HEIGHT, MAX_HEIGHT) }),
     };
   },
   format: (value) => value,
   apply(value) {
     const at = document.documentElement.style;
-    const { right, bottom } = inView(value);
     at.setProperty("--fab-size", `${FAB_SIZE}px`);
-    at.setProperty("--fab-right", `${right}px`);
-    at.setProperty("--fab-bottom", `${bottom}px`);
-    at.setProperty("--fab-prompt-height", `${placeHeight(value)}px`);
+    // 覚えていない間は**何も書かない** — 既定の隅は CSS が持っていて、そこには
+    // safe-area (ホームインジケータや丸い角) を避ける余白が入っている。
+    if (value.x === undefined || value.y === undefined) {
+      for (const name of ["--fab-left", "--fab-top", "--fab-right", "--fab-bottom"]) {
+        at.removeProperty(name);
+      }
+    } else {
+      // 覚えてあるのは辺からの距離。今見えている所の辺から測り直して、左上の
+      // 座標 1 組に直す — 置く時に効く辺が 2 通りあると、どちらが勝つかを
+      // CSS と JS の両方が知っていることになる。
+      const view = seen();
+      const room = {
+        x: Math.max(0, view.width - FAB_SIZE),
+        y: Math.max(0, view.height - FAB_SIZE),
+      };
+      const x = clamp(placeX(value), 0, room.x);
+      const y = clamp(placeY(value), 0, room.y);
+      at.setProperty("--fab-left", `${view.left + (sideX(value) === "left" ? x : room.x - x)}px`);
+      at.setProperty("--fab-top", `${view.top + (sideY(value) === "top" ? y : room.y - y)}px`);
+      at.setProperty("--fab-right", "auto");
+      at.setProperty("--fab-bottom", "auto");
+    }
+    // 覚えていない間は高さを決め打ちにしない — 中身に合わせて伸びる方に任せる。
+    if (value.height === undefined) at.removeProperty("--fab-prompt-height");
+    else at.setProperty("--fab-prompt-height", `${value.height}px`);
   },
   changed(draft, from) {
     const names = new Set<string>();
-    if (placeRight(draft) !== placeRight(from)) names.add("right");
-    if (placeBottom(draft) !== placeBottom(from)) names.add("bottom");
-    if (placeHeight(draft) !== placeHeight(from)) names.add("height");
+    if (sideX(draft) !== sideX(from) || placeX(draft) !== placeX(from)) names.add("x");
+    if (sideY(draft) !== sideY(from) || placeY(draft) !== placeY(from)) names.add("y");
+    if (draft.height !== from.height) names.add("height");
     return names;
   },
   revert(draft, from, names) {
-    const next: { right?: number; bottom?: number; height?: number } = { ...draft };
+    const next: {
+      sideX?: SideX;
+      sideY?: SideY;
+      x?: number;
+      y?: number;
+      height?: number;
+    } = { ...draft };
     for (const name of names) {
-      if (name === "right") {
-        if (from.right === undefined) delete next.right;
-        else next.right = from.right;
+      if (name === "x") {
+        if (from.sideX === undefined) delete next.sideX;
+        else next.sideX = from.sideX;
+        if (from.x === undefined) delete next.x;
+        else next.x = from.x;
       }
-      if (name === "bottom") {
-        if (from.bottom === undefined) delete next.bottom;
-        else next.bottom = from.bottom;
+      if (name === "y") {
+        if (from.sideY === undefined) delete next.sideY;
+        else next.sideY = from.sideY;
+        if (from.y === undefined) delete next.y;
+        else next.y = from.y;
       }
       if (name === "height") {
         if (from.height === undefined) delete next.height;
@@ -128,12 +204,28 @@ export const fabSection: Section<FabPlace> = {
 
 export const fabPlace = holdSection(fabSection);
 
-/** 手で置いた所を覚える。触っている間は `edit` で効かせ、離した所でここを通る。
- *
- * 覚えるのは**画面に見えていた所**。指は画面の外まで行けるが、そこまで覚えると
- * 次に開いた時に「置いた所」と「出る所」が食い違う。 */
+/** 手で置いた所を覚える。触っている間は `edit` で効かせ、離した所でここを通る。 */
 export function settle(next: FabPlace): void {
-  const { right, bottom } = inView(next);
-  fabPlace.edit({ ...next, right, bottom });
+  fabPlace.edit(next);
   fabPlace.save();
+}
+
+/** 見えている所が変わったら置き直す (端末の回転、窓の大きさ、ソフトキーボード)。
+ *
+ * 覚えてある値は辺からの距離なので変わらない — 変わるのは、その距離がどこから
+ * 測られるかだけ。だから**覚え直さない**: ここで `save` すると、キーボードが
+ * 出るたびに人が置いた覚えを上書きしてしまう。 */
+export function followViewport(): () => void {
+  const again = () => {
+    fabSection.apply(fabPlace.draft.peek());
+  };
+  const vv = globalThis.visualViewport;
+  globalThis.addEventListener("resize", again);
+  vv?.addEventListener("resize", again);
+  vv?.addEventListener("scroll", again);
+  return () => {
+    globalThis.removeEventListener("resize", again);
+    vv?.removeEventListener("resize", again);
+    vv?.removeEventListener("scroll", again);
+  };
 }

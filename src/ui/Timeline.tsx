@@ -97,8 +97,6 @@ import {
   MarkdownView,
 } from "../markdown/markdown-view.tsx";
 import { displayPathFor, isAbsolutePath, ROOT } from "../files/paths.ts";
-import { Composer } from "./Composer.tsx";
-import { sendability } from "../conversation/sendability.ts";
 import { Fold } from "./Fold.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 import { SearchBar, useInViewSearch } from "./SearchBar.tsx";
@@ -632,9 +630,6 @@ function TimelineBody({ view }: { view: TranscriptItemsView }) {
                         </div>
                       ))}
                 </div>
-                {/* worker には送り先が無い: 話しかける相手は worker を起動した
-                セッションで、worker 自身は instance に繋いでいない。 */}
-                {agent === undefined && <Composer sid={view.sid} {...sendability(view.sid)} />}
                 <p class="footer">
                   {agent === undefined ? (
                     <Act action="app.open-sessions" />

@@ -53,7 +53,7 @@ export const ACTIONS: readonly Action[] = [
   { id: "main.next-tab", title: "次の見方へ" },
   // 宛先は**選択中のセッション** (= URL の sid)。どの見方を開いていても、書いた
   // ものが届く先は 1 つなので、宛先を言う signal を別に持たない (DR-0003 §2.7)。
-  { id: "main.open-prompt", title: "プロンプト入力欄を開く" },
+  { id: "main.open-prompt", title: "プロンプト入力欄を出す / しまう" },
 
   // 端末。行が自分の端末を対象に担当するので、綴りは木の節を指していない
   // (一覧の行からも端末の一覧からも同じ 1 つを起こす)。

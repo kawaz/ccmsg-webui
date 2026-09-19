@@ -220,9 +220,11 @@ test("files-markdown", async ({ ui: page, instance }) => {
 
 test("conversation", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/timeline`);
-  const composer = page.getByRole("textbox", { name: /送/ }).or(page.locator("textarea").last());
+  // 送る入口は口の窓 1 つ。書きかけの姿は窓の中に出る。
+  await page.locator("button.fab").click();
+  const composer = page.locator(".fab-window .composer textarea");
+  await expect(composer).toBeVisible();
   await composer.fill("この topic の粒度、契約側の表を見て確かめてから直して。");
-  await composer.scrollIntoViewIfNeeded();
   await shot(page, "conversation.png");
 });
 

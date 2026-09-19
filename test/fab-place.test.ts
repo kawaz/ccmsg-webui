@@ -14,8 +14,9 @@ describe("覚えてある居場所の読み方", () => {
   });
 
   test("読めない項だけを捨てる", () => {
-    expect(fabSection.parse({ right: 40, bottom: "下", height: Number.NaN })).toEqual({
-      right: 40,
+    expect(fabSection.parse({ sideX: "right", sideY: "下", x: 40, y: Number.NaN })).toEqual({
+      sideX: "right",
+      x: 40,
     });
   });
 
@@ -26,15 +27,19 @@ describe("覚えてある居場所の読み方", () => {
 });
 
 describe("差と戻し", () => {
-  test("既定と同じ数を持っていることは差ではない", () => {
-    expect([...fabSection.changed({ right: 20, bottom: 28, height: 96 }, {})]).toEqual([]);
+  test("既定と同じ辺・同じ距離を持っていることは差ではない", () => {
+    expect([...fabSection.changed({ sideX: "right", sideY: "bottom", x: 20, y: 20 }, {})]).toEqual(
+      [],
+    );
   });
 
-  test("動かした項だけが差になる", () => {
-    expect([...fabSection.changed({ right: 200 }, {})]).toEqual(["right"]);
+  test("辺が違えば距離が同じでも差になる", () => {
+    expect([...fabSection.changed({ sideX: "left", x: 20 }, {})]).toEqual(["x"]);
   });
 
   test("戻すことは、ベースが持っていない項を消すこと", () => {
-    expect(fabSection.revert({ right: 200, height: 200 }, {}, ["right"])).toEqual({ height: 200 });
+    expect(fabSection.revert({ sideX: "left", x: 200, height: 200 }, {}, ["x"])).toEqual({
+      height: 200,
+    });
   });
 });
