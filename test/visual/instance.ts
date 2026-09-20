@@ -315,6 +315,15 @@ export async function startInstance(): Promise<Instance> {
     vite = await createServer({
       configFile: fileURLToPath(new URL("../../vite.config.ts", import.meta.url)),
       server: { port: PAGE_PORT, strictPort: true },
+      // **この run が持つ置き場**に変換の結果を置く (既定は `node_modules/.vite`)。
+      //
+      // 基準画像は「今の描画」でなければ何の役にも立たないのに、前の run が
+      // 残した変換が配られると、直したはずの画面が前の姿のまま撮れて、しかも
+      // accept は「基準画像は変わっていません」と言う — 直っていないことと
+      // 見分けが付かない (2026-09-12 と 09-16 に 1 度ずつ、`node_modules/.vite`
+      // を消すと直った)。置き場をこの run のものにすると、外から古い物が来る道
+      // 自体が無くなる。`ROOT` ごと後で消えるので後始末も要らない。
+      cacheDir: join(ROOT, "vite"),
     });
     await vite.listen();
   } catch (cause) {
