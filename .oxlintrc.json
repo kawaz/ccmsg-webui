@@ -12,5 +12,12 @@
     "builtin": true,
     "browser": true
   },
-  "ignorePatterns": ["node_modules", "dist", "docs", "test-results", "playwright-report"]
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "dist-view",
+    "docs",
+    "test-results",
+    "playwright-report"
+  ]
 }

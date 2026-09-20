@@ -100,5 +100,12 @@ export default defineConfig(({ command }) => ({
   },
   // The build this page reports in its greeting, taken from the one place the
   // version is written down.
-  define: { __WEBUI_VERSION__: JSON.stringify(version) },
+  //
+  // 閲覧 site の出自も**ビルド時の定数** (DR-0005 FV-Q7)。webui を build するのも
+  // 閲覧 site を配るのも hosting なので、同じ場所で決まる値を 2 か所に持たない。
+  // 既定は無し = 閲覧の機能を出さない。
+  define: {
+    __WEBUI_VERSION__: JSON.stringify(version),
+    __VIEW_ORIGIN__: JSON.stringify(process.env["CCMSG_VIEW_ORIGIN"] ?? ""),
+  },
 }));

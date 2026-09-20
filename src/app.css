@@ -1509,6 +1509,17 @@ select {
   padding: 10px 12px;
 }
 
+/* 閲覧 site の窓 (DR-0005)。中身の大きさはこちらから測れない (別 site の文書
+   なので高さを聞けない) ので、区画いっぱいを渡して、収まりは向こうの文書に
+   任せる。 */
+.viewer-frame {
+  display: block;
+  width: 100%;
+  height: 70vh;
+  border: 0;
+  background: var(--surface);
+}
+
 .viewer-body {
   margin: 0;
   padding: 6px 0;

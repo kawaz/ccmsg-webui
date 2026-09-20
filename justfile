@@ -15,7 +15,7 @@ set script-interpreter := ["bash", "-eu", "-o", "pipefail"]
 # bump-version トリガとなる product code パス。実装と、その解釈を左右する
 # lock / build 設定を対象にする。docs/ や *.md / justfile は除外。
 
-bump-trigger-paths := "src/ index.html bun.lock tsconfig.json vite.config.ts"
+bump-trigger-paths := "src/ view/ index.html bun.lock tsconfig.json vite.config.ts vite.config.view.ts"
 
 version-files := "package.json"
 
@@ -67,9 +67,20 @@ typecheck: lint
 test: lint typecheck
     bun test
 
+# 閲覧 site を立てる配り方では、その出自を `CCMSG_VIEW_ORIGIN` で渡す
+# (DR-0005 FV-Q7。渡さなければ閲覧の機能は出ず、画面は「バイナリファイルです」
+# のまま)。
+
 # 静的サイトを dist/ に出す
 build:
     bun x vite build
+
+# webui とは**別の site** に配る別の成果物。親頁の出自を `CCMSG_WEBUI_ORIGIN`
+# で渡す — ポートを渡してよい相手がそれ 1 つだから (FV-Q8)。
+
+# 閲覧 site を dist-view/ に出す (DR-0005)
+build-view:
+    bun x vite build --config vite.config.view.ts
 
 # dev server (別 origin で daemon に繋ぐ前提。daemon 側の entry.origins に入れる)
 dev:

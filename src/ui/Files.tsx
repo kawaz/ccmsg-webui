@@ -4,6 +4,9 @@ import type { DirEntry, Sid } from "@ccmsg/protocol";
 import type { FilesView, OpenFile } from "../files/files-view.ts";
 import { type FileViewMode, persistViewMode, resolveViewMode } from "../files/files-store.ts";
 import { filesRouteFor } from "../files/path-link.ts";
+import { viewableKindFor } from "../files/media-type.ts";
+import { VIEW_ORIGIN } from "../files/view-site.ts";
+import { FileView } from "./FileView.tsx";
 import { useFileWords } from "../files/file-word-link.ts";
 import {
   baseName,
@@ -461,6 +464,11 @@ function FileBody({
 }) {
   const memory = useMemo(() => filesMemory(sid), [sid]);
   const markdown = isMarkdownPath(file.path);
+  // ブラウザが素で描ける物か (DR-0005 §2.3)。テキストとして描くか、閲覧 site に
+  // 渡すかの 2 択がここ (§4)。
+  const viewable = VIEW_ORIGIN !== undefined && viewableKindFor(file.path) !== undefined;
+  // 文としても読める物だけが切り替えを持つ。バイナリに「コード」側は無い。
+  const switchable = markdown || (viewable && !file.binary);
   const [mode, setMode] = useState<FileViewMode>(() =>
     resolveViewMode(memory.read(), file.path, lines !== undefined),
   );
@@ -496,6 +504,16 @@ function FileBody({
     [],
   );
 
+  /** どちらで読むかを決める。押しても打っても同じ所を通る (DR-0003 §2.1)。 */
+  const choose = (next: FileViewMode): void => {
+    setMode(next);
+    memory.write(persistViewMode(memory.read(), file.path, next));
+  };
+  useAction("files.view", {
+    enabled: () => switchable,
+    run: () => choose(mode === "preview" ? "code" : "preview"),
+  });
+
   const pathLinker = usePathLinker(sid, file.path, session, openAt);
   // 語が書かれた場所はこの文書が置かれている folder。外にある文書 (絶対 path)
   // には木の中での場所が無いので、その時だけ root から探す。
@@ -523,25 +541,19 @@ function FileBody({
       <p class="viewer-meta">
         <span class="mono">{file.size} バイト</span>
         {file.kind !== "contained" && <span class="viewer-kind">{file.kind}</span>}
-        {markdown && (
+        {switchable && (
           <span class="viewer-modes">
             <button
               type="button"
               class={mode === "code" ? "on" : undefined}
-              onClick={() => {
-                setMode("code");
-                memory.write(persistViewMode(memory.read(), file.path, "code"));
-              }}
+              onClick={() => choose("code")}
             >
               コード
             </button>
             <button
               type="button"
               class={mode === "preview" ? "on" : undefined}
-              onClick={() => {
-                setMode("preview");
-                memory.write(persistViewMode(memory.read(), file.path, "preview"));
-              }}
+              onClick={() => choose("preview")}
             >
               プレビュー
             </button>
@@ -561,7 +573,13 @@ function FileBody({
         }}
       >
         {file.binary ? (
-          <p class="empty">バイナリファイルです ({file.size} バイト)。</p>
+          viewable ? (
+            <FileView sid={sid} file={file} />
+          ) : (
+            <p class="empty">バイナリファイルです ({file.size} バイト)。</p>
+          )
+        ) : switchable && !markdown && mode === "preview" ? (
+          <FileView sid={sid} file={file} />
         ) : markdown && mode === "preview" ? (
           <div class="viewer-preview">
             <MarkdownView

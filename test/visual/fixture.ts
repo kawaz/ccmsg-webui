@@ -210,6 +210,26 @@ just visual
 \`\`\`
 `;
 
+/** 16×16 の一色の PNG。中身に意味は無い — 「ブラウザが素で描いた」と言える
+ * ことだけが要るので、いちばん小さく作れる物を書き下してある。 */
+const FIGURE =
+  "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQqzUiCTGMahjVMHw1AAB63t0By/stuAAAAABJRU5ErkJggg==";
+
+/** 画像を**相対参照**する HTML。ビルドした docs をその場で読む使い方の最小形
+ * (DR-0005 §2.4)。 */
+const PAGE = `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>図のある頁</title>
+  </head>
+  <body>
+    <h1>図のある頁</h1>
+    <img id="figure" src="./fig.png" alt="図" width="64" height="64" />
+  </body>
+</html>
+`;
+
 const FOLD_NOTE = `# 先頭から畳む
 
 窓を持つ topic は、先頭から畳んで末尾だけを残す。
@@ -460,6 +480,11 @@ export function writeFixture(home: string, cwd: string): Fixture {
   // 2 つに当たるので、どちらを開くかを人が選ぶ画面になる。
   mkdirSync(join(cwd, "docs", "issue"), { recursive: true });
   mkdirSync(join(cwd, "docs", "archive"), { recursive: true });
+  // 閲覧 site に渡る物 (DR-0005)。画像 1 枚と、それを**相対参照**する HTML —
+  // 相対参照が同じ横取りに落ちることがこの設計の効き目の中心なので (§2.4)、
+  // fixture もその形で持つ。
+  writeFileSync(join(cwd, "docs", "fig.png"), Buffer.from(FIGURE, "base64"));
+  writeFileSync(join(cwd, "docs", "page.html"), PAGE);
   writeFileSync(join(cwd, "docs", "issue", "2026-09-14-fold-from-head.md"), FOLD_NOTE);
   writeFileSync(join(cwd, "docs", "archive", "2026-01-02-fold-from-head.md"), FOLD_NOTE);
   return {

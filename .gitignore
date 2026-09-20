@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# 閲覧 site のビルド成果物 (DR-0005。配るのは hosting)
+dist-view/
 # lock は bun.lock。npm publish 系コマンドが副産物として作るものは捨てる
 package-lock.json
 # playwright-cli が実機検証中に吐く snapshot / console ログ

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import { createServer, type ViteDevServer } from "vite";
 import { startGateway } from "./gateway.ts";
+import { startViewSite } from "./view-site.ts";
 import { startTerminalGateway, writeTerminalManager } from "./terminals.ts";
 
 /** The daemon a screenshot run talks to, and the origin the page is served from.
@@ -35,8 +36,12 @@ const WEBHOOK_TOKEN = "visual-gateway-token-0123456789";
  * the ports are: it is text on the screens being compared. */
 const INSTANCE_ID = "00112233445566778899aabbccddeeff";
 const PAGE_PORT = 45_872;
+/** 閲覧 site。webui とは host が違う = **site が違う** (DR-0005 §2.1)。 */
+const VIEW_PORT = 45_875;
 
 export interface Instance {
+  /** 閲覧 site の出自。頁がビルド時の定数として焼いている相手そのもの。 */
+  readonly viewOrigin: string;
   /** gateway の文書が刻む基準の時刻。画面に出るのは全てここからの差なので、
    * 撮る側はページの時計もここへ留める。 */
   readonly gatewayBase: number;
@@ -247,6 +252,10 @@ export async function startInstance(): Promise<Instance> {
   const gatewayBase = Math.floor(Date.now() / 60_000) * 60_000;
   const gateway = await startGateway(GATEWAY_PORT, gatewayBase);
   const terminalGateway = await startTerminalGateway(TERMINAL_GATEWAY_PORT);
+  // 閲覧 site。頁より先に立てるのは、その出自が頁の**ビルド時の定数**だから
+  // (FV-Q7) — config は環境変数から読むので、dev server を作る前に言う。
+  const viewSite = await startViewSite(VIEW_PORT, `http://localhost:${String(PAGE_PORT)}`);
+  process.env["CCMSG_VIEW_ORIGIN"] = viewSite.origin;
 
   const daemon = spawn("bun", [cliPath(), "daemon", "run", home], {
     env: { ...process.env, ...env },
@@ -281,6 +290,7 @@ export async function startInstance(): Promise<Instance> {
     for (const [signal, act] of onSignal) process.off(signal, act);
     process.off("exit", bury);
     await vite?.close();
+    await viewSite.stop();
     await gateway.stop();
     await terminalGateway.stop();
     // By pid, and this run's own child: nothing else on the machine is asked to
@@ -330,6 +340,7 @@ export async function startInstance(): Promise<Instance> {
   const endpoint = `http://localhost:${String(PAGE_PORT)}/`;
   return {
     endpoint,
+    viewOrigin: viewSite.origin,
     home,
     cwd,
     terminalListing: manager.listing,

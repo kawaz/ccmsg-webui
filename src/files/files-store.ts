@@ -1,3 +1,4 @@
+import { viewableKindFor } from "./media-type.ts";
 import { isMarkdownPath } from "./paths.ts";
 
 /** What the files tab remembers about one session, and how it is spelled in the
@@ -14,9 +15,10 @@ export type FileViewMode = "code" | "preview";
 export interface FilesRecord {
   /** The file that was open, in the shape its surface implies. */
   readonly path?: string;
-  /** The last choice made *for a markdown file*, which is why it is one value
-   * per session rather than one per path: opening a `.ts` file in between is
-   * not an answer to "code or preview", so it must not erase the answer. */
+  /** The last choice made *for a file that has two readings*, which is why it is
+   * one value per session rather than one per path: opening a `.ts` file in
+   * between is not an answer to "code or preview", so it must not erase the
+   * answer. */
   readonly view?: FileViewMode;
   /** Where the viewer was scrolled, in pixels. */
   readonly top?: number;
@@ -75,28 +77,38 @@ export function withOutsidePath(record: FilesRecord, path: string): FilesRecord 
   return { ...record, outside: [...kept, path].slice(-OUTSIDE_LIMIT) };
 }
 
-/** Which of code and preview a markdown file opens in.
+/** 2 通りに読めるファイル。
+ *
+ * markdown は原文とプレビュー、ブラウザが素で描ける物は文と閲覧 site の窓
+ * (DR-0005 §4)。どちらも「同じ文書の別の見え方」なので、覚える所も切り替える
+ * 所も 1 つで足りる。 */
+export function twoReadings(path: string): boolean {
+  return isMarkdownPath(path) || viewableKindFor(path) !== undefined;
+}
+
+/** Which of code and preview a file with two readings opens in.
  *
  * A named line range wins over what was remembered: whoever sent the link was
- * pointing at numbered lines, and the preview has none. Everything that is not
- * markdown has only one reading, so it never asks. */
+ * pointing at numbered lines, and the preview has none. Everything with one
+ * reading never asks. */
 export function resolveViewMode(
   record: FilesRecord,
   path: string,
   hasLineRange: boolean,
 ): FileViewMode {
-  if (!isMarkdownPath(path)) return "code";
+  if (!twoReadings(path)) return "code";
   if (hasLineRange) return "code";
   return record.view ?? "preview";
 }
 
 /** What to store after the reader chose a mode. A choice is only ever made
- * about a markdown file, so a view of anything else leaves the record alone. */
+ * about a file with two readings, so a view of anything else leaves the record
+ * alone. */
 export function persistViewMode(
   record: FilesRecord,
   path: string,
   mode: FileViewMode,
 ): FilesRecord {
-  if (!isMarkdownPath(path)) return record;
+  if (!twoReadings(path)) return record;
   return { ...record, view: mode };
 }
