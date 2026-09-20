@@ -1,6 +1,6 @@
 ---
 title: markdown code span 内の URL がリンクにならない
-status: open
+status: resolved
 category: bug
 created: 2026-09-18T18:43:21+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-21T00:05:46+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:code span も classifyMarkdownLinkUrl に通し、scheme を持つものだけリンク化 (scheme 無しは普通の code span のまま)。unit 2 本 + visual 1 例"]
 blocked_by:
 origin: kawaz
 ---
