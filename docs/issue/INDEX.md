@@ -17,7 +17,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | 2026-09-17 | request | open | [reserved-keys-beyond-chromium](./2026-09-17-reserved-keys-beyond-chromium.md) | 予約キーの表の出典を Chromium 以外 (Firefox / Edge、Windows・Linux の実機、Safari の動的分) まで広げる |
 | 2026-09-16 | bug | open | [composer-send-clear-and-key](./2026-09-16-composer-send-clear-and-key.md) | TL 送信欄が送信後にクリアされない・送信キーが v1 と違う |
 | 2026-09-16 | bug | open | [visual-threshold-misses-removed-bar-items](./2026-09-16-visual-threshold-misses-removed-bar-items.md) | visual test の閾値が要素まるごと削除の退行を検出できない (接続バーの例) |
-| 2026-09-12 | task | open | [composer-autogrow-and-touch-targets](./2026-09-12-composer-autogrow-and-touch-targets.md) | Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性) |
 | 2026-09-12 | task | open | [launcher-cwd-tree](./2026-09-12-launcher-cwd-tree.md) | Session Launcher の「始める場所」にディレクトリツリー選択 (展開/フィルタ) を追加 |
 | 2026-09-12 | task | open | [v1-parity-for-migration](./2026-09-12-v1-parity-for-migration.md) | kawaz が v1 webui から v2 に移るために要るものの棚卸し。画面が無いだけの機能が上位 |
 | 2026-09-12 | bug | open | [translate-selector-placement](./2026-09-12-translate-selector-placement.md) | 翻訳の言語/道具セレクタが transcript 上端にあり、末尾読み中の切り替えでスクロール位置が飛ぶ |

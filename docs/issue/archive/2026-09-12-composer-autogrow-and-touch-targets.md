@@ -1,6 +1,6 @@
 ---
 title: Composer の textarea auto-grow とタップ的中域 (v1 にあり v2 に無い操作性)
-status: open
+status: resolved
 category: task
 created: 2026-09-12T08:12:47+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-21T00:04:20+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done: auto-grow は field-sizing: content (min 56 / max 480) で実装、touch target は @media (pointer: coarse) で button / select を 44px に (summary は本文の帯を伸ばさないため除外、phone 実撮りで判断)"]
 blocked_by:
 origin: v1-parity-for-migration
 ---
