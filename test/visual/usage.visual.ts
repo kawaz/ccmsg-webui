@@ -69,7 +69,6 @@ test("cache が生きているセッションの行に輪が重なる", async ({
     origin: "main",
     cache_ttl_secs: 3600,
     cache_expires_at: base + 3_600_000,
-    cache_paused: false,
     cache_since: base,
     cache_count: 0,
   });

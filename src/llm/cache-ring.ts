@@ -21,7 +21,6 @@ export interface CacheWindow {
   readonly cache_count?: number;
   readonly next_keepalive_at?: number;
   readonly cache_until_at?: number;
-  readonly cache_paused?: boolean;
 }
 
 /** cache の 2 つの生のどちらを描いているか。
@@ -49,7 +48,6 @@ export function cacheRingSpan(window: CacheWindow, now: number): RingSpan | unde
   const since = window.cache_since_at;
   const until = window.cache_until_at;
   const chained =
-    window.cache_paused !== true &&
     (window.cache_count ?? 0) >= 1 &&
     since !== undefined &&
     until !== undefined &&
@@ -58,7 +56,7 @@ export function cacheRingSpan(window: CacheWindow, now: number): RingSpan | unde
   if (chained) return { phase: "extended", start: since as number, end: until as number };
   // 最初の cache が終わるのは、機械が会話から引き継ぐ時か、引き継ぐ予定が
   // 無ければ cache そのものが冷える時。
-  const planned = window.cache_paused === true ? undefined : window.next_keepalive_at;
+  const planned = window.next_keepalive_at;
   const end = planned !== undefined && planned > window.received_at ? planned : windowEnd;
   return { phase: "window", start: window.received_at, end };
 }

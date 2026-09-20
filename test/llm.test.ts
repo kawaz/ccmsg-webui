@@ -58,20 +58,6 @@ describe("cache の輪が掃く範囲", () => {
     expect(span).toEqual({ phase: "extended", start: NOW, end: NOW + 20_000_000 });
   });
 
-  test("合図が止まっていれば、予測ではなく窓そのものを掃く", () => {
-    const span = cacheRingSpan(
-      request({
-        cache_expires_at: NOW + 300_000,
-        cache_since_at: NOW - 600_000,
-        cache_count: 2,
-        cache_until_at: NOW + 20_000_000,
-        cache_paused: true,
-      }),
-      NOW,
-    );
-    expect(span).toEqual({ phase: "window", start: NOW, end: NOW + 300_000 });
-  });
-
   test("窓が閉じていれば何も描かない — 予測がどれだけ先を指していても", () => {
     const cold = request({
       received_at: NOW - 600_000,
