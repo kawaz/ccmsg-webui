@@ -213,14 +213,31 @@ Safari は本体が非公開で、**ソースから「ページに渡すか」�
 
 **ページに渡るかは、Safari についてだけ最小限を実機で観測した** (macOS 26.5.2 / Safari 26.5.2): `⌘W` `⌘T` `⌘N` `⌘Q` `⇧⌘N` `⌃Tab` は届かず、`⌘L` `⌘R` `⌘1` も届かない (Chrome とはここが違う)。`⇧⌘T` は Safari では届く。
 
-この画面が予約として扱うのは、**Chromium が予約するものと、Safari が渡さないと観測したものの和**。片方のブラウザでも届かないなら、人がどちらを使っているかをこちらが当てにいかない。
+Safari のタブ番号 (`⌘1`〜`9`)・閉じたタブを戻す (`⇧⌘T`)・`⇧⌘[` `]` が nib に無い件は、**メニュー項目そのものは nib にあり、キー等価だけが実行時に付く**と分かった。`MainMenu.nib` の文字列に `selectNextTab:` / `selectPreviousTab:` / `reopenLastClosedTabOrWindow:` の action と、`selectNextTabMenuItem` / `selectPreviousTabMenuItem` という outlet がある — app がその項目を握って後から書き換えるための繋ぎで、静的なキー等価が無いのと辻褄が合う。書き換えている場所は本体が非公開なので追えない。
+
+Firefox は**ソースが読める上に「予約」がそのまま属性で書いてある**。`<key reserved="true">` の付いた項目は、`dom/events/GlobalKeyListener.cpp` の `IsReservedKey` / `HasHandlerForEvent` が chrome の予約として印を付け、ページへ配らない。読んだのは GitHub ミラー `mozilla/gecko-dev` の `master`、HEAD `5836a062726f715fda621338a17b51aff30d0a8c`。
+
+| コマンド (`browser/base/content/browser-sets.inc`) | 修飾 | キー (`browser/locales/en-US/browser/browserSets.ftl`) |
+|---|---|---|
+| `key_newNavigator` 新しいウィンドウ | accel | `N` |
+| `key_newNavigatorTab` 新しいタブ | accel | `T` |
+| `key_close` 閉じる | accel | `W` |
+| `key_closeWindow` ウィンドウを閉じる | accel,shift | `W` |
+| `key_privatebrowsing` プライベートウィンドウ | accel,shift | `P` |
+| `key_quitApplication` 終了 | accel (Windows は accel,shift) | `Q` |
+
+`key_exitFullScreen` の 3 つも `reserved="true"` だが `disabled="true"` が付いていて、全画面の間だけ効く。全画面で使う画面ではないので取らない。**Chromium と違って `⇧⌘T`・`⌃Tab`・`⌃PageUp` / `PageDown`・タブ番号は Firefox では予約でない**。逆に Firefox だけが取るのはプライベートウィンドウ (`⇧⌘P` / `Ctrl+Shift+P`) と終了 (`Ctrl+Q` / `Ctrl+Shift+Q`)。Firefox も実機では見ていない。
+
+Edge は**出典が無い**。Chromium 系なので上の表がそのまま効くとみられるが、本体は非公開で、Microsoft が公開しているのは[ショートカット一覧](https://support.microsoft.com/en-us/edge/keyboard-shortcuts-in-microsoft-edge)だけ — 「ページに渡すか」は書かれていない。`ConfigureKeyboardShortcuts` ポリシーで切ってもページには渡らないという報告があり、Edge が独自に足した予約がある可能性は残る。分かった時に足す。
+
+この画面が予約として扱うのは、**Chromium が予約するものと、Safari が渡さないと観測したものと、Firefox が `reserved="true"` と書いているものの和**。どれか 1 つのブラウザでも届かないなら、人がどれを使っているかをこちらが当てにいかない。
 
 | | 予約として扱う |
 |---|---|
-| mac | `Meta+KeyW` `Shift+Meta+KeyW` `Meta+KeyT` `Meta+KeyN` `Shift+Meta+KeyN` `Shift+Meta+KeyT` `Meta+KeyQ` `Control+Tab` `Control+Shift+Tab` `Shift+Meta+BracketLeft` `Shift+Meta+BracketRight` `Control+PageUp` `Control+PageDown` `Alt+Meta+ArrowLeft` `Alt+Meta+ArrowRight` `Meta+KeyL` `Meta+KeyR` `Meta+Digit1`〜`Digit9` |
-| Windows / Linux | `Control+KeyW` `Control+Shift+KeyW` `F4` `Control+F4` `Alt+F4` `Control+KeyT` `Control+KeyN` `Control+Shift+KeyN` `Control+Shift+KeyT` `Control+Tab` `Control+Shift+Tab` `Control+PageUp` `Control+PageDown` |
+| mac | `Meta+KeyW` `Shift+Meta+KeyW` `Meta+KeyT` `Meta+KeyN` `Shift+Meta+KeyN` `Shift+Meta+KeyT` `Meta+KeyQ` `Control+Tab` `Control+Shift+Tab` `Shift+Meta+BracketLeft` `Shift+Meta+BracketRight` `Control+PageUp` `Control+PageDown` `Alt+Meta+ArrowLeft` `Alt+Meta+ArrowRight` `Meta+KeyL` `Meta+KeyR` `Meta+Digit1`〜`Digit9` `Shift+Meta+KeyP` |
+| Windows / Linux | `Control+KeyW` `Control+Shift+KeyW` `F4` `Control+F4` `Alt+F4` `Control+KeyT` `Control+KeyN` `Control+Shift+KeyN` `Control+Shift+KeyT` `Control+Tab` `Control+Shift+Tab` `Control+PageUp` `Control+PageDown` `Control+Shift+KeyP` `Control+KeyQ` `Control+Shift+KeyQ` |
 
-Windows / Linux の側は Chromium のソースだけが出典で、実機では見ていない。ブラウザが 1 つしか出典に無いので、Firefox や Edge で違う可能性は残る — 分かった時に「何が失われるか」を根拠に足す。
+Windows / Linux の側は Chromium と Firefox のソースだけが出典で、実機では見ていない。**mac 以外を実機で見る機会が無いこと自体は、この判断の欠けたところとして残す** — ソースは「何を予約と書いているか」までしか言わず、その版がその機械でどう振る舞うかは言わないため。
 
 警告に載せる組み合わせは、検索・移動・回復に関わるこの範囲で固定する。Safari だけ・Chrome だけの操作を無制限に足すと使える組み合わせが痩せるので、新たに衝突が分かった時に「何が失われるか」を根拠に足す。
 

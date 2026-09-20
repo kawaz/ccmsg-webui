@@ -34,17 +34,22 @@ DR-0003 §2.5 に出典付きで写し済み (HEAD `9dfda8687c6295931baa7bcd3b4d
 
 Safari は本体非公開なので、Apple の公開ショートカット一覧と、`/Applications/Safari.app/Contents/Resources/Base.lproj/MainMenu.nib` から抜いたメニューのキー等価 (71 項目) を出典にし、「ページに渡るか」だけ最小限を観測した。
 
+2026-09-20 に Firefox / Edge / Safari の残りを足した (DR-0003 §2.5):
+
+- **Firefox はソースに「予約」がそのまま書いてある**。`browser/base/content/browser-sets.inc` の `<key reserved="true">` を `dom/events/GlobalKeyListener.cpp` の `IsReservedKey` がページへ配らない。`mozilla/gecko-dev` master、HEAD `5836a062726f715fda621338a17b51aff30d0a8c`。Firefox だけが取るのはプライベートウィンドウ (`⇧⌘P` / `Ctrl+Shift+P`) と終了 (`Ctrl+Q` / `Ctrl+Shift+Q`) で、`src/actions/binding.ts` の `RESERVED` に足した
+- **Edge は出典が無いことを書いた**。本体は非公開で、Microsoft が公開しているのはショートカット一覧だけ (「ページに渡すか」は書かれていない)
+- **Safari の動的なキー等価の出所**: メニュー項目自体は `MainMenu.nib` にあり (`selectNextTab:` / `selectPreviousTab:` / `reopenLastClosedTabOrWindow:` と、`selectNextTabMenuItem` / `selectPreviousTabMenuItem` outlet)、キー等価だけが実行時に付く。書き換えている場所は非公開で追えない
+
 ## 残っていること
 
-1. **Windows / Linux は実機で 1 度も見ていない**。出典は Chromium のソースだけで、実際に keydown が届かないことは確かめていない
-2. **Firefox と Edge の出典が無い**。Edge は Chromium 系だが独自の予約を足している可能性があり、Firefox は別実装
-3. **Safari の `⌘1`〜`9` / `⇧⌘T` / `⇧⌘[` `]` の定義場所が未特定**。`MainMenu.nib` に静的定義が無く、Apple の公開一覧にだけある (実行時に足されているとみられる)
+1. **Windows / Linux は実機で 1 度も見ていない**。出典は Chromium と Firefox のソースだけで、実際に keydown が届かないことは確かめていない。この機械は mac しか無いので、ここは機会待ち
+2. **Edge 独自の予約があるかは不明のまま**。Chromium 系なので Chromium の表は効くとみられるが、足された分は分からない
 
 ## 受け入れ条件
 
 - [ ] Windows / Linux の予約が、ソース以外の根拠 (実機か、別の一次資料) でも裏付けられている
-- [ ] Firefox / Edge について、予約の出典があるか「無い」ことが書かれている
-- [ ] Safari の動的に足されるショートカットの出所が分かるか、分からないことが DR に書かれている
+- [x] Firefox / Edge について、予約の出典があるか「無い」ことが書かれている
+- [x] Safari の動的に足されるショートカットの出所が分かるか、分からないことが DR に書かれている
 
 ## 注意
 

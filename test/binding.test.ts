@@ -133,6 +133,17 @@ describe("警告と予約", () => {
     expect(checkBinding(read("CmdOrCtrl+KeyL"), "other").at).toBe("warned");
   });
 
+  test("1 つのブラウザだけが予約するものも予約として扱う", () => {
+    // プライベートウィンドウは Firefox だけが `reserved="true"` と書いている
+    // (DR-0003 §2.5)。Chromium では届くが、届かない人が居る以上は予約。
+    expect(checkBinding(read("CmdOrCtrl+Shift+KeyP"), "mac").at).toBe("reserved");
+    expect(checkBinding(read("CmdOrCtrl+Shift+KeyP"), "other").at).toBe("reserved");
+    // 終了は Windows が Shift 付き、Linux が Shift 無しで、どちらの機械かは
+    // 画面からは分からないので両方取る。mac は ⌘Q が Chromium 側で予約済み。
+    expect(checkBinding(read("CmdOrCtrl+KeyQ"), "other").at).toBe("reserved");
+    expect(checkBinding(read("CmdOrCtrl+Shift+KeyQ"), "other").at).toBe("reserved");
+  });
+
   test("ブラウザの手に触らない組み合わせはそのまま通る", () => {
     expect(checkBinding(read("CmdOrCtrl+Shift+KeyK"), "mac").at).toBe("clear");
     expect(bindingWorks(read("CmdOrCtrl+Shift+KeyK"), "mac")).toBe(true);

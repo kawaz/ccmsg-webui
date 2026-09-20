@@ -264,6 +264,9 @@ const RESERVED: Readonly<Record<Platform, readonly string[]>> = {
     "MKeyL",
     "MKeyR",
     ...Array.from({ length: 9 }, (_, at) => `MDigit${String(at + 1)}`),
+    // Firefox だけが取るもの: プライベートウィンドウ (`key_privatebrowsing`)。
+    // 新しいウィンドウ / タブ / 閉じる / 終了は上の Chromium 側と重なる。
+    "MSKeyP",
   ],
   other: [
     // Chromium の accelerator 表 (Windows / Linux)。mac と同じコマンドが
@@ -281,6 +284,11 @@ const RESERVED: Readonly<Record<Platform, readonly string[]>> = {
     "CSTab",
     "CPageUp",
     "CPageDown",
+    // Firefox が足すもの: プライベートウィンドウと、終了 (Windows は Shift 付き、
+    // Linux は Shift 無し。どちらの機械かはここからは分からないので両方取る)。
+    "CSKeyP",
+    "CKeyQ",
+    "CSKeyQ",
   ],
 };
 
