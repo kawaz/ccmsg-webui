@@ -1,6 +1,6 @@
 ---
 title: Markdown プレビューで、省略されたファイル名の言及をプロジェクト内ファイルへのリンクにする
-status: wip
+status: resolved
 category: request
 created: 2026-09-14T13:08:11+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered: 2026-09-15T14:51:18+09:00
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-21T00:06:14+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:手順1〜4(inline codeのファイル名候補リンク化)はv1.3.0で実装済み(src/markdown/file-word.ts, FileWord.tsx, src/files/file-word-find.ts, file-word-link.ts)","discarded:#\\d+ のGitHub issue/PRリンク化は見送り(2026-09-20裁定、契約にremoteを答えるopを足す順序が逆、kawazのリポは番号を持たないローカルissue運用)"]
 blocked_by:
 origin: kawaz からの要望
 ---
