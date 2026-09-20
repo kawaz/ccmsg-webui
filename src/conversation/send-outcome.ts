@@ -21,6 +21,28 @@ export function describeUndelivered(reason: UndeliveredReason | undefined): stri
   return reason === undefined ? "inbox に積みました。" : REASONS[reason];
 }
 
+/** 送った後に話しかける所がすること。
+ *
+ * **下書きはどちらでも消す** — 積まれたのは契約では成功で、相手が動き出せば
+ * 届く。残すと人はそれを「送れなかった」と読んで同じ文をもう一度送り、同じ
+ * 1 通が 2 通届く。
+ *
+ * **窓を閉じるのは届いた時だけ**。積まれた時に閉じると、なぜ今は渡らなかった
+ * のかを言う 1 行まで一緒に消えて、人の手元には何も残らない。
+ *
+ * 例外で返ってきた時 (instance が断った) はここを通らない。そちらは送れて
+ * いないので、直して送り直す本文がそのまま要る。 */
+export interface SendAftermath {
+  /** 送った人が読む 1 行。 */
+  readonly outcome: string;
+  /** 窓を閉じてよいか。 */
+  readonly closes: boolean;
+}
+
+export function afterSend(result: MessageSendResult): SendAftermath {
+  return { outcome: describeSendOutcome(result), closes: result.delivered };
+}
+
 export function describeSendOutcome(result: MessageSendResult): string {
   if (result.delivered) return "届きました。";
   const head = describeUndelivered(result.reason);

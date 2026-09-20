@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { composerAction } from "../src/conversation/composer-keydown.ts";
 import { draftKey } from "../src/conversation/draft.ts";
-import { describeSendOutcome } from "../src/conversation/send-outcome.ts";
+import { afterSend, describeSendOutcome } from "../src/conversation/send-outcome.ts";
 
 const KEY = {
   key: "Enter",
@@ -55,6 +55,20 @@ describe("describeSendOutcome", () => {
       candidates: [{ sid: "1111", ws: "main", instance: "ws://127.0.0.1:39847" }],
     });
     expect(text).toContain("main");
+  });
+});
+
+describe("afterSend", () => {
+  // 積まれたのは契約では成功なので、下書きは届いた時と同じく手放す。違うのは
+  // 窓で、渡らなかった理由を読む所が要るので開けたままにする。
+  test("届いた時だけ窓を閉じる", () => {
+    expect(afterSend({ delivered: true })).toEqual({ outcome: "届きました。", closes: true });
+  });
+
+  test("積まれた時は閉じず、理由をそのまま出す", () => {
+    const next = afterSend({ delivered: false, reason: "paused" });
+    expect(next.closes).toBe(false);
+    expect(next.outcome).toBe(describeSendOutcome({ delivered: false, reason: "paused" }));
   });
 });
 

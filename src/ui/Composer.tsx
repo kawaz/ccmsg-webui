@@ -4,7 +4,7 @@ import type { Sid } from "@ccmsg/protocol";
 import { composing } from "../actions/ime.ts";
 import { composerAction } from "../conversation/composer-keydown.ts";
 import { draftKey } from "../conversation/draft.ts";
-import { describeSendOutcome } from "../conversation/send-outcome.ts";
+import { afterSend } from "../conversation/send-outcome.ts";
 import { describeRefusal } from "../refusal.ts";
 import { localStore } from "../settings.ts";
 import { hello, messageSendRefusal, sendMessage } from "../state.ts";
@@ -27,8 +27,9 @@ export function Composer({
   /** 開いた時に手がここに居ることが分かっている所 (重なりの中) から渡る。
    * 版組の中に居る composer は、頁を開いただけで入力が焦点を奪わない方がよい。 */
   focused?: boolean;
-  /** 送れた時に、包んでいるもの (重なり) へ知らせる手。断られた時は呼ばない —
-   * 直して送り直す相手が、閉じられて消えてしまう。 */
+  /** **届いた時だけ**、包んでいるもの (重なり) へ知らせる手。断られた時も、
+   * 渡らずに inbox へ積まれた時も呼ばない — 直して送り直す相手や、なぜ今は
+   * 渡らなかったのかを読む相手が、閉じられて消えてしまう。 */
   onSent?: () => void;
 }) {
   const instance = hello.value?.instance;
@@ -63,10 +64,13 @@ export function Composer({
     outcome.value = undefined;
     sendMessage(sid, body)
       .then((result) => {
-        outcome.value = describeSendOutcome(result);
+        const next = afterSend(result);
+        outcome.value = next.outcome;
+        // 積まれたのも契約では成功なので、下書きはどちらでも手放す
+        // (`send-outcome.ts`)。残る違いは窓を閉じるかどうかだけ。
         remember("");
-        if (onSent === undefined) box.current?.focus();
-        else onSent();
+        if (next.closes && onSent !== undefined) onSent();
+        else box.current?.focus();
       })
       .catch((cause: unknown) => {
         outcome.value = `送れませんでした: ${describeRefusal(cause)}`;

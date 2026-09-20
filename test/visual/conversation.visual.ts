@@ -20,17 +20,18 @@ test("受け付けられたら入力欄は空になり、結果が 1 行出る",
   await box.press("Enter");
   await expect(box).toHaveValue("下書き\n");
 
-  // 送るのは ⌘/Ctrl+Enter と送信ボタン。送れたら窓は閉じるので、次の 1 通は
-  // もう一度開けてから打つ (下書きは同じ所に残っている)。
+  // 送るのは ⌘/Ctrl+Enter と送信ボタン。この宛先は動いていないので 1 通は
+  // inbox に積まれる — 積まれたのは契約では成功なので下書きは手放すが、窓は
+  // 開いたまま、なぜ今は渡らなかったのかを 1 行で出す。
   await box.fill("⌘Enter で送る");
   await box.press("ControlOrMeta+Enter");
-  await expect(page.locator(".fab-window")).toBeHidden();
-
-  await page.locator("button.fab").click();
+  await expect(page.locator(".fab-window .composer-outcome")).toContainText("inbox");
   await expect(box).toHaveValue("");
+
   await box.fill("ボタンで送る");
   await page.locator(".fab-window .composer button", { hasText: "送信" }).click();
-  await expect(page.locator(".fab-window")).toBeHidden();
+  await expect(box).toHaveValue("");
+  await expect(page.locator(".fab-window .composer-outcome")).toContainText("inbox");
 });
 
 test("⌘F は横取りされない (結ばれた打鍵が 1 つも無いので)", async ({ ui: page, instance }) => {

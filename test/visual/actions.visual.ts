@@ -145,8 +145,8 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
   await page.keyboard.press("Escape");
   await expect(prompt).toBeHidden();
 
-  // 送れたら閉じる。窓は用が済んだら消えるもので、続けて書くならもう一度
-  // 開く (下書きは同じ所に残っている)。
+  // 届いたら閉じる。この宛先は動いていないので届かず inbox に積まれ、窓は
+  // 理由を出したまま開いている (閉じるのはそこを読んだ人の手)。
   //
   // 送る先は**絵を撮るセッションと分ける** (`fixture.ts` の TALK_SID)。受け付け
   // られた 1 通は transcript に載るので、撮る側と同じ所へ送ると、この後に撮る
@@ -158,7 +158,10 @@ test("FAB はセッションを名指す画面にだけ出て、口に付く窓�
   await expect(prompt).toBeVisible();
   await prompt.getByRole("textbox", { name: "セッションへのメッセージ" }).fill("FAB から 1 通");
   await prompt.getByRole("button", { name: "送信" }).click();
-  await expect(prompt).toBeHidden({ timeout: 20_000 });
+  await expect(prompt.locator(".composer-outcome")).toContainText("inbox", { timeout: 20_000 });
+  await expect(prompt.getByRole("textbox", { name: "セッションへのメッセージ" })).toHaveValue("");
+  await page.keyboard.press("Escape");
+  await expect(prompt).toBeHidden();
   // 受け付けられた 1 通は宛先の行に待ち数として出る。**それが出るまで待って
   // から出る** — 後に立つブラウザは instance の snapshot からこの数を受け取る
   // ので、立った後に届くと、後で撮る画面がバッジのある絵と無い絵に割れる。
