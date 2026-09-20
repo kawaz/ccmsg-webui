@@ -37,8 +37,20 @@ origin: 自リポ TODO
 
 ## 受け入れ条件
 
-- [ ] 末尾を読んでいる状態で言語/道具を切り替えてもスクロール位置が動かない (visual + scroll 位置の assert)
+- [x] 末尾を読んでいる状態で言語/道具を切り替えてもスクロール位置が動かない (visual + scroll 位置の assert)
 
-## TODO
+## 現 main では既に解消している (2026-09-20)
 
-<!-- wip 時のみ -->
+採られたのは (c)。両方とも入っている:
+
+- (a) `src/app.css` の `.timeline-head` が `position: sticky; top: 36px`。上の選択肢は本文と一緒に流れて行かない
+- (b) item を選んだ時の `⋯` に「本文の言語を切り替える (訳 ⇄ 原文)」がある。読んでいる行のその場で切り替えられる
+
+測っているのも既にある。`test/visual/translate.visual.ts` の「読んでいる所で切り替えても、読んでいる行は動かない」が、読んでいる文を画面の真ん中に置いてから item 側の入口を押し、`bodyScrollTop` が 1 px も動かないことと、訳で高さが変わっても読んでいた行が同じ高さに居ることを assert する。2026-09-20 の実行:
+
+```
+✓  1 [light] › test/visual/translate.visual.ts:57:1 › 読んでいる所で切り替えても、読んでいる行は動かない (3.1s)
+✓  2 [dark] › test/visual/translate.visual.ts:57:1 › 読んでいる所で切り替えても、読んでいる行は動かない (3.1s)
+```
+
+close 候補。
