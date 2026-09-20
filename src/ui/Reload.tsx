@@ -1,4 +1,4 @@
-import { generationWarning } from "../state.ts";
+import { reloadWarning } from "../state.ts";
 import { useAction } from "./Scope.tsx";
 
 /** 読み込み直す所。**どの姿にも常に居る** (DR-0004 §2.4)。
@@ -7,13 +7,17 @@ import { useAction } from "./Scope.tsx";
  * 読み込み直す手段を持たない。読み込み直す手段が端末によって在ったり無かったり
  * するのは、道具として当てにならない。
  *
- * **契約の世代が食い違ったら、このボタンの色が変わる**。姿でも帯でもなく、既に
- * ある常設の押す所の見た目が変わるだけ — 帯を出すと押す所が 2 つになり、場所も
- * 取る。世代がずれても今出ている内容が読む価値を失うわけではないので、隠さず、
- * 自動で読み込み直しもしない (書きかけも読んでいた場所も断りなく消える)。
- * 押すかどうかは人が選ぶ。 */
+ * **読み込み直すと直ることがあると、このボタンの色が変わる**。理由は 2 つ —
+ * 契約の世代が instance と食い違った時と、置き場に新しい build が出ている時
+ * (`src/build-version.ts`) — だが、人にとってはどちらも同じ 1 つの手なので、
+ * 印も 1 つ。言葉だけが理由で変わる。
+ *
+ * 姿でも帯でもなく、既にある常設の押す所の見た目が変わるだけ — 帯を出すと押す
+ * 所が 2 つになり、場所も取る。どちらの理由でも今出ている内容が読む価値を失う
+ * わけではないので、隠さず、自動で読み込み直しもしない (書きかけも読んでいた
+ * 場所も断りなく消える)。押すかどうかは人が選ぶ。 */
 export function Reload() {
-  const outdated = generationWarning.value;
+  const outdated = reloadWarning.value;
   const again = (): void => {
     location.reload();
   };
@@ -25,11 +29,7 @@ export function Reload() {
       type="button"
       class={outdated === undefined ? "reload" : "reload outdated"}
       aria-label="読み込み直す"
-      title={
-        outdated === undefined
-          ? "読み込み直す"
-          : `${outdated} — 読み込み直してください (互換経路はありません)`
-      }
+      title={outdated === undefined ? "読み込み直す" : `${outdated} — 読み込み直してください`}
       onClick={again}
     >
       ↻

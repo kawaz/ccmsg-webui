@@ -55,6 +55,7 @@ import {
   signOutSession,
 } from "./auth/client.ts";
 import { BASE, href, locationRoute } from "./base.ts";
+import { newerBuild } from "./build-version.ts";
 import { endpointFromLocation, isEndpoint, socketUrl } from "./auth/endpoint.ts";
 import {
   type Enrolment,
@@ -319,6 +320,21 @@ export const hello = signal<HelloResult | undefined>(undefined);
 /** Set once the instance and this build disagree about the contract. There is
  * no path back: the page asks for a reload rather than degrading. */
 export const generationWarning = signal<string | undefined>(undefined);
+
+/** 置き場に新しい build が出ていると分かったか (`src/build-version.ts`)。
+ *
+ * 契約のずれと別に持つのは、消える条件が違うから — 繋ぎ直せば契約のずれは
+ * 判定し直されるが、置き場が新しいという事実は読み込み直すまで変わらない。 */
+export const buildWarning = signal<string | undefined>(undefined);
+
+/** 読み込み直す所の色を変える理由、または何も無いこと (DR-0004 §2.4)。
+ *
+ * 理由は 2 つあるが**印は 1 つ**: 人にとってどちらも「読み込み直すと直る」で、
+ * 押す所を理由の数だけ増やす意味が無い。両方あるなら、繋がらなくなっている
+ * 契約のずれを先に言う。 */
+export const reloadWarning = computed<string | undefined>(
+  () => generationWarning.value ?? buildWarning.value,
+);
 
 /** 一覧を持ったまま、向こうに繋がせてもらえなくなったか (DR-0004 §2.4)。
  *
@@ -644,6 +660,9 @@ export const connection = new Connection({
     // where reaching the instance is itself the permission, and then there is
     // nothing to renew.
     connectionExpiresAt.value = result.auth_expires_at;
+    // 繋がった所で置き場にも聞く。繋ぎ直った時も同じ所を通るので、眠って
+    // 起きた端末は戻ってきた所で新しい build を知る。
+    void askPublishedBuild();
   },
   topic(message) {
     if (message.topic.startsWith("session.status:")) {
@@ -1005,6 +1024,29 @@ function openSocket(at: string | undefined = endpoint.peek()): void {
   connection.connect(socketUrl(at), accessToken);
   for (const topic of TOPICS) connection.subscribe(topic);
 }
+
+/** 置き場に出ている build の名前を聞いて、この画面と違えば印を立てる。
+ *
+ * 聞くのは**出来事のたび**で、時計では聞かない: 繋がった時 (= 読み込み直した
+ * 直後と、回線が戻って繋ぎ直った時) と、頁が前面に戻った時。置き場が入れ替わる
+ * のは人が居ない間なので、人が戻ってきた所と、向こうと話し始めた所で聞けば
+ * 足りる。定期的に聞きに行くと、誰も見ていない頁が回線を叩き続けることになる。
+ *
+ * 聞けなかった時は黙る (`newerBuild` の約束)。置き場に届かないことは、新しい
+ * build があることの証拠ではない。 */
+async function askPublishedBuild(): Promise<void> {
+  try {
+    const said = await fetch(`${BASE}version.json`, { cache: "no-store" });
+    if (!said.ok) return;
+    buildWarning.value = newerBuild(__WEBUI_VERSION__, await said.json());
+  } catch {
+    // 置き場に聞けない (回線が無い / 置き場が答えない)。次の出来事でまた聞く。
+  }
+}
+
+globalThis.document?.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void askPublishedBuild();
+});
 
 /** Whether there is a session to open a socket with, asking the cookie when
  * memory has none. */

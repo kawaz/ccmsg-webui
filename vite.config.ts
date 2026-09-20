@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { version } from "./package.json";
 
 /** Where the dev server sends what belongs to an instance.
@@ -71,6 +71,24 @@ export default defineConfig(({ command }) => ({
           ),
       },
     },
+    {
+      // この build の名前を、頁が後から聞き直せる所に置く。
+      //
+      // asset は名前が中身で決まるので永く持たせてよく (`immutable`)、index は
+      // 毎回聞き直す (`no-cache`) — その 2 つだけでは、開いたままの頁は置き場が
+      // 入れ替わったことを知らない。既に読み込んだ JS に焼かれている
+      // `__WEBUI_VERSION__` と比べる相手が要るので、同じ出所 (`package.json`)
+      // から 1 つの小さな文書を出す (`src/build-version.ts` が読む)。
+      name: "ccmsg-build-version",
+      apply: "build",
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "version.json",
+          source: `${JSON.stringify({ version, built_at: new Date().toISOString() }, null, 2)}\n`,
+        });
+      },
+    } satisfies Plugin,
   ],
   esbuild: { jsx: "automatic", jsxImportSource: "preact" },
   server: {

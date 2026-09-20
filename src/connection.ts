@@ -300,7 +300,7 @@ export class Connection {
       const hello = reply as unknown as HelloResult;
       if (hello.protocol_version !== PROTOCOL_VERSION) {
         this.#events.generationMismatch(
-          `instance は契約世代 ${hello.protocol_version}、この画面は ${PROTOCOL_VERSION} です`,
+          `instance は契約世代 ${hello.protocol_version}、この画面は ${PROTOCOL_VERSION} です (互換経路はありません)`,
         );
         return;
       }
