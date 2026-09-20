@@ -204,6 +204,7 @@ const NOTES = `# 読み方のメモ
 - 窓は末尾 1 MiB まで
 - 落ちた行は \`transcript.read\` が答える範囲そのもの
 - 畳み方は \`src/topic-fold.ts\`、経緯は \`fold-from-head\` (\`no-such-note-here\` はまだ)
+- 出典は \`https://commonmark.org/help/\` (backtick で括った URL は押して開ける)
 
 \`\`\`sh
 just visual

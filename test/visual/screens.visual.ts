@@ -219,6 +219,11 @@ test("files-code", async ({ ui: page, instance }) => {
 test("files-markdown", async ({ ui: page, instance }) => {
   await page.goto(`${instance.endpoint}s/${SID}/files?path=NOTES.md`);
   await expect(page.getByText("読み方のメモ")).toBeVisible();
+  // backtick で括られた URL は、code の見た目のまま押して開ける所になる。
+  await expect(page.locator("a.md-code-link")).toHaveAttribute(
+    "href",
+    "https://commonmark.org/help/",
+  );
   await shot(page, "files-markdown.png");
 });
 

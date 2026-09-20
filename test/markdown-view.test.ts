@@ -271,6 +271,27 @@ describe("parseMarkdownSource / CommonMark intraword underscores", () => {
     expect((link.props as { href?: string }).href).toBe("https://example.com/a_b");
   });
 
+  // A URL the author wrapped in backticks is one value with its ends declared,
+  // so it opens — unlike a bare URL in prose, where the app does not guess
+  // where the URL stops. What must not follow is every code span becoming a
+  // link: without a scheme it is an identifier, not a destination.
+  test("code span holding one whole URL opens, other code spans do not", () => {
+    const vnode = renderSource("`https://example.com/a` と `rows` と `foo:bar`");
+    const links = collect(vnode, (n) => n.type === "a");
+    expect(links).toHaveLength(1);
+    expect((links[0]!.props as { href?: string }).href).toBe("https://example.com/a");
+    // 中身は code のまま。リンクは包みで、綴りを書き換えない。
+    expect(flattenText(links[0]!)).toBe("https://example.com/a");
+    expect(collect(links[0]!, (n) => n.type === "code")).toHaveLength(1);
+    // `foo:bar` は scheme が allowlist に無いので href に出さない (disarm)。
+    expect(flattenText(vnode)).toContain("foo:bar");
+  });
+
+  test("code span with anything beside the URL stays code", () => {
+    const vnode = renderSource("`見て https://example.com/a`");
+    expect(collect(vnode, (n) => n.type === "a")).toHaveLength(0);
+  });
+
   // Boundary-delimited underscore emphasis remains valid; only intraword runs
   // are protected from the dependency parser's non-CommonMark behavior.
   test("boundary-delimited _italic_ still renders as emphasis", () => {

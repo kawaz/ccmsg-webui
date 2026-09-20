@@ -798,6 +798,13 @@ select {
   background: var(--surface-active);
 }
 
+/* code span 丸ごとが URL だった時の包み。code の見た目はそのままで、押せる
+   ことだけを足す — 中身は書き手が括ったとおりの綴りなので、色を変えて「これは
+   リンクです」と言い直す必要がない。長い URL は途中で折る。 */
+.md-code-link {
+  overflow-wrap: anywhere;
+}
+
 /* Raw HTML is shown as the characters it is made of, never parsed — the
  * renderer has no path that turns a source string into markup. */
 .md-raw-html {

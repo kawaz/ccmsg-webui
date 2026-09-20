@@ -504,6 +504,25 @@ function revealMarkdownAnchor(id: string, store: FoldOpen | null): void {
   });
 }
 
+/** code span の中身が丸ごと 1 つの URL なら、その行き先。
+ *
+ * 地の文の裸の URL はリンクにしない方針だが (GFM の autolink-literal を入れて
+ * いない)、backtick で囲まれたものは**書き手がそれを 1 つの値として括った**
+ * ので、どこからどこまでが URL かを推し量る必要がない。だからここだけは開ける。
+ *
+ * 判定は本文のリンクと同じ `classifyMarkdownLinkUrl`。ただし scheme を持つ
+ * ものに限る — scheme の無い綴りは `path` になり、`rows` のような普通の code
+ * span まで残らずファイルへのリンクになってしまう (それを拾うのは
+ * `file-word.ts` の仕事)。空白を含むものも外す: 括ったもの全体が 1 つの URL
+ * でないなら、この判断の前提が立たない。 */
+function inlineCodeUrl(value: string): { kind: "internal" | "external"; url: string } | undefined {
+  if (value === "" || /\s/.test(value)) return undefined;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return undefined;
+  const target = classifyMarkdownLinkUrl(value, currentOrigin());
+  if (target.kind !== "external" && target.kind !== "internal") return undefined;
+  return { kind: target.kind, url: target.url };
+}
+
 function renderChildren(
   nodes: AnyNode[] | undefined,
   keyPrefix: string,
@@ -584,6 +603,31 @@ function renderNode(node: AnyNode, key: string, ctx: MarkdownRenderCtx): VNode |
 
     case "inlineCode": {
       const value = (node as InlineCode).value;
+      const url = inlineCodeUrl(value);
+      if (url !== undefined) {
+        const code = (
+          <code class="md-inline-code" key={key}>
+            {value}
+          </code>
+        );
+        // 同じ origin を指す URL はこのアプリの中の場所なので同じタブ、
+        // それ以外は新しいタブ — `link` が決めているのと同じ分け方。
+        return url.kind === "internal" ? (
+          <a key={key} class="md-code-link" href={url.url}>
+            {code}
+          </a>
+        ) : (
+          <a
+            key={key}
+            class="md-code-link"
+            href={url.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {code}
+          </a>
+        );
+      }
       const words = ctx.fileWords;
       const word = words === undefined ? undefined : fileWordOf(value);
       if (words === undefined || word === undefined) {
