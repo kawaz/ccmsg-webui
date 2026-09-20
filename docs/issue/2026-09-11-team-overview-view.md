@@ -47,11 +47,26 @@ live 追従 (worker 側の追記をリアルタイムに流す経路) は現状 
 - worker route (v0.4 系) の実装
 - 契約 1.18.0 (`message.parent` / `team`) への追従
 
-これらが終わってから着手する (= 現時点では前提未整備)。
+これらが終わってから着手する。**2026-09-20 時点で 3 つとも揃っている**: 表示属性 2 面は `src/timeline/display.ts` の `SUBJECTS = ["main", "sub"]`、worker route は `src/route.ts` の `/s/<sid>/agent/<agentId>/timeline`、契約は `@ccmsg/protocol` 2.9.0 で `message.team.*` / `message.parent` を持つ。前提としては着手できる状態。
+
+## `msg_id` は受け側に載っていない (2026-09-20、実 record で確認)
+
+`~/.claude-personal/projects/` の全 record (読むだけ) から封筒を抜いて数えた。
+
+| 調べたもの | 件数 | `msg_id` を持つもの |
+|---|---|---|
+| `<teammate-message …>` 封筒 | 21,315 | **0** |
+| `<cross-session-message …>` 封筒 | 2,286 | 85 (属性名は `mid`) |
+
+`<teammate-message>` が持つ属性は `teammate_id` (19,669)・`color` (14,875)・`summary` (9,152) の 3 つだけで、`msg_id` は属性の一覧に 1 度も現れない。送り側の `SendMessage` の tool_result には載っている (`"msg_id":"000ce880-…"` の形)。
+
+**結論: teammate 同士の往復は `msg_id` では対応付けられない。** 背景の節が「載っていない場合は」と条件付きで書いたフォールバック照合 (送り手・受け手・本文ハッシュ・時刻の近さ) が、**唯一の経路**になる。着手時の設計はそこから始める。
+
+`<cross-session-message>` の側だけは `mid` を持つものがあるので、セッション間の往復は決定的に張れる。teammate と session で対応付けの確からしさが違うことを、画面は隠さない方がよい (「同じ 1 通」と言い切れる行と、寄せただけの行がある)。
 
 ## 受け入れ条件
 
-- [ ] `msg_id` の有無を実 record で確認する
+- [x] `msg_id` の有無を実 record で確認する
 - [ ] lead + teammate 全員の transcript を時系列マージして表示できる
 - [ ] 同一メッセージの往復ペア (out/in) を 1 行に統合表示できる
 - [ ] msg_id が無い場合のフォールバック照合 (送信者/受信者/本文ハッシュ/時刻近接) が動く
