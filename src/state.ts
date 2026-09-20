@@ -24,6 +24,8 @@ import type {
   PeersFrame,
   SessionErrorEntry,
   SessionErrorsFrame,
+  DirTreeArgs,
+  DirTreeResult,
   LauncherConfigReadResult,
   LlmStatsReadResult,
   LauncherRunArgs,
@@ -1681,6 +1683,17 @@ export async function readLlmStats(days: number): Promise<LlmStatsReadResult> {
 export async function readLauncherConfig(): Promise<LauncherConfigReadResult> {
   const reply = await connection.request("launcher.config.read", {});
   return reply as unknown as LauncherConfigReadResult;
+}
+
+/** 始められる場所の木。
+ *
+ * 聞くのはディレクトリだけで、セッションのファイルを見るのとは別の問い
+ * (契約 `dir.tree`)。深さも絞り込みも instance が答える — 木を全部もらって
+ * こちらで絞ると、根の下が大きい人ほど待たされる。`depth` を送らなければ
+ * config の深さ、1 段だけ深く見たい時に 1 を送る。 */
+export async function readDirTree(args: DirTreeArgs): Promise<DirTreeResult> {
+  const reply = await connection.request("dir.tree", args as unknown as Record<string, unknown>);
+  return reply as unknown as DirTreeResult;
 }
 
 /** セッションを 1 つ始める。返ってくるのは**走らせた結果**で、始まった

@@ -2365,15 +2365,55 @@ select {
 
 /* 始める場所の候補。config が許した根だけが並ぶので、押せば正しい所から
    書き始められる (その下の欄で深く書き足す)。 */
-.launch-roots {
+/* 始める場所の木。根が畳まれた入口の中に居るので、高さは決め打ちで抑えて
+   中を動かす — 根の下が大きい人の木で、下の欄 (手順・始める) が画面の外へ
+   追い出されない。 */
+.launch-tree {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
 }
 
-.launch-roots button {
+.launch-filter {
+  display: flex;
+  gap: 6px;
+}
+
+.launch-filter input {
+  flex: 1;
+  min-width: 0;
+}
+
+.launch-dirs {
+  max-height: 160px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  list-style: none;
+}
+
+.launch-dirs > li {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding-inline-start: calc(var(--launch-depth) * 12px);
+}
+
+.launch-dirs button {
   padding: 2px 8px;
   font-size: 12px;
+}
+
+.launch-caret {
+  flex: none;
+  width: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  text-align: center;
 }
 
 .launch-command > span {

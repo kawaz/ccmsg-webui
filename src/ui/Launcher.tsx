@@ -1,11 +1,20 @@
 import { useSignal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import type {
+  DirTreeEntry,
   LauncherConfigReadResult,
   LauncherRunResult,
   LauncherTemplate,
 } from "@ccmsg/protocol";
-import { can, launcherOpen, readLauncherConfig, runLauncher, status } from "../state.ts";
+import { dirTreeRows, graftDirTree } from "../files/dir-tree.ts";
+import {
+  can,
+  launcherOpen,
+  readDirTree,
+  readLauncherConfig,
+  runLauncher,
+  status,
+} from "../state.ts";
 
 /** セッションを 1 つ始める。
  *
@@ -23,6 +32,174 @@ import { can, launcherOpen, readLauncherConfig, runLauncher, status } from "../s
 function rowsFor(value: string): number {
   const lines = value.split("\n").length;
   return Math.min(12, Math.max(2, lines));
+}
+
+/** 始める場所を木から選ぶ。
+ *
+ * 根は config が決めていて、その下をどこまで歩くかも instance が決める
+ * (`depth` を送らない = config の深さ)。歩みが止まった節は開いた時に 1 段だけ
+ * 聞き直す — 深い木を全部もらってから描くと、根の下が大きい人ほど何も出ない
+ * 時間が長くなる。
+ *
+ * 絞り込みも instance に任せる (契約 `dir.tree` の `filter` は、当たった節と
+ * その先祖を残す)。押すまで走らせないのは、打つたびに木を作り直させないため。 */
+function DirPicker({
+  roots,
+  chosen,
+  onPick,
+}: {
+  roots: readonly string[];
+  chosen: string;
+  onPick: (path: string) => void;
+}) {
+  const entries = useSignal<readonly DirTreeEntry[] | undefined>(undefined);
+  const expanded = useSignal<ReadonlySet<string>>(new Set<string>());
+  const typed = useSignal("");
+  const applied = useSignal("");
+  const problem = useSignal<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (roots.length === 0) return;
+    let live = true;
+    const filter = applied.value;
+    // **根ごとに 1 回聞く**。`dir.tree` が答えるのは根の**下**なので、根を
+    // まとめて聞くと、どの根の下だったかが失われて 2 本の木が 1 本に混ざる。
+    // 根そのものも始められる場所なので、聞いた答えを根の下に置いて木にする。
+    Promise.all(
+      roots.map(async (root) => {
+        const read = await readDirTree({ roots: [root], ...(filter === "" ? {} : { filter }) });
+        return { path: root, children: [...read.entries] };
+      }),
+    )
+      .then((read) => {
+        if (!live) return;
+        // 絞った時は、当たった所まで開いた姿で出す。閉じたままだと、当たった
+        // 節が先祖の下に隠れて「絞ったのに何も出ない」と見える。
+        const kept = filter === "" ? read : read.filter((one) => one.children.length > 0);
+        entries.value = kept;
+        expanded.value =
+          filter === "" ? new Set<string>() : new Set(allPaths(kept, new Set<string>()));
+      })
+      .catch((cause: unknown) => {
+        if (live) problem.value = String(cause);
+      });
+    return () => {
+      live = false;
+    };
+  }, [roots, applied.value, entries, expanded, problem]);
+
+  const held = entries.value;
+  const toggle = (path: string): void => {
+    const next = new Set(expanded.value);
+    if (next.has(path)) {
+      next.delete(path);
+      expanded.value = next;
+      return;
+    }
+    next.add(path);
+    expanded.value = next;
+    // まだ下を聞いていない節だけ聞きに行く。1 段ずつなのは、開いた先を見て
+    // から次を決めるのが人の動きだから。
+    if (held === undefined || hasChildren(held, path)) return;
+    readDirTree({ roots: [path], depth: 1 })
+      .then((read) => {
+        if (entries.value !== undefined) {
+          entries.value = graftDirTree(entries.value, path, read.entries);
+        }
+      })
+      .catch((cause: unknown) => {
+        problem.value = String(cause);
+      });
+  };
+
+  return (
+    <div class="launch-tree">
+      <span class="launch-filter">
+        <input
+          type="search"
+          value={typed.value}
+          aria-label="場所を名前で絞る"
+          placeholder="名前で絞る"
+          onInput={(event) => {
+            typed.value = event.currentTarget.value;
+          }}
+          onKeyDown={(event) => {
+            // 絞るための Enter で走り出さない。この欄の Enter は「絞る」を
+            // 押すのと同じ意味で、外側の form の submit ではない。
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            applied.value = typed.value.trim();
+          }}
+        />
+        <button
+          type="button"
+          aria-label="場所を絞る"
+          onClick={() => {
+            applied.value = typed.value.trim();
+          }}
+        >
+          絞る
+        </button>
+      </span>
+      {problem.value !== undefined && <p class="banner">{problem.value}</p>}
+      {held === undefined ? (
+        <p class="empty">場所を読んでいます…</p>
+      ) : held.length === 0 ? (
+        <p class="empty">当たる場所がありません。</p>
+      ) : (
+        <ul class="launch-dirs">
+          {dirTreeRows(held, expanded.value).map((row) => (
+            <li key={row.path} style={`--launch-depth:${String(row.depth)}`}>
+              {row.expandable ? (
+                <button
+                  type="button"
+                  class="launch-caret"
+                  aria-expanded={row.expanded}
+                  aria-label={`${row.label} の下`}
+                  onClick={() => {
+                    toggle(row.path);
+                  }}
+                >
+                  {row.expanded ? "▾" : "▸"}
+                </button>
+              ) : (
+                <span class="launch-caret" aria-hidden="true">
+                  ・
+                </span>
+              )}
+              <button
+                type="button"
+                class={chosen === row.path ? "on" : undefined}
+                onClick={() => {
+                  onPick(row.path);
+                }}
+              >
+                {row.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** 木に出ている path を全部。絞った答えを開いた形で出すためだけに要る。 */
+function allPaths(entries: readonly DirTreeEntry[], acc: Set<string>): Set<string> {
+  for (const entry of entries) {
+    acc.add(entry.path);
+    if (entry.children !== undefined) allPaths(entry.children, acc);
+  }
+  return acc;
+}
+
+/** その節の下を既に聞いてあるか。 */
+function hasChildren(entries: readonly DirTreeEntry[], path: string): boolean {
+  for (const entry of entries) {
+    if (entry.path === path) return entry.children !== undefined;
+    if (entry.children !== undefined && hasChildren(entry.children, path)) return true;
+  }
+  return false;
 }
 
 function Result({ result }: { result: LauncherRunResult }) {
@@ -153,20 +330,13 @@ export function Launcher() {
           )}
           <label class="launch-cwd">
             始める場所
-            <span class="launch-roots">
-              {held.root_dirs.map((root) => (
-                <button
-                  key={root}
-                  type="button"
-                  class={cwd.value === root ? "on" : undefined}
-                  onClick={() => {
-                    cwd.value = root;
-                  }}
-                >
-                  {root}
-                </button>
-              ))}
-            </span>
+            <DirPicker
+              roots={held.root_dirs}
+              chosen={cwd.value}
+              onPick={(path) => {
+                cwd.value = path;
+              }}
+            />
             <input
               type="text"
               value={cwd.value}
