@@ -29,23 +29,23 @@ kawaz が v1 webui (`~/.local/share/repos/github.com/kawaz/claude-ccmsg/main`) �
 
 方針補正 (kawaz 2026-09-12): 画面 9 件は全て移植が必要なわけではなく候補。移植する場合も v1 のフォームデザインや機能は踏襲不要 (良いデザインとして再設計したいものが多い)。手っ取り早く試作して意見を聞きながら直す進め方でよい。全体のデザインシステムとしてまとまりを出したい (色 + 型 + 部品の語彙、issue `color-system-three-layers` を広げて扱う)。1〜7 は配信済み (v0.7.0〜v0.14.0)、残りは 9 (kill / rename / pinned) → 8 (dump) を試作として最小に。
 
-優先順 (使用頻度 → 実装の軽さ):
+優先順 (使用頻度 → 実装の軽さ)。画面まで出来たものに `[x]`:
 
-1. Usage / クォータ画面 — `llm.usage.read` 実装済み
-2. prompt cache 残り時間リング + LLM status — topic `llm.status` / `llm.requests` 実装済み (リングに要る残時間項目が契約に揃うかは型定義で確認が必要)
-3. Timeline の翻訳タブ — v1 は Chrome 内蔵 Translator API でブラウザ完結、daemon 経由の `translate.run` もある。どちらを採るかは設計判断
-4. Status タブの中身 (workflow / background / TODO) — `session.status` / `session.errors` 実装済み、タブ枠は `route.ts` にあり「未実装です」表示のまま
-5. Session Search (ccmsg 未起動の過去セッション検索) — `session.search` 実装済み
-6. Session Launcher — `launcher.run` / `launcher.config.read` 実装済み
-7. LLM stats 画面 — `llm.stats.read` 実装済み
-8. session dump ボタン — `session.dump.write` / `dump.presets.read` 実装済み
-9. session kill / rename、pinned — kill / rename は daemon 実装済み、pinned は webui ローカル
+- [x] 1. Usage / クォータ画面 — `src/ui/Usage.tsx` (`readLlmUsage`)
+- [x] 2. prompt cache 残り時間リング + LLM status — `src/ui/CacheRing.tsx`、`src/ui/GlobalNav.tsx` が `llmStatusReports` を読む
+- [x] 3. Timeline の翻訳タブ — `src/timeline/translators.ts` がブラウザ内蔵と `translate.run` の両方を持ち、画面は原文 / 日本語 (host) / 日本語 (browser) の 3 つを出す
+- [x] 4. Status タブの中身 (workflow / background / TODO) — `src/ui/Status.tsx`。「未実装です」は `src/` から消えている
+- [x] 5. Session Search — `src/ui/SessionSearch.tsx`
+- [x] 6. Session Launcher — `src/ui/Launcher.tsx`
+- [x] 7. LLM stats 画面 — `src/ui/Usage.tsx` が `readLlmStats` を期間ごとに読む
+- [x] 8. session dump ボタン — `src/ui/Status.tsx` が `readDumpPresets` / `writeSessionDump` を呼ぶ
+- [x] 9. session kill / rename、pinned — `src/ui/SessionMenu.tsx` (kill / rename)、`src/sessions.ts` + `src/ui/SessionList.tsx` (pinned)
 
-契約 / daemon から要るもの (本 issue と別 issue の対象):
+残り。どれも webui だけでは閉じず、契約 / daemon 側が先に要る:
 
-10. sandbox 配信 (daemon 未実装、issue `sandbox-grant-delivery-path`)
-11. Composer 添付 (契約に op 無し)
-12. `.code-workspace` セクション (該当 op 不明)
+- [ ] 10. sandbox 配信 (daemon 未実装、issue `sandbox-grant-delivery-path`)
+- [ ] 11. Composer 添付 (契約に op 無し)
+- [ ] 12. `.code-workspace` セクション (該当 op 不明)
 
 v2 で意図的に捨てたもの: room 系一式 (DR-0001 §3-6 / 0003 / 0011-0014)、`mid` / `seq` (ただし契約 issue `notification-lacks-mid` が論点として残る)、PATH symlink インストール、旧 daemon 互換経路、人が inbox を見ること。
 
@@ -59,4 +59,5 @@ v2 で意図的に捨てたもの: room 系一式 (DR-0001 §3-6 / 0003 / 0011-0
 
 <!-- wip 時のみ -->
 
-- [ ] 上記 1〜9 を 1 件ずつ子 issue に切って着手 (本 issue は束の親)
+- [x] 上記 1〜9 を 1 件ずつ子 issue に切って着手 (本 issue は束の親)
+- [ ] 残る 10〜12 は契約 / daemon 側の裁定待ち。webui に閉じた parity は尽きているので、本 issue を閉じるかどうかは kawaz の裁定
