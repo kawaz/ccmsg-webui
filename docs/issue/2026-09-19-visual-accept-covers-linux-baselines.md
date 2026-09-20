@@ -36,5 +36,20 @@ v1.11.0 で実際に踏んだ。workflow_dispatch (redraw_baselines) → artifac
 
 ## 受け入れ条件
 
-- [ ] `just visual-accept` (または隣接 recipe) が linux 基準更新のフロー (workflow_dispatch → artifact 取り込み → manifest 書き換え) を自動化するか、手順を案内する
-- [ ] `visual-threshold-misses-removed-bar-items` の裁定を踏まえた `--update-snapshots` の扱いが反映されている
+- [x] `just visual-accept` (または隣接 recipe) が linux 基準更新のフロー (workflow_dispatch → artifact 取り込み → manifest 書き換え) を自動化するか、手順を案内する
+- [x] `visual-threshold-misses-removed-bar-items` の裁定を踏まえた `--update-snapshots` の扱いが反映されている
+
+## 入れたもの (2026-09-20)
+
+手作業 4 段を recipe 2 本にした。
+
+| recipe | すること |
+|---|---|
+| `just visual-redraw-linux` | `gh workflow run ci.yml -f redraw_baselines=true` を default branch に投げ、待ち方 (`gh run watch <id> --exit-status`) と次の 1 行を出す |
+| `just visual-accept-linux <run-id>` | artifact を snapshots の `linux/` に落とし、`manifest.ts write` で sha256 を書き直し、snapshots リポに linux の絵だけ commit する |
+
+`just visual-accept` の末尾に「ここまでが darwin の基準、linux は push の後に上の 2 本」と出るようにした。
+
+**1 本にまとめなかった理由**: CI が描けるのは **GitHub が既に持っている commit の姿**なので、linux の描き直しは push より後にしか走らせられない。`visual-accept` は push より前に走るものなので、同じ recipe に入れると順序が嘘になる。走り終わりを待たないのも同じ筋で、終わりを知っているのは GitHub の側 — 待ち方を出して `gh run watch` に任せる。
+
+`--update-snapshots=all` は CI の redraw と `visual-accept` の両方に既に入っており (閾値の内側の差も書き直す)、`visual-threshold-misses-removed-bar-items` の追記が求めていた側になっている。

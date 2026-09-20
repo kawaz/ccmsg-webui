@@ -116,6 +116,34 @@ visual-accept: check-snapshots
         printf 'snapshots リポの commit を確認して push してください: %s\n' "$PWD"
     )
     printf 'manifest.json は作業コピーに残してあります (画面を変えた commit に含めてください)\n'
+    printf '\nここまでが %s の基準です。linux の基準は linux が描いたものしか使えないので、\nこの変更を push した後に "just visual-redraw-linux" → "just visual-accept-linux <run-id>" を走らせてください\n' "$(uname -s | tr 'A-Z' 'a-z')"
+
+# linux の基準を CI に描かせる (この変更を push した後に走らせる)
+[script]
+visual-redraw-linux:
+    # 描けるのは GitHub が持っている commit の姿なので、push が先。ここで待たない
+    # のは、走り終わりを知っているのが GitHub の側だから — 待ち方は下に出す。
+    gh workflow run ci.yml -f redraw_baselines=true --ref "$(bump-semver vcs get default-branch)"
+    printf '描き直しを頼みました。走っているものは:\n  gh run list --workflow=ci.yml --event=workflow_dispatch --limit=3\n終わりを待つ:\n  gh run watch <run-id> --exit-status\n終わったら取り込む:\n  just visual-accept-linux <run-id>\n'
+
+# CI が描いた linux の基準を取り込んで manifest を書き直す
+[script]
+visual-accept-linux run: check-snapshots
+    dir="{{ snapshots-dir }}"
+    gh run download {{ run }} --name linux-baselines --dir "$dir/linux"
+    bun test/visual/manifest.ts write
+    version=$(just version)
+    (
+        cd "$dir"
+        git add -A -- 'linux/*.png'
+        if git diff --cached --quiet; then
+            printf 'linux の基準は変わっていません (commit しません)\n'
+            exit 0
+        fi
+        git commit -m "Redraw the linux baselines for webui v${version}" -- 'linux/*.png'
+        printf 'snapshots リポの commit を確認して push してください: %s\n' "$PWD"
+    )
+    printf 'manifest.json に linux の sha256 が入りました (この変更も push してください)\n'
 
 # 基準画像リポの clone があるか (無ければ取り方を出す)
 [private]
