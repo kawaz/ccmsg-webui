@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>着地頁</title></head>
+<body style="font: 18px/1.6 -apple-system, system-ui, sans-serif; padding: 24px; background: #fde2e2">
+<h1>着地頁</h1>
+<p id="what"></p>
+<p id="where" style="font-weight: bold; font-size: 22px"></p>
+<p><a href="/">outer に戻る</a></p>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById("what").textContent = `セット ${q.get("set")} の行 ${q.get("via")} で来た。`;
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const popup = window.opener !== null;
+  document.getElementById("where").textContent =
+    (standalone ? "PWA の窓そのもの (top が置き換わった)" : "PWA の窓ではない (別窓 / アプリ内ブラウザ)") +
+    ` / opener ${popup ? "あり (別窓として開いた)" : "なし"}`;
+</script>
+</body>
+</html>

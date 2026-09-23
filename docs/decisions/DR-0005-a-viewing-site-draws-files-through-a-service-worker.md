@@ -76,7 +76,9 @@ webui の頁 ──┬─ 接続 (WS / 将来は DataChannel) ── instance
 - webui の頁は接続中のチャネルの `file.read` で取り、ポートに返す
 - SW はそれを `Response` に組んで返す。**ブラウザから見れば、ただの HTTP 応答**
 
-**「別タブで開く」「新しい窓で開く」は提供しない**。ホーム画面に追加した PWA では、トップレベルで別 FQDN へ遷移すると **scope の外に出て戻れない** — 閲覧 site は定義上 webui と site が違う (§2.1) ので、トップレベルで開いた瞬間にそれが起きる。閲覧が常に iframe の中に居ることは、この形の**要件であって副作用ではない**。iframe の中からトップレベルへ出る経路 (`top` への遷移) も同じ理由で塞ぐ。`<a target="_blank">` / `window.open` は許す — 開いた窓は sandbox を継ぎ、PWA で動かないのは PWA の制限として受ける (§6)。
+**「別タブで開く」「新しい窓で開く」は提供しない**。ホーム画面に追加した PWA では、トップレベルで別 FQDN へ遷移すると **scope の外に出て戻れない** — 閲覧 site は定義上 webui と site が違う (§2.1) ので、トップレベルで開いた瞬間にそれが起きる。閲覧が常に iframe の中に居ることは、この形の**要件であって副作用ではない**。iframe の中からトップレベルへ出る経路 (`top` への遷移) も同じ理由で塞ぐ。`<a target="_blank">` / `window.open` は許す — 開いた窓は sandbox を継ぐ。iOS / iPadOS の PWA では外部への別窓はアプリ内ブラウザで開き、閉じれば戻る (実測、`docs/findings/2026-09-24-pwa-sandbox-top-navigation-matrix.md`)。
+
+**`allow-popups` だけでは top は守れない**。WebKit は sandbox で塞いだ `_top` / `_parent` を別窓に逃がし、PWA は scope 内の URL の別窓を **PWA の窓そのものとして開く** — 中身から webui の URL を `_top` で指すだけで画面が乗っ取られる (実測)。塞ぐのは **webui 自身の応答の `Cross-Origin-Opener-Policy: same-origin`**: sandbox を継いだ別窓は COOP が `unsafe-none` でない文書を読み込めない (network error) ので、中身から webui の URL を別窓で開く経路 (`_top` / `_parent` / `window.open`、`noopener` の有無を問わず) は全部エラー頁になり、閉じれば戻る。外部への別窓には効かないので、外部リンクは開けたまま。`allow-popups-to-escape-sandbox` を付けると別窓が sandbox を脱いで COOP をすり抜け、`allow-top-navigation(-by-user-activation)` を付けると別窓を介さず top を直接遷移するので、どちらも付けない。
 
 これは iframe + `MessageChannel` を選ぶ理由の 1 つでもある。別タブ方式は §5 の「親が生きている必要」を外せるように見えるが、**PWA では入口そのものが無い**。
 
@@ -191,6 +193,7 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 | hosting が `ccmsg-view-<id>` のどの host にも同じ 2 つのファイルを返せる | wildcard の DNS と証明書、host の pattern で route を切れることが要る。固定の host しか配れないなら、描いたファイル同士の壁 (§1.3) が作れない |
 | 親の頁が、閲覧中ずっと生きている | 親が消えればポートの向こうが消え、SW は答えられなくなる。**別タブに切り出す道は無い** (§3 の不採用) |
 | 契約が範囲読みとバイト列を持つ (契約 DR-0031) | 持たなければ、描けるのは今も読めているテキストだけ。この DR は契約の変更に**乗っている**ので、先に契約が要る |
+| webui 自身の頁が `Cross-Origin-Opener-Policy: same-origin` で配られる | 付いていなければ、閲覧 iframe の中身が `_top` で webui の URL を指すだけで PWA の画面が乗っ取られる (§2.2)。hosting が webui の頁に付ける header で、閲覧 site の側では防げない |
 | 1 度に見ているのは 1 つの instance (DR-0004 §6) | 複数へ同時に繋ぐ形になれば、ポートは instance ごとになる。URL の `<sid>` がどの instance の物かを言う必要が出る |
 
 ## 6. 裁定の記録
@@ -213,7 +216,8 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 | FV-Q14 | 閲覧の origin を 1 つにするか、分けるか | **開くたびに乱数の id で別 origin** (`ccmsg-view-<id>.<閲覧 site>`)。何からも導出しない | 描いたファイル同士の壁は origin でしか作れない。同じ origin に戻る利点は無い (残す物が無い) ので、導出の規則を持たない (§1.3、§2.1) |
 | FV-Q15 | 溜まる origin の残骸 (SW の登録、storage 全種、cookie) を誰がどう消すか | **webui が id の台帳を持ち、定期 + 起動時に見えない iframe で「片付ける」を送る掃除を主経路にする。閉じる時にその場で片付けるのは副経路**。「片付ける」は origin に紐づく物を届く範囲で全部消し、hosting の `Clear-Site-Data: "cookies", "storage"` が頁を開いた時点で同じ物を消す。閲覧側の頁は読み込まれただけでは登録しない | storage の類は origin ごとに永続し、ブラウザの回収は当てにならない。iframe を置いた側が消す。閉じる時だけでは異常終了の分が残り、起動時だけでは次がいつ来るか分からない (§2.5) |
 | FV-Q8 | ポートを渡す前の相手の確かめ方 | **親は `targetOrigin` にその開きの origin (`https://ccmsg-view-<id>.<閲覧 site>`) を指定し、閲覧側の頁は `event.origin` で親が webui であることを確かめる** | 渡せる物は親自身の接続だけで実害は薄いが、確かめない理由も無い。確かめる側が 1 行で済む |
-| FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぐ。`_blank` / `window.open` は `allow-popups` で許す** (`allow-popups-to-escape-sandbox` は付けず、開いた窓も sandbox を継ぐ) | `_top` は PWA の scope 外へ出て戻れなくなる。`_blank` は PWA では動かないことがあるが、それは PWA の制限として受ける。閲覧 site 自身の URL を新しい窓で開いてもポートが無く白紙になるので、実質の効き目は外部リンクが開けること |
+| FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぎ、`_blank` / `window.open` は `allow-popups` で許し、webui 自身の頁は `Cross-Origin-Opener-Policy: same-origin` で配る** (`allow-popups-to-escape-sandbox` と `allow-top-navigation-by-user-activation` は付けない) | sandbox だけでは WebKit が `_top` を別窓に逃がし、PWA は scope 内の別窓を自分の窓として開くので画面が乗っ取られる。sandbox を継いだ別窓は COOP 付きの文書を読み込めないので、webui の頁に COOP を付ければその経路が全部エラーになる (実測、§2.2)。外部リンクはアプリ内ブラウザで開いて閉じれば戻る |
+| FV-C1 | iOS / iPadOS の PWA で `_blank` / `window.open` がどう動くか | **外部への別窓はアプリ内ブラウザで開き、閉じれば戻る。同期でも 500ms 後でも同じ。scope 内の URL の別窓は PWA の窓そのものとして開く** (2026-09-24 実測、iPad と iPhone) | 後者が乗っ取りの経路で、FV-Q6 の COOP がそれを塞ぐ。実験頁は `test/manual/pwa-popups/` |
 | FV-Q6 (script) | 閲覧 site の CSP で **script を許すか** | **許す**。描いた物の CSP は `script-src 'self' 'unsafe-inline'` で、`default-src 'self'` 相当に絞る。ただし **`worker-src 'none'`** — 描いた script が自分の SW を別の scope に登録すると「片付ける」の外に残るので、worker の類は描いた物には持たせない | 閉じ込めは site の分離 (§1.3) + トップレベル遷移不可 (§2.2) + バイト列が親経由でしか届かないこと (§2.6) で効いていて、script を止めても閉じ込めは強くならない。許せばビルドした docs や図が動く形で見える (= この機能の値打ちの一部) |
 
 ## 7. 関連

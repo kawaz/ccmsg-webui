@@ -1,0 +1,54 @@
+# iOS / iPadOS の PWA で、sandbox iframe の中身が top を書き換えられるか
+
+閲覧 iframe (DR-0005) の `sandbox` に何を付けるかを決めるための実測。実験頁は `test/manual/pwa-popups/` (outer = PWA 本体、kawaz.jp 側。inner = cross-site の iframe、tmpspace.net 側)。ホーム画面に追加した PWA (standalone) で kawaz が操作、2026-09-24。
+
+## 1 回目: `_blank` / `window.open` の行き先 (iPad、sandbox は S1)
+
+| 経路 | 結果 |
+|---|---|
+| 要素 `_blank` → 外部 site (top / iframe の中とも) | アプリ内ブラウザで開き、閉じれば戻る |
+| 要素 `_blank` → 同じ site の別 host | 同上 |
+| 要素 `_blank` → 同じ origin (top から) | **PWA 自身がその頁へ遷移** (scope 内なので戻れる) |
+| `window.open` 同期 / 500ms 後 → 外部 (top / iframe の中とも) | アプリ内ブラウザ (非同期でもブロックされない) |
+| 要素 `_top` → 外部 (top から) | アプリ内ブラウザ (PWA を離れない) |
+| 要素 target なし → 外部 (top から) | アプリ内ブラウザ (scope 外への遷移は iOS がアプリ内ブラウザに逃がす) |
+| iframe の中: `_blank` → 閲覧 site 自身の別 host / 同 origin | 別窓は開くが "Navigation was blocked by Cross-Origin-Opener-Policy" (tmpspace 側の hosting が COOP を付けているため) |
+
+## 2 回目: sandbox のセット × 脱出経路 (iPad と iPhone)
+
+中身の行: A 要素 `_blank` → 外部、B `window.open` → 外部、C 要素 `_top` → 外部、D 要素 `_top` → PWA の scope 内、E script で `top.location` 代入、F 要素 `_parent` → scope 内、G target なし → 外部、H `window.open` → scope 内。
+
+| セット | sandbox | D / F | E | H |
+|---|---|---|---|---|
+| S0 | 属性なし | 乗っ取り | 通る | 乗っ取り |
+| S1 | `allow-scripts allow-same-origin allow-popups` (現行) | **乗っ取り** (着地頁は standalone、opener あり) | SecurityError | 乗っ取り |
+| S2 | S1 + `allow-popups-to-escape-sandbox` | 乗っ取り | SecurityError | 乗っ取り |
+| S3 | S1 + `allow-top-navigation-by-user-activation` | 乗っ取り | SecurityError | 乗っ取り |
+| S4 | S1 + `allow-top-navigation` | 乗っ取り | 通る | 乗っ取り |
+| S5 | `allow-scripts allow-same-origin` | 遷移なし | SecurityError | null |
+
+「乗っ取り」= 着地頁が PWA の窓そのものとして開く (`display-mode: standalone`)。S1 で `_top` が通るのは、WebKit が sandbox で塞いだ `_top` / `_parent` を `allow-popups` で別窓に逃がし、iOS が scope 内の URL の別窓を PWA の窓として開くため (opener あり = 別窓として開いた)。
+
+## 3 回目: outer (webui 相当) に `Cross-Origin-Opener-Policy: same-origin` を付けて (iPhone)
+
+| セット | D / F | H |
+|---|---|---|
+| S0 | 乗っ取り (opener なし) | 乗っ取り |
+| **S1** | **blocked by COOP** (✕ で閉じられる窓にエラー頁) | **blocked** |
+| S2 | 乗っ取り (opener なし) | 乗っ取り |
+| S3 / S4 | 乗っ取り (top を直接遷移) | blocked |
+| S5 | 開かず | null |
+
+sandbox を継いだ別窓は COOP が `unsafe-none` でない文書を読み込めない (network error)。S2 は別窓が sandbox を脱ぐので通り、S3 / S4 は別窓を介さず top を遷移するので COOP が関与しない。
+
+## 結論 (DR-0005 §2.2、§6 FV-Q6 / FV-C1)
+
+- 閲覧 iframe の sandbox は S1 のまま。`allow-popups-to-escape-sandbox` と `allow-top-navigation*` は付けない
+- webui 自身の頁を `Cross-Origin-Opener-Policy: same-origin` で配る (canddy-app-proxy の Caddyfile、ccmsg2 の handle)
+- 外部リンクは中身から開ける (アプリ内ブラウザ)。scope 内へ出ようとする経路は全部エラー頁になり、閉じれば戻る
+- 同 origin への `_blank` は PWA 自身が遷移する。webui の中に同 origin への `_blank` は置かない
+
+## 未確認
+
+- B (`window.open` → 外部) は 1 回目は開き、2 回目以降は null を返した。webui の中身には `window.open` を使う経路が無いので追わない
+- Android / Chrome の PWA は未実測
