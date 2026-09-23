@@ -48,7 +48,8 @@ DR-0005 §2.1 / §2.5 / §6、FV-Q14 / FV-Q15 の裁定に基づく実装タス�
 - [ ] 描いた物の CSP は `worker-src 'self'` (Worker が動く、test)。描いた物の `register()` は script の取得が hosting へ行って失敗すること (test)
 - [ ] 100 回開いて閉じた後に当該 site の登録と storage 全種が 0 (Chrome は `chrome://serviceworker-internals` と DevTools の Application、Safari は Web Inspector の Storage で手動確認)
 - [ ] 閉じる前にタブを殺した分が次の定期掃除で消える (test: 台帳に残した id が掃除で消えることを fake の閲覧頁で確認)
-- [ ] `view/sw.ts` はポートの受け渡し (`ccmsg: PORT`) を起動の頁の client からだけ受ける (`event.source` の URL に中身の印 `?ccmsg-view` が無いこと)。描いた中身 (同 origin) が自分のポートを送って親のポートを追い出せないこと (test)
+- [ ] `view/sw.ts` はポートの受け渡し (`ccmsg: PORT`) を**登録ごとに最初の 1 回だけ**受け、以後は無視する (origin は開くたびに変わるので差し替えは要らない)。描いた中身は同 origin で起動の頁と同じ権限を持ち、自分のポートを送る・起動の頁を自分の中に入れ子で開いてそこから送る、のどちらでも親のポートを追い出せないこと (test)
+- [ ] webui は閲覧 origin からの message (PORT_HELD、片付けの ack) で、台帳の更新と iframe の除去以外の動作をしない (中身も同じ origin から同じ message を送れる)。中身が片付けの ack を偽装しても残るのはその origin の残骸 1 件だけであること (test)
 - [ ] hosting (canddy-app-proxy の Caddyfile) に `ccmsg-view-*` の route と `Clear-Site-Data` の header を足す手順を docs に書く (tmpspace.net の wildcard DNS / 証明書は既にある)
 
 ## 関連
