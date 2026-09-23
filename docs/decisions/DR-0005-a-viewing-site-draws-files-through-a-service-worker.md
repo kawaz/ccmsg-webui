@@ -178,7 +178,7 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 
 ## 6. 裁定の記録
 
-2026-09-19 裁定。FV-Q9 だけは統括の判断で、残りは kawaz。
+2026-09-19 裁定 (FV-Q6 の script の可否だけ 2026-09-24)。FV-Q9 だけは統括の判断で、残りは kawaz。
 
 | | 問い | 裁定 | なぜ |
 |---|---|---|---|
@@ -194,17 +194,10 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 | FV-Q13 | 別タブ / 別窓で開けるようにするか | **提供しない**。閲覧は常に webui の頁の中の iframe で、トップレベルの遷移を伴わない。iframe から外へ出る経路も塞ぐ | PWA ではトップレベルで別 FQDN へ出ると scope の外になり、戻れない / 開けない (§2.2) |
 | FV-Q7 | 閲覧 site の FQDN をどう決め、webui はそれをどこから知るか | **ビルド時の定数** | webui を build するのは hosting で、閲覧 site を配るのも hosting。同じ場所で決まる値を 2 か所に持たない。自分で立てる人も build は必ず通る |
 | FV-Q8 | ポートを渡す前の相手の確かめ方 | **親は `targetOrigin` に閲覧 site を指定し、閲覧 site は `event.origin` で親が webui であることを確かめる** | 渡せる物は親自身の接続だけで実害は薄いが、確かめない理由も無い。確かめる側が 1 行で済む |
-| FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぐ。`_blank` / `window.open` は `allow-popups` で許す** (`allow-popups-to-escape-sandbox` は付けず、開いた窓も sandbox を継ぐ) | `_top` は PWA の scope 外へ出て戻れなくなる。`_blank` は PWA では動かないことがあるが、それは PWA の制限として受ける。閲覧 site 自身の URL を新しい窓で開いてもポートが無く白紙になるので、実質の効き目は外部リンクが開けること。script の可否は §7 に残る |
+| FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぐ。`_blank` / `window.open` は `allow-popups` で許す** (`allow-popups-to-escape-sandbox` は付けず、開いた窓も sandbox を継ぐ) | `_top` は PWA の scope 外へ出て戻れなくなる。`_blank` は PWA では動かないことがあるが、それは PWA の制限として受ける。閲覧 site 自身の URL を新しい窓で開いてもポートが無く白紙になるので、実質の効き目は外部リンクが開けること |
+| FV-Q6 (script) | 閲覧 site の CSP で **script を許すか** | **許す**。描いた物の CSP は `script-src 'self' 'unsafe-inline'` で、`default-src 'self'` 相当に絞る | 閉じ込めは site の分離 (§1.3) + トップレベル遷移不可 (§2.2) + バイト列が親経由でしか届かないこと (§2.6) で効いていて、script を止めても閉じ込めは強くならない。許せばビルドした docs や図が動く形で見える (= この機能の値打ちの一部) |
 
-## 7. 要裁定
-
-実装に入る前に解く。**ここでは決めない**。
-
-| | 問い | なぜ要るか |
-|---|---|---|
-| FV-Q6 | 閲覧 site の CSP で **script を許すか** (外へ出る経路は §6 で裁定済み) | 許せば、ビルドした docs や図が動く形で見える (= この機能の値打ちの一部)。許さなければ、描けるのは静止した物だけになる。閉じ込めは site の分離で効いているので「許しても安全」と言えるはずだが、**site の分離だけで十分かは、閲覧 site から何が届くか (endpoint への CORS、閲覧 site 自身の storage) を洗ってからでないと言えない**。同じ CSP が、iframe から外へ出る経路 (`<a target="_blank">`、`window.open`、`top` への遷移) を塞ぐ側も持つ (§2.2) ので、許す / 許さないは 1 つの表として決める |
-
-## 8. 関連
+## 7. 関連
 
 - [DR-0004](DR-0004-one-state-machine-decides-what-the-screen-is.md) — 画面ぜんぶの姿。閲覧が立てるのは `live` / `stale` だけ
 - [DR-0003](DR-0003-an-action-is-what-a-key-and-a-button-both-reach.md) — 操作の器。閲覧の開閉がアクションになる時の置き場

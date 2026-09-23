@@ -29,22 +29,17 @@ declare const self: ServiceWorkerGlobalScope;
 /** 親頁の出自。ビルド時の定数 (FV-Q7)。 */
 declare const __PARENT_ORIGIN__: string;
 
-/** **FV-Q6 は未裁定** (DR-0005 §7)。統括の推しは「許す」で、切り替えはここ
- * 1 か所。false にすれば、描けるのは静止した物だけになる。
- *
- * 裁定が出たら DR の §7 から §6 へ移し、ここはその結論を書いた 1 行にする。 */
-const SCRIPT_IN_VIEWED_CONTENT = true;
-
 /** 描く物に被せる CSP。
  *
  * 閉じ込めの本体は site の分離 (§1.3) と親が付ける `sandbox` (§6) で、これは
  * その内側でもう 1 枚。外へ出る先が何も無いことを言う — `'self'` が指すのは
- * 閲覧 site だけで、そこに居るのはこの SW が答える物しかない。 */
+ * 閲覧 site だけで、そこに居るのはこの SW が答える物しかない。描いた物の
+ * script は走らせる (DR-0005 §6 FV-Q6): 閉じ込めは site の分離で効いていて、
+ * script を止めても強くならない。 */
 function contentCsp(): string {
-  const script = SCRIPT_IN_VIEWED_CONTENT ? "'self' 'unsafe-inline'" : "'none'";
   return [
     "default-src 'self'",
-    `script-src ${script}`,
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
