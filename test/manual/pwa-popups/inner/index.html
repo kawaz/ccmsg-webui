@@ -1,53 +1,95 @@
 <!doctype html>
 <html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PWA sandbox test (inner)</title>
-<style>
-  body { font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; padding: 12px; background: #fff7f0; }
-  h1 { font-size: 16px; margin: 4px 0 8px; }
-  ol { padding-left: 0; list-style: none; margin: 0; }
-  li { margin: 6px 0; }
-  a, button { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 12px; border-radius: 8px; background: #c60; color: #fff; text-decoration: none; border: 0; font: inherit; }
-  li.top a, li.top button { background: #b00; }
-  pre { background: #f6f6f6; padding: 8px; font-size: 12px; white-space: pre-wrap; }
-</style>
-</head>
-<body>
-<h1>inner: セット <span id="set"></span> <span id="mode" hidden></span><span id="origin" hidden></span></h1>
-<ol>
-  <li>A <a target="_blank" rel="noreferrer" href="https://example.com/">要素 _blank → 外部</a></li>
-  <li>B <button data-open="sync">window.open → 外部</button></li>
-  <li class="top">C <a target="_top" href="https://example.com/">要素 _top → 外部</a></li>
-  <li class="top">D <a target="_top" id="top-in">要素 _top → PWA の scope 内 (着地頁)</a></li>
-  <li class="top">E <button id="script-top">script: top.location = 着地頁</button></li>
-  <li class="top">F <a target="_parent" id="parent-in">要素 _parent → 着地頁</a></li>
-  <li>G <a href="https://example.com/">要素 target なし → 外部 (iframe の中で遷移)</a></li>
-  <li class="top">H <button id="open-in">window.open → PWA の scope 内 (着地頁)</button></li>
-</ol>
-<pre id="log"></pre>
-<script src="/probe.js"></script>
-<script>
-  const q = new URLSearchParams(location.search);
-  const set = q.get("set") ?? "?";
-  const outer = q.get("outer") ?? "";
-  document.getElementById("set").textContent = set;
-  const landed = (via) => `${outer}/landed.html?set=${set}&via=${via}`;
-  document.getElementById("top-in").href = landed("D");
-  document.getElementById("parent-in").href = landed("F");
-  document.getElementById("open-in").addEventListener("click", () => {
-    const win = window.open(landed("H"), "_blank");
-    note(`H window.open returned ${win === null ? "null (blocked)" : "a window"}`);
-  });
-  document.getElementById("script-top").addEventListener("click", () => {
-    try {
-      top.location.href = landed("E");
-      note("E top.location を代入した (例外なし)");
-    } catch (cause) {
-      note(`E blocked: ${String(cause)}`);
-    }
-  });
-</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PWA sandbox test (inner)</title>
+    <style>
+      body {
+        font:
+          15px/1.5 -apple-system,
+          system-ui,
+          sans-serif;
+        margin: 0;
+        padding: 12px;
+        background: #fff7f0;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 4px 0 8px;
+      }
+      ol {
+        padding-left: 0;
+        list-style: none;
+        margin: 0;
+      }
+      li {
+        margin: 6px 0;
+      }
+      a,
+      button {
+        display: inline-block;
+        min-height: 44px;
+        line-height: 44px;
+        padding: 0 12px;
+        border-radius: 8px;
+        background: #c60;
+        color: #fff;
+        text-decoration: none;
+        border: 0;
+        font: inherit;
+      }
+      li.top a,
+      li.top button {
+        background: #b00;
+      }
+      pre {
+        background: #f6f6f6;
+        padding: 8px;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      inner: セット <span id="set"></span> <span id="mode" hidden></span
+      ><span id="origin" hidden></span>
+    </h1>
+    <ol>
+      <li>
+        A <a target="_blank" rel="noreferrer" href="https://example.com/">要素 _blank → 外部</a>
+      </li>
+      <li>B <button data-open="sync">window.open → 外部</button></li>
+      <li class="top">C <a target="_top" href="https://example.com/">要素 _top → 外部</a></li>
+      <li class="top">D <a target="_top" id="top-in">要素 _top → PWA の scope 内 (着地頁)</a></li>
+      <li class="top">E <button id="script-top">script: top.location = 着地頁</button></li>
+      <li class="top">F <a target="_parent" id="parent-in">要素 _parent → 着地頁</a></li>
+      <li>G <a href="https://example.com/">要素 target なし → 外部 (iframe の中で遷移)</a></li>
+      <li class="top">H <button id="open-in">window.open → PWA の scope 内 (着地頁)</button></li>
+    </ol>
+    <pre id="log"></pre>
+    <script src="/probe.js"></script>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const set = q.get("set") ?? "?";
+      const outer = q.get("outer") ?? "";
+      document.getElementById("set").textContent = set;
+      const landed = (via) => `${outer}/landed.html?set=${set}&via=${via}`;
+      document.getElementById("top-in").href = landed("D");
+      document.getElementById("parent-in").href = landed("F");
+      document.getElementById("open-in").addEventListener("click", () => {
+        const win = window.open(landed("H"), "_blank");
+        note(`H window.open returned ${win === null ? "null (blocked)" : "a window"}`);
+      });
+      document.getElementById("script-top").addEventListener("click", () => {
+        try {
+          top.location.href = landed("E");
+          note("E top.location を代入した (例外なし)");
+        } catch (cause) {
+          note(`E blocked: ${String(cause)}`);
+        }
+      });
+    </script>
+  </body>
 </html>
