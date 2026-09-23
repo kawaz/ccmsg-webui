@@ -41,10 +41,20 @@
 
 sandbox を継いだ別窓は COOP が `unsafe-none` でない文書を読み込めない (network error)。S2 は別窓が sandbox を脱ぐので通り、S3 / S4 は別窓を介さず top を遷移するので COOP が関与しない。
 
+## 4 回目: hosting の header を外し、outer の Service Worker が navigation の応答に COOP を足す (iPhone)
+
+| セット | D / F | H |
+|---|---|---|
+| S0 / S2 | 乗っ取り (opener なし、「SW 経由で配られた」) | 乗っ取り |
+| **S1** | **blocked by COOP** | **blocked** |
+| S3 / S4 | 乗っ取り (top を直接遷移) | blocked |
+
+3 回目と同じ。WebKit は SW が返した応答の COOP を hosting の header と同じに評価する。`<meta http-equiv>` では COOP は付けられない (仕様上 応答 header 専用)。
+
 ## 結論 (DR-0005 §2.2、§6 FV-Q6 / FV-C1)
 
 - 閲覧 iframe の sandbox は S1 のまま。`allow-popups-to-escape-sandbox` と `allow-top-navigation*` は付けない
-- webui 自身の頁を `Cross-Origin-Opener-Policy: same-origin` で配る (canddy-app-proxy の Caddyfile、ccmsg2 の handle)
+- webui 自身の Service Worker が navigation の応答に `Cross-Origin-Opener-Policy: same-origin` を足す (hosting に頼らず build に閉じる。canddy-app-proxy の Caddyfile にも同じ header を付けてあるが、それは保険で要求ではない)
 - 外部リンクは中身から開ける (アプリ内ブラウザ)。scope 内へ出ようとする経路は全部エラー頁になり、閉じれば戻る
 - 同 origin への `_blank` は PWA 自身が遷移する。webui の中に同 origin への `_blank` は置かない
 

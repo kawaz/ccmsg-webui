@@ -30,7 +30,8 @@
         (standalone
           ? "PWA の窓そのもの (top が置き換わった)"
           : "PWA の窓ではない (別窓 / アプリ内ブラウザ)") +
-        ` / opener ${popup ? "あり (別窓として開いた)" : "なし"}`;
+        ` / opener ${popup ? "あり (別窓として開いた)" : "なし"}` +
+        ` / ${navigator.serviceWorker.controller ? "SW 経由で配られた" : "SW を経由していない"}`;
     </script>
   </body>
 </html>

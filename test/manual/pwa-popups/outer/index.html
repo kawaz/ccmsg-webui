@@ -74,6 +74,7 @@
   <body>
     <h1>outer (PWA 本体) <span id="origin"></span></h1>
     <div class="mode" id="mode"></div>
+    <div class="mode" id="sw">SW: 未登録</div>
     <p>
       目的: 中身 (cross-site の iframe) から
       <b>この頁 (top) が書き換えられない</b>ことを保ちつつ、どこまで許せるか。sandbox
@@ -85,6 +86,20 @@
     <iframe id="inner"></iframe>
     <pre id="log"></pre>
     <script src="/probe.js"></script>
+    <script>
+      // outer の SW が navigation の応答に COOP を足す (hosting の header は外してある)。
+      const swBox = document.getElementById("sw");
+      const showSw = () => {
+        swBox.textContent = navigator.serviceWorker.controller
+          ? "SW: この頁を制御中 (navigation の応答に COOP を足す)"
+          : "SW: 登録したがまだ制御していない。頁を開き直す";
+      };
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then(showSw)
+        .catch((cause) => (swBox.textContent = `SW: 登録失敗 ${String(cause)}`));
+      navigator.serviceWorker.addEventListener("controllerchange", showSw);
+    </script>
     <script>
       const SETS = {
         S0: null,
