@@ -45,16 +45,16 @@ Date: 2026-09-19
 
 webui と endpoint のどちらとも **site が違う** 1 つの site (以下**閲覧 site**) を立てる。**別 origin では足りない** — §1.3 の通り、分割 cookie の単位は site だから。
 
-その site の中で、**開くたびに乱数の id を振った origin** (`https://ccmsg-view-<id>.<閲覧 site>`) を使う。描いたファイル同士の壁は origin (§1.3)。id は開く webui が振り、何からも導出しない — 同じファイルを開き直しても別の origin になる。閲覧 site は cookie も秘密も持たない (§2.6) が、同じ site に居る origin 同士が共有しうる物が 1 つだけある — **cookie**。描いたファイルの script は `document.cookie` に `Domain=<閲覧 site>` を付けて書け、それは別の id の origin からも読める (cookie は origin でなく host と `Domain` で括られる)。この抜け道は hosting が塞ぐ: 閲覧 site の頁の応答に **`Clear-Site-Data: "cookies"`** を付け、頁を開くたびに site の cookie を全部消す。前に開いたファイルが仕込んだ物は、次のファイルの script が動く前に無くなる。webui の中の cross-site の iframe は、ブラウザによっては cookie に触れないが (Safari の ITP、Chrome の third-party cookie の扱い)、それは環境の話なので当てにしない。
+その site の中で、**開くたびに乱数の id を振った origin** (`https://ccmsg-view-<id>.<閲覧 site>`) を使う。描いたファイル同士の壁は origin (§1.3)。id は開く webui が振り、何からも導出しない — 同じファイルを開き直しても別の origin になる。閲覧 site は cookie も秘密も持たない (§2.6) が、同じ site に居る origin 同士が共有しうる物が 1 つだけある — **cookie**。描いたファイルの script は `document.cookie` に `Domain=<閲覧 site>` を付けて書け、それは別の id の origin からも読める (cookie は origin でなく host と `Domain` で括られる)。この抜け道は hosting が塞ぐ: 閲覧 site の頁の応答に **`Clear-Site-Data: "cookies", "storage"`** を付け、頁を開くたびに site の cookie と origin の storage (DOM storage、IndexedDB、Cache、OPFS、SW の登録) を全部消す。前に開いたファイルが仕込んだ物は、次のファイルの script が動く前に無くなる。header は起動の頁にだけ付く — 中身は SW が答えるので、描いている最中に消えることはない。webui の中の cross-site の iframe は、ブラウザによっては cookie に触れないが (Safari の ITP、Chrome の third-party cookie の扱い)、それは環境の話なので当てにしない。
 
 閲覧 site の中身は **2 つの静的ファイル**だけで、どの origin にも同じ物を配る。
 
 | 置く物 | 役目 |
 |---|---|
-| 頁 1 枚 (`index.html`) | 親からの message を待つ。「開く」なら `MessageChannel` のポートを受け取って Service Worker を登録し、ポートを渡す。「片付ける」なら登録を外して答える。**読み込まれただけでは何もしない** |
+| 頁 1 枚 (`index.html`) | 親からの message を待つ。「開く」なら `MessageChannel` のポートを受け取って Service Worker を登録し、ポートを渡す。「片付ける」なら origin に残る物を全部消して答える。**読み込まれただけでは何もしない** |
 | Service Worker | 自分の scope への fetch を横取りし、ポート越しにバイト列を頼んで `Response` を組む |
 
-**動く物は置かない**。配るのは proxy (hosting) で、FQDN の用意・証明書・配信は**フロントの責務**。この DR はそこに「この site は他のどれとも site が違うこと」「`ccmsg-view-<id>` のどの host も名前が引けて (wildcard の DNS) 同じ 2 つのファイルを返すこと」「頁の応答に `Clear-Site-Data: "cookies"` を付けること」だけを要求する。
+**動く物は置かない**。配るのは proxy (hosting) で、FQDN の用意・証明書・配信は**フロントの責務**。この DR はそこに「この site は他のどれとも site が違うこと」「`ccmsg-view-<id>` のどの host も名前が引けて (wildcard の DNS) 同じ 2 つのファイルを返すこと」「頁の応答に `Clear-Site-Data: "cookies", "storage"` を付けること」だけを要求する。
 
 **daemon には何も足さない**。閲覧 site は instance を知らず、instance も閲覧 site を知らない。
 
@@ -114,13 +114,13 @@ SW がすることは 1 つだけ — **fetch が来た時点で親に問い合�
 
 - **SW はキャッシュを持たない**。同じファイルを 2 回開けば 2 回取りに行く
 - 明示の TTL は**任意**。持たなくてよい — 持つ物が無ければ、期限を決める必要も無い
-- 閲覧 site に**中身は残らない**ので「古い中身が出る」は起こらない。残るのは SW の登録だけで、それは下で webui が消す
+- 閲覧 site に**中身は残らない**ので「古い中身が出る」は起こらない。残るのは origin の storage の類で、それは下で webui が消す
 
 読んでいるファイルは編集され得るし (`file.edit` は同じ画面の中にある)、閲覧 site は誰の物でもない場所なので、**残さないことが既定として正しい**。取り直す代償は往復 1 つで、それは §5 が既に受けている代償と同じ種類。
 
-**残る物が 1 つだけある — SW の登録**。ブラウザは登録を origin ごとに永続化し、iframe を外しても消さない。開くたびに origin が変わる (§2.1) ので、放っておけば開いた数だけ登録が溜まる。ブラウザの自動回収は当てにしない (Chrome は storage が逼迫した時に origin 単位で退去させるだけ、Safari の期限付き退去は site 単位で条件付き)。**消すのは iframe を置いた側 = webui の責務**で、経路は 2 本:
+**残る物は origin に紐づく storage の類**。SW の登録、localStorage / sessionStorage、IndexedDB、Cache Storage、OPFS、cookie — 描いた script はどれにも書けるし、SW の登録は頁が自分で作る。ブラウザはこれらを origin ごとに永続化し、iframe を外しても消さない。開くたびに origin が変わる (§2.1) ので、放っておけば開いた数だけ溜まる。ブラウザの自動回収は当てにしない (Chrome は storage が逼迫した時に origin 単位で退去させるだけ、Safari の期限付き退去は site 単位で条件付き)。**消すのは iframe を置いた側 = webui の責務**で、経路は 2 本:
 
-- **主経路: 台帳から掃除する**。webui は id を振ったら**台帳 (webui の origin の storage) に控えてから** iframe を置き、開いている間はその id に生存印 (時刻) を打ち続け、定期 (数時間ごと) と起動時に、生存印が一定時間より古い id の頁を見えない iframe で開いて「片付ける」を送り、答えが返ったら台帳から消す。古さを開いた時刻でなく生存印で測るのは、長く開いたままの閲覧を別のタブの webui が片付けてしまわないため (台帳は同じブラウザの webui のタブで共有される)。答えが一定時間で返らなければその回は諦めて id を残し、次の回にまた試す — 「片付ける」は何度送っても同じ結果 (登録が無ければ何もしない) なので、同時に 2 つのタブが同じ id を片付けても壊れない。「片付ける」は scope を問わず**その origin の登録を全部** (`getRegistrations()`) 外す。id は webui しか振らず、控えるのが先なので、台帳に無い登録が生まれるのは台帳の側が消えた時 (webui の storage の退去) だけ。それは残る物が登録レコードと数 KB の script という上限付きの残骸で、受ける
+- **主経路: 台帳から掃除する**。webui は id を振ったら**台帳 (webui の origin の storage) に控えてから** iframe を置き、開いている間はその id に生存印 (時刻) を打ち続け、定期 (数時間ごと) と起動時に、生存印が一定時間より古い id の頁を見えない iframe で開いて「片付ける」を送り、答えが返ったら台帳から消す。古さを開いた時刻でなく生存印で測るのは、長く開いたままの閲覧を別のタブの webui が片付けてしまわないため (台帳は同じブラウザの webui のタブで共有される)。答えが一定時間で返らなければその回は諦めて id を残し、次の回にまた試す — 「片付ける」は何度送っても同じ結果 (登録が無ければ何もしない) なので、同時に 2 つのタブが同じ id を片付けても壊れない。「片付ける」は **origin に紐づく物を届く範囲で全部**消す: SW の登録は scope を問わず全部 (`getRegistrations()`)、localStorage / sessionStorage、IndexedDB (`databases()` の全部)、Cache Storage (`keys()` の全部)、OPFS (root の全 entry)、cookie (名前ごとに `Domain` 有り無しの両方で失効)。hosting の `Clear-Site-Data` (§2.1) が頁を開いた時点で同じ物を消すので、JS の側は header が効かない環境の保険。id は webui しか振らず、控えるのが先なので、台帳に無い登録が生まれるのは台帳の側が消えた時 (webui の storage の退去) だけ。それは残る物が登録レコードと数 KB の script という上限付きの残骸で、受ける
 - **副経路: 閉じる時にその場で片付ける**。iframe を外す前に「片付ける」を送り、答えを待ってから外し、台帳から消す。答えが来ない (タブごと落ちた、電源が切れた) 場合は台帳に残ったまま主経路が拾う
 
 登録し直す道は 2 つとも塞ぐ: 頁が読み込まれただけでは登録しない (§2.1) ので掃除で開いた頁は登録せず、描いた物の CSP が `worker-src 'none'` (§6 FV-Q6) なので描いた script も登録できない。掃除の答えは親が `event.origin` / `event.source` でその id の頁からの物と確かめてから台帳を消す (FV-Q8 と同じ確かめ方)。台帳が webui の origin の storage に居るのは、別のブラウザで開いた分はそのブラウザの webui が掃除する、という分担にするため — 登録もブラウザごとの物なので、これで揃う。
@@ -178,7 +178,7 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 - 配る物が 1 つ増える。**FQDN・証明書・配信の運用がフロントに乗る** (§2.1)。wildcard の DNS と証明書、`ccmsg-view-*` のどの host にも同じ物を返す route が要る
 - 閲覧中は**親の頁が生きている必要がある**。別タブに切り出せない — PWA では入口自体が無いので、これは失っている物ではない (§2.2)
 - **開くたびに SW の登録という往復が 1 つ増える**。origin が毎回変わる (§2.1) ので、初回に限らない。頁 1 枚と SW の取得で、描き始めが ms 単位で遅れる
-- webui が **id の台帳と掃除の仕事を持つ** (§2.5)。閲覧 site に残る物を無くす責務は、iframe を置いた側にある
+- webui が **id の台帳と掃除の仕事を持つ** (§2.5)。閲覧 site に残る物 (SW の登録、storage 全種、cookie) を無くす責務は、iframe を置いた側にある
 - **同じファイルを 2 回開けば 2 回取りに行く**。キャッシュを持たないので、大きな物を何度も開く使い方は往復の数がそのまま出る (§2.5)
 - 拡張子から `Content-Type` を決める表が **webui の持ち物として 1 つ増える** (§2.3)
 
@@ -204,14 +204,14 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 | FV-Q3 | バイト列をどう渡すか | **iframe に `MessageChannel` のポートを渡し、SW の fetch 横取りがそのポート越しに頼む** | SW が `Response` を組むので、相対参照も同じ横取りが拾う (§2.4) |
 | FV-Q4 | 権限をどう表すか | **親がそのセッションに接続していて `file.read` を通せること、そのもの。capability URL は持たない** | URL に権限を載せると、漏洩・失効・履歴残りを全部引き受ける。daemon issue `sandbox-grant-delivery-path` は撤回側で閉じる (§2.6) |
 | FV-Q5 | transport との関係 | **transport 非依存。WS でも DataChannel でも同じ形** | 頼む物は「バイト列」で、運び方は問わない (§2.7) |
-| FV-Q10 | 見たものを残すか | **毎回使い捨て。中身は iframe を閉じれば消え、SW はキャッシュを持たない**。明示の TTL は任意 (無くてよい)。残るのは SW の登録だけで、それは webui が消す (FV-Q15) | 読んでいるファイルは同じ画面から編集され得る。中身を残さなければ古い中身は出ない (§2.5) |
+| FV-Q10 | 見たものを残すか | **毎回使い捨て。中身は iframe を閉じれば消え、SW はキャッシュを持たない**。明示の TTL は任意 (無くてよい)。残るのは origin の storage の類で、それは webui が消す (FV-Q15) | 読んでいるファイルは同じ画面から編集され得る。中身を残さなければ古い中身は出ない (§2.5) |
 | FV-Q11 | SW はどこまでやるか | **fetch が来た時点で問い合わせ、ヘッダと本文をそのまま `Response` にする**。それ以上は持たない = 普通の web サーバに見える仮想サーバ。`Content-Type` は**親頁が拡張子から**決める | ブラウザから普通の web サーバに見えれば、`<img>` も `Range` も相対参照も何も足さずに動く。型を決める場所を親に置くのは、描画の性質を描く側が持つため (§2.3) |
 | FV-Q12 | 経路と、閲覧 site が持つ物 | **SW → `MessageChannel` → 親頁 (webui) → `file.read`**。SW は自分で接続を張らず、閲覧 site に access token 等の秘密を一切置かない。親頁が「今開いているセッションの木の中か」の門番 | 静的配信でしかない site に秘密を置けば、そこが守る対象になる。門番を親に置けば、権限の判断が接続を持っている側で完結する (§2.2、§2.6) |
 | FV-Q9 | 大きなファイルの読み進め方 | **要求どおりの範囲だけを頼み、先読みしない**。契約の 1 回の上限を超える時だけ割って続ける | 当てが外れた先読みは、誰も見ないバイト列を運ぶ。描き心地の問題が実測で出たら、その時に別 issue として持つ (§2.3) |
 | FV-Q13 | 別タブ / 別窓で開けるようにするか | **提供しない**。閲覧は常に webui の頁の中の iframe で、トップレベルの遷移を伴わない。iframe から外へ出る経路も塞ぐ | PWA ではトップレベルで別 FQDN へ出ると scope の外になり、戻れない / 開けない (§2.2) |
 | FV-Q7 | 閲覧 site の FQDN をどう決め、webui はそれをどこから知るか | **ビルド時の定数**。定数が持つのは host の後半 (`<閲覧 site>` = `kawaz-….tmpspace.net` のような suffix) で、origin (`https://ccmsg-view-<id>.<suffix>`) は webui が開くたびに組む (FV-Q14) | webui を build するのは hosting で、閲覧 site を配るのも hosting。同じ場所で決まる値を 2 か所に持たない。自分で立てる人も build は必ず通る |
 | FV-Q14 | 閲覧の origin を 1 つにするか、分けるか | **開くたびに乱数の id で別 origin** (`ccmsg-view-<id>.<閲覧 site>`)。何からも導出しない | 描いたファイル同士の壁は origin でしか作れない。同じ origin に戻る利点は無い (残す物が無い) ので、導出の規則を持たない (§1.3、§2.1) |
-| FV-Q15 | 溜まる SW の登録を誰がどう消すか | **webui が id の台帳を持ち、定期 + 起動時に見えない iframe で「片付ける」を送る掃除を主経路にする。閉じる時にその場で片付けるのは副経路**。閲覧側の頁は読み込まれただけでは登録しない | 登録は origin ごとに永続し、ブラウザの回収は当てにならない。iframe を置いた側が消す。閉じる時だけでは異常終了の分が残り、起動時だけでは次がいつ来るか分からない (§2.5) |
+| FV-Q15 | 溜まる origin の残骸 (SW の登録、storage 全種、cookie) を誰がどう消すか | **webui が id の台帳を持ち、定期 + 起動時に見えない iframe で「片付ける」を送る掃除を主経路にする。閉じる時にその場で片付けるのは副経路**。「片付ける」は origin に紐づく物を届く範囲で全部消し、hosting の `Clear-Site-Data: "cookies", "storage"` が頁を開いた時点で同じ物を消す。閲覧側の頁は読み込まれただけでは登録しない | storage の類は origin ごとに永続し、ブラウザの回収は当てにならない。iframe を置いた側が消す。閉じる時だけでは異常終了の分が残り、起動時だけでは次がいつ来るか分からない (§2.5) |
 | FV-Q8 | ポートを渡す前の相手の確かめ方 | **親は `targetOrigin` にその開きの origin (`https://ccmsg-view-<id>.<閲覧 site>`) を指定し、閲覧側の頁は `event.origin` で親が webui であることを確かめる** | 渡せる物は親自身の接続だけで実害は薄いが、確かめない理由も無い。確かめる側が 1 行で済む |
 | FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぐ。`_blank` / `window.open` は `allow-popups` で許す** (`allow-popups-to-escape-sandbox` は付けず、開いた窓も sandbox を継ぐ) | `_top` は PWA の scope 外へ出て戻れなくなる。`_blank` は PWA では動かないことがあるが、それは PWA の制限として受ける。閲覧 site 自身の URL を新しい窓で開いてもポートが無く白紙になるので、実質の効き目は外部リンクが開けること |
 | FV-Q6 (script) | 閲覧 site の CSP で **script を許すか** | **許す**。描いた物の CSP は `script-src 'self' 'unsafe-inline'` で、`default-src 'self'` 相当に絞る。ただし **`worker-src 'none'`** — 描いた script が自分の SW を別の scope に登録すると「片付ける」の外に残るので、worker の類は描いた物には持たせない | 閉じ込めは site の分離 (§1.3) + トップレベル遷移不可 (§2.2) + バイト列が親経由でしか届かないこと (§2.6) で効いていて、script を止めても閉じ込めは強くならない。許せばビルドした docs や図が動く形で見える (= この機能の値打ちの一部) |

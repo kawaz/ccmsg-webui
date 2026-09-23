@@ -43,9 +43,12 @@ DR-0005 §2.1 / §2.5 / §6、FV-Q14 / FV-Q15 の裁定に基づく実装タス�
 
 - [ ] 同じファイルを 2 回開くと別 origin になる (test)
 - [ ] 頁を素で読み込んでも SW 登録が増えない (test)
-- [ ] 100 回開いて閉じた後に `chrome://serviceworker-internals` の当該 site の登録が 0 (手動確認、Safari は Web Inspector の Storage)
+- [ ] 「片付ける」が origin に紐づく物を届く範囲で全部消す: SW の登録 (`getRegistrations()` 全件)、localStorage / sessionStorage、IndexedDB (`databases()` 全部)、Cache Storage (`keys()` 全部)、OPFS (root の全 entry)、cookie (名前ごとに `Domain` 有り無しの両方で失効) (test: fake の閲覧頁に全種を置いてから片付けて空になる)
+- [ ] hosting は起動の頁の応答に `Clear-Site-Data: "cookies", "storage"` を付ける (中身は SW が答えるので header は付かない)
+- [ ] 描いた物の CSP に `worker-src 'none'` (描いた script が SW を登録できない、test)
+- [ ] 100 回開いて閉じた後に当該 site の登録と storage 全種が 0 (Chrome は `chrome://serviceworker-internals` と DevTools の Application、Safari は Web Inspector の Storage で手動確認)
 - [ ] 閉じる前にタブを殺した分が次の定期掃除で消える (test: 台帳に残した id が掃除で消えることを fake の閲覧頁で確認)
-- [ ] hosting (canddy-app-proxy の Caddyfile) に `ccmsg-view-*` の route を足す手順を docs に書く (tmpspace.net の wildcard は既にある)
+- [ ] hosting (canddy-app-proxy の Caddyfile) に `ccmsg-view-*` の route と `Clear-Site-Data` の header を足す手順を docs に書く (tmpspace.net の wildcard DNS / 証明書は既にある)
 
 ## 関連
 
