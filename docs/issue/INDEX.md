@@ -4,6 +4,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 
 | date | category | status | slug | 概要 |
 |---|---|---|---|---|
+| 2026-09-24 | task | open | [webui-service-worker-adds-coop](./2026-09-24-webui-service-worker-adds-coop.md) | webui に SW を足し navigation 応答に COOP: same-origin を付ける (DR-0005 §2.2/§5) |
 | 2026-09-24 | task | open | [view-origin-per-open-and-registration-ledger](./2026-09-24-view-origin-per-open-and-registration-ledger.md) | 閲覧を開くたびに別 origin で描き、SW 登録の台帳と掃除を webui が持つ (DR-0005 §2.1 / §2.5) |
 | 2026-09-19 | design | open | [fab-place-reset-in-settings](./2026-09-19-fab-place-reset-in-settings.md) | 話しかける口の居場所と高さを「既定に戻す」手を設定の画面に置くか |
 | 2026-09-19 | design | open | [timeline-item-size-follows-snap-state](./2026-09-19-timeline-item-size-follows-snap-state.md) | transcript 1 通のサイズをスクロールスナップ状態に CSS だけで追従させる (scroll-state / view timeline) |
