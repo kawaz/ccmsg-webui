@@ -1,6 +1,6 @@
 ---
 title: Session Launcher にディレクトリツリー選択を追加
-status: open
+status: resolved
 category: task
 created: 2026-09-12T20:01:33+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-23T17:13:15+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:src/files/dir-tree.ts + src/ui/Launcher.tsx の DirPicker + src/state.ts の readDirTree で実装済み。深さは depth 非送出で config が決め、開いた節だけ depth:1 で聞き直す。test/dir-tree.test.ts の unit と visual で覆っている"]
 blocked_by:
 origin: v1-parity-for-migration (束 0)
 ---

@@ -1,6 +1,6 @@
 ---
 title: visual-accept が linux 基準の更新を含んでいない
-status: open
+status: resolved
 category: task
 created: 2026-09-19T13:11:21+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-23T17:13:15+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:justfile の visual-redraw-linux (workflow_dispatch を投げて待ち方を案内) と visual-accept-linux <run-id> (artifact 取り込み + manifest.ts write + snapshots commit) の 2 recipe に分けて自動化済み。visual-accept 末尾から両者へ誘導する"]
 blocked_by:
 origin: 自リポ TODO
 ---

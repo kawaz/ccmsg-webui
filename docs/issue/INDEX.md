@@ -6,7 +6,6 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 |---|---|---|---|---|
 | 2026-09-19 | design | open | [fab-place-reset-in-settings](./2026-09-19-fab-place-reset-in-settings.md) | 話しかける口の居場所と高さを「既定に戻す」手を設定の画面に置くか |
 | 2026-09-19 | design | open | [timeline-item-size-follows-snap-state](./2026-09-19-timeline-item-size-follows-snap-state.md) | transcript 1 通のサイズをスクロールスナップ状態に CSS だけで追従させる (scroll-state / view timeline) |
-| 2026-09-19 | task | open | [visual-accept-covers-linux-baselines](./2026-09-19-visual-accept-covers-linux-baselines.md) | visual-accept に linux 基準の workflow_dispatch → artifact 取り込み → manifest 更新を組み込む |
 | 2026-09-19 | bug | open | [visual-file-word-bubble-vertical-drift](./2026-09-19-visual-file-word-bubble-vertical-drift.md) | visual test の file-word-bubble が縦位置ずれで落ちる (原因未特定) |
 | 2026-09-19 | bug | open | [visual-webkit-needs-https-and-passkey-alternative](./2026-09-19-visual-webkit-needs-https-and-passkey-alternative.md) | webkit で webui 本体の画面を観測できない (passkey が chromium 専用、__Secure- cookie が http に置けない) |
 | 2026-09-19 | bug | open | [visual-fab-window-frame-1px-misaligned](./2026-09-19-visual-fab-window-frame-1px-misaligned.md) | 口の窓と本文の枠が、同じ幾何のまま 1px 違う所に焼ける (actions-fab-moved.png が時々落ちる) |
@@ -15,9 +14,7 @@ active な issue の一覧。close 済みは archive/ にあり、ここには�
 | 2026-09-17 | request | open | [timeline-waiting-tool-and-background-button](./2026-09-17-timeline-waiting-tool-and-background-button.md) | 同期ツール実行中を TL に待機表示し、Background ボタンで端末を Ctrl+B 化 |
 | 2026-09-16 | bug | open | [composer-send-clear-and-key](./2026-09-16-composer-send-clear-and-key.md) | TL 送信欄が送信後にクリアされない・送信キーが v1 と違う |
 | 2026-09-16 | bug | open | [visual-threshold-misses-removed-bar-items](./2026-09-16-visual-threshold-misses-removed-bar-items.md) | visual test の閾値が要素まるごと削除の退行を検出できない (接続バーの例) |
-| 2026-09-12 | task | open | [launcher-cwd-tree](./2026-09-12-launcher-cwd-tree.md) | Session Launcher の「始める場所」にディレクトリツリー選択 (展開/フィルタ) を追加 |
 | 2026-09-12 | task | open | [v1-parity-for-migration](./2026-09-12-v1-parity-for-migration.md) | kawaz が v1 webui から v2 に移るために要るものの棚卸し。画面が無いだけの機能が上位 |
-| 2026-09-12 | bug | open | [visual-accept-stale-module](./2026-09-12-visual-accept-stale-module.md) | visual-accept が dev server の古い module を撮って基準が実は古いまま通ることがある |
 | 2026-09-11 | request | open | [team-overview-view](./2026-09-11-team-overview-view.md) | teammate 同士の会話を俯瞰する view (team overview) |
 
 <!--

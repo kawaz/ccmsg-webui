@@ -1,6 +1,6 @@
 ---
 title: visual-accept が dev server の古い module を撮って基準が実は古いまま通ることがある
-status: open
+status: resolved
 category: bug
 created: 2026-09-12T09:21:39+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 blocked_by:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-23T17:13:15+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:test/visual/instance.ts の dev server に run 専用の vite cacheDir を渡し、古い module が配られる道を塞いだ。再現条件の特定は未了だが、受け入れ条件 2 (harness 側の手当て) で解消"]
 origin: 自リポ TODO
 ---
 
