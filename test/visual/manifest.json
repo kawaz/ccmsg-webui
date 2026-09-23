@@ -1,5 +1,5 @@
 {
-  "webui_version": "1.14.1",
+  "webui_version": "1.14.2",
   "screens": {
     "account": {
       "darwin/dark": "a3e6595c2a0a9b7a5c24872040f17bb1735d273d616edfb322e0831ca4c3e561",
