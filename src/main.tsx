@@ -9,12 +9,22 @@ import {
   takeSignOutWord,
   watchHistory,
 } from "./state.ts";
+import { startViewSweeper } from "./files/view-ledger.ts";
+import { registerServiceWorker } from "./service-worker.ts";
 import { applySaved } from "./settings-section.ts";
 import "./theme.ts";
 import "./actions/keys.ts";
 import "./fab-place.ts";
 import { App } from "./ui/App.tsx";
 import { listenForKeys } from "./ui/Scope.tsx";
+
+// 頁の応答に COOP を足す SW。閲覧 iframe の中身が webui の URL を別窓で開く経路を
+// 塞ぐ (DR-0005 §2.2)。最初の頁は SW 無しで届くので、登録はなるべく早く。
+registerServiceWorker();
+
+// 閲覧で使った origin の残骸を消す掃除 (DR-0005 §2.5)。起動時と定期に、台帳の
+// 中で生存印の古い id を片付ける。
+startViewSweeper();
 
 // 覚えてあるものを `:root` に書いてから描く。選んでいない分は app.css のままで
 // 立つので、ここが書くのは人が決めた項だけ。section が増えてもここは増えない。

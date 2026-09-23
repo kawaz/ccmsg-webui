@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import { version } from "./package.json";
 
@@ -57,9 +58,59 @@ function csp(dev: boolean): string {
   return `connect-src ${sources.join(" ")}`;
 }
 
+/** webui 自身の Service Worker (`src/sw.ts`、DR-0005 §2.2) を `<base>sw.js` に出す。
+ *
+ * 名前は動かせない: SW の scope は script の置き場で決まり、base の根に居なければ
+ * build が答える範囲を受け持てない。他の asset と違って中身で名前を変えないのは、
+ * 登録する側 (`src/service-worker.ts`) が同じ綴りを毎回言うから — 更新はブラウザが
+ * 同じ URL の中身を比べて気づく (DESIGN §Service Worker)。
+ *
+ * dev server にも同じ綴りで答えさせる。visual test は dev server の上で走り、閲覧の
+ * 機能は SW が効いている時にしか出ない (DR-0005 §5)。 */
+function serviceWorker(): Plugin {
+  const entry = fileURLToPath(new URL("./src/sw.ts", import.meta.url));
+  return {
+    name: "ccmsg-service-worker",
+    config: (_, { command }) =>
+      command === "build"
+        ? {
+            build: {
+              rollupOptions: {
+                input: {
+                  index: fileURLToPath(new URL("./index.html", import.meta.url)),
+                  sw: entry,
+                },
+                output: {
+                  entryFileNames: (chunk) =>
+                    chunk.name === "sw" ? "sw.js" : "assets/[name]-[hash].js",
+                },
+              },
+            },
+          }
+        : undefined,
+    configureServer(server) {
+      server.middlewares.use((request, answer, next) => {
+        if (request.url !== `${server.config.base}sw.js`) {
+          next();
+          return;
+        }
+        server
+          .transformRequest(entry)
+          .then((out) => {
+            if (out === null) throw new Error("src/sw.ts を変換できません");
+            answer.setHeader("content-type", "text/javascript; charset=utf-8");
+            answer.end(out.code);
+          })
+          .catch(next);
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   base: BASE,
   plugins: [
+    serviceWorker(),
     {
       name: "ccmsg-csp",
       transformIndexHtml: {
@@ -101,11 +152,10 @@ export default defineConfig(({ command }) => ({
   // The build this page reports in its greeting, taken from the one place the
   // version is written down.
   //
-  // 閲覧 site の出自も**ビルド時の定数** (DR-0005 FV-Q7)。webui を build するのも
-  // 閲覧 site を配るのも hosting なので、同じ場所で決まる値を 2 か所に持たない。
+  // 閲覧 site の host suffix はビルド時の定数 (DR-0005 FV-Q7)。
   // 既定は無し = 閲覧の機能を出さない。
   define: {
     __WEBUI_VERSION__: JSON.stringify(version),
-    __VIEW_ORIGIN__: JSON.stringify(process.env["CCMSG_VIEW_ORIGIN"] ?? ""),
+    __VIEW_SITE__: JSON.stringify(process.env["CCMSG_VIEW_SITE"] ?? ""),
   },
 }));

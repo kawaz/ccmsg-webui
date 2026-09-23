@@ -462,6 +462,8 @@ fold の開閉状態は fold を描く component の**外**に置く (`src/timel
 
 **テキストとして読めないものも、バイト列は届く**。`binary` は「テキストとして読むな」であって「中身が無い」ではない。PDF や画像を何として描くかは描く側の判断で、それは閲覧 site の責務 (DR-0005) なので、この画面は「何で、どれだけの大きさか」を言う所で止まる。
 
+**閲覧は開くたびに別の origin で、残骸は webui が掃除する** (DR-0005 §2.1、§2.5)。閲覧 site の host の suffix はビルド時の定数 `CCMSG_VIEW_SITE` (例 `viewer.example.net`) で、開くたびに乱数の id を振って `https://ccmsg-view-<id>.<suffix>` を iframe に置く。描いたファイル同士の壁は origin で、同じファイルを開き直しても前の origin には戻らない。振った id は台帳 (`localStorage` の `ccmsg.view:<id>`、値は生存印の時刻) に**置く前に**控え、開いている間は 1 分ごとに生存印を打つ。起動時と 6 時間ごとに、生存印が 1 時間より古い id の起動の頁を見えない iframe で開いて nonce 付きの「片付ける」を送り、同じ nonce の答えが返った物だけ台帳から消す (`src/files/view-ledger.ts`)。閉じる時もその場で片付けを試みるが台帳には触らない — 中身が同 origin で生きていて nonce を読めるから。hosting には「別 site」「`ccmsg-view-*` のどの host にも `dist-view/` を返す (wildcard の DNS と TLS)」「起動の頁の応答に `Clear-Site-Data: "cookies", "storage"`」の 3 つを要求する (README の hosting の節)。閲覧を出す条件は `CCMSG_VIEW_SITE` があることと、webui 自身の Service Worker が頁に COOP を付けていること (下の Service Worker の節)。
+
 **プロジェクト外は履歴であって一覧ではない**。`external` の許可集合はセッションの transcript が名指したファイルで、契約にそれを列挙する op は無い (手元のパスについて admit するかを答える `file.stat` だけ)。なので木に出るのは、このブラウザがそのセッションで実際に開いた絶対パスになる。
 
 **木と本文の境目は動かせる**。掴んで動かすほかに、境目自身が focus を取って ←→ でも動く (WAI-ARIA の `separator` は矢印で動く前提の役なので、掴めるだけでは足りない)。幅は instance ごとに覚える (`ccmsg.layout.split:<instance>`) — 1 つの store に複数の instance が届くという、上の「localStorage のキー規律」と同じ理由。覚えるのは指を離した時だけで、動かしている途中の幅は書かない。読めない値・範囲外は「覚えていない」と同じに扱い、CSS の既定幅に戻す。狭い画面では 2 つが上下に積まれて左右の境目が無くなるので、そこでは境目ごと消える。
@@ -738,6 +740,25 @@ dev server は `/ws` `/auth` `/mesh` `/webhook` を daemon (`CCMSG_DEV_DAEMON`�
 帰結を 1 つ明記しておく: **別 origin の平の HTTP の instance は、述べられるが繋がらない。** 入力欄が受けるのは契約 `Endpoint` がそれを許すからで、policy は運ばない。それで失うものは無い — refresh cookie は `Secure` なので、そういう instance はそもそもセッションを運べない。
 
 vite + esbuild の automatic JSX (`jsxImportSource: preact`)。`@preact/preset-vite` は使っていない: 提供するのは prefresh の HMR で、そのために Babel のツールチェーン全体が依存に入る。JSX の変換自体は esbuild が同じ出力を出す。HMR が要るようになったら preset を入れる判断に戻る。
+
+## Service Worker
+
+**webui の SW がすることは、navigation の応答に `Cross-Origin-Opener-Policy: same-origin` を足すことだけ** (`src/sw.ts`、DR-0005 §2.2)。閲覧 iframe の中身が webui の URL を別窓で開くと iOS の PWA は画面ごと乗っ取られるが、sandbox を継いだ別窓は COOP 付きの文書を読み込めないので、webui の頁に COOP が付いていればその経路は全部エラー頁になる。COOP は応答 header 専用で meta では付かず、hosting に頼ると配り方ごとに設定が要るので、build に閉じる SW が足す。キャッシュ・オフライン・push は持たない — 持てば古い頁を出す経路と、それを消す責務が生まれる。
+
+**置き場は `<base>sw.js`、scope は base**。他の asset と違って名前を中身の hash で変えない: scope は script の置き場で決まり、登録する側 (`src/service-worker.ts`) は毎回同じ URL を言う。build は vite の 2 つ目の entry として出し (`vite.config.ts` の `ccmsg-service-worker`)、dev server も同じ綴りで `src/sw.ts` を変換して返す — visual test は dev server の上で走り、閲覧の機能は SW が効いている時にしか出ない。`src/sw.ts` は import も export も持たない classic script に留める: dev server は変換した物を module の形のまま配るので、`export` が 1 つあるだけで SW として読めなくなる。
+
+**更新は、同じ URL の中身が変わったことでブラウザが気づく**。scope の中へ navigation するたびにブラウザが `sw.js` を取り直して bytes を比べ、違えば新しい SW を install する。main script の取り直しは既定 (`updateViaCache: "imports"`) で HTTP cache を通らないので、hosting の cache 設定に左右されない。新しい SW は `install` で `skipWaiting` して待たずに active になり、`activate` で `clients.claim` して開いている頁も引き取る — この SW は状態を持たないので、古い build の頁が新しい SW の下に入っても壊れる物が無い。`sw.js` が build をまたいで同じ bytes なら更新は起きないが、振る舞いも同じなので古い物が残って困ることは無い。
+
+**SW を外すには、外した build を出すだけでは足りない**。登録はブラウザに残り、置き場から `sw.js` が消えても更新の取得が失敗するだけで、既にある登録は消えない (仕様の Update)。外す時は `registration.unregister()` するだけの `sw.js` を出し、行き渡るまで置いておく。
+
+**閲覧の機能を出すかは、この SW が効いているかで決める** (DR-0005 §5)。`serviceWorkerActive` (`src/service-worker.ts`) は scope に動いている SW が居るか (`navigator.serviceWorker.ready`) を言う。見るのは頁の `controller` ではない — 守る相手は閲覧の中身がこれから開く別窓の navigation で、それを受けるのは scope の SW であって今の頁の制御者ではない (強制再読み込みした頁は制御されないが、その頁から開く別窓は SW を通る)。登録できない環境 (secure context でない、private browsing の一部) では何も言わずに引き下がり、印は立たないまま残る。
+
+**COOP が変えるのは、webui の文書を top-level に読み込む窓だけ**。
+
+- webui が開く別窓 (端末 gateway、llm-gateway の login、公式の出典、Markdown の外部リンク) は全部 `rel="noreferrer"` か `window.open(…, "noreferrer")` で、最初から opener を持たない。COOP `same-origin` が別 origin との間でするのは opener を切ることなので、切れて困る物が無い。
+- 端末 (gateway の embed) の iframe と閲覧の iframe は埋め込みで、COOP は top-level の browsing context にしか効かない。親と iframe の間の `postMessage` はそのまま届く。
+- 同じ origin のタブ同士の `BroadcastChannel` (`src/auth/tab-share.ts`) は browsing context group と関係なく届く。
+- 端末の iframe も `allow-popups` の sandbox なので、端末に出た URL が **webui 自身の URL** なら、それを開いた別窓は sandbox を継いでエラー頁になる。閲覧の中身と同じ扱いで、塞ぎたいのがまさにその経路。外部の URL はこれまで通り開く。
 
 ## テスト
 

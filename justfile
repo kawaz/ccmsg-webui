@@ -67,7 +67,7 @@ typecheck: lint
 test: lint typecheck
     bun test
 
-# 閲覧 site を立てる配り方では、その出自を `CCMSG_VIEW_ORIGIN` で渡す
+# 閲覧 site を立てる配り方では、host suffix を `CCMSG_VIEW_SITE` で渡す
 # (DR-0005 FV-Q7。渡さなければ閲覧の機能は出ず、画面は「バイナリファイルです」
 # のまま)。
 

@@ -255,7 +255,7 @@ export async function startInstance(): Promise<Instance> {
   // 閲覧 site。頁より先に立てるのは、その出自が頁の**ビルド時の定数**だから
   // (FV-Q7) — config は環境変数から読むので、dev server を作る前に言う。
   const viewSite = await startViewSite(VIEW_PORT, `http://localhost:${String(PAGE_PORT)}`);
-  process.env["CCMSG_VIEW_ORIGIN"] = viewSite.origin;
+  process.env["CCMSG_VIEW_SITE"] = viewSite.site;
 
   const daemon = spawn("bun", [cliPath(), "daemon", "run", home], {
     env: { ...process.env, ...env },

@@ -5,7 +5,7 @@ import type { FilesView, OpenFile } from "../files/files-view.ts";
 import { type FileViewMode, persistViewMode, resolveViewMode } from "../files/files-store.ts";
 import { filesRouteFor } from "../files/path-link.ts";
 import { viewableKindFor } from "../files/media-type.ts";
-import { VIEW_ORIGIN } from "../files/view-site.ts";
+import { VIEW_SITE } from "../files/view-site.ts";
 import { FileView } from "./FileView.tsx";
 import { useFileWords } from "../files/file-word-link.ts";
 import {
@@ -466,7 +466,7 @@ function FileBody({
   const markdown = isMarkdownPath(file.path);
   // ブラウザが素で描ける物か (DR-0005 §2.3)。テキストとして描くか、閲覧 site に
   // 渡すかの 2 択がここ (§4)。
-  const viewable = VIEW_ORIGIN !== undefined && viewableKindFor(file.path) !== undefined;
+  const viewable = VIEW_SITE !== undefined && viewableKindFor(file.path) !== undefined;
   // 文としても読める物だけが切り替えを持つ。バイナリに「コード」側は無い。
   const switchable = markdown || (viewable && !file.binary);
   const [mode, setMode] = useState<FileViewMode>(() =>

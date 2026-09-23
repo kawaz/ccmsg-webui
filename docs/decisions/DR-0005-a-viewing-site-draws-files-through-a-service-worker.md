@@ -88,6 +88,8 @@ webui の頁 ──┬─ 接続 (WS / 将来は DataChannel) ── instance
 
 印は query なので**パスは変わらない**。相対参照は query に関わらず同じ `/view/...` へ落ちるので、§2.4 の効き目はそのまま残る。中身の iframe は起動の頁の `sandbox` を継ぐので、閉じ込めも弱まらない。
 
+中身の中のリンクを押した遷移 (印の無い navigate) は、SW が **同じ URL に印を付けた redirect** で答える — 見分けるのは `referrer` で、同じ origin の `/view/...` から来た遷移がそれ。referrer が無い、または別 origin (= webui が新しく開いた) 時だけ答えず、配信元が起動の頁を返す。中身の中を辿る遷移が起動の頁 (と、その応答に付く `Clear-Site-Data`、§2.1) を踏まないのはこのため。
+
 **中身は起動の頁と同じ権限を持つ**。中身の iframe に `allow-same-origin` が要る (SW は opaque origin の文書を制御できない) ので、中身と起動の頁は同じ origin で、起動の頁が同 origin の中身から守れる物は無い。中身は起動の頁が送れる message を webui にも SW にも全部送れる。だから守りは 2 つに限る: webui の門番 (下) と、SW に渡ったポートが transfer 済みで誰からも取り出せないこと (§2.6)。SW はポートを**登録ごとに最初の 1 回だけ**受ける (中身は起動の頁がポートを渡した後にしか存在せず、origin は開くたびに変わるので差し替えは要らない)。webui は閲覧 origin からの message で、iframe の除去と、主経路の nonce が一致した時の台帳の削除以外の動作をしない。
 
 **ポートの向こうに居るのは常に webui の頁で、SW が自分で接続を張ることはない**。閲覧 site には access token も endpoint の住所も**一切置かない** — 置けば、静的配信でしかないはずの site が秘密を持つ場所になる。加えて webui の頁が**門番**を兼ねる: 頼まれたパスが「今開いているセッションの木の中か」を見てから `file.read` に渡す。
@@ -220,7 +222,7 @@ SW は HTTP の `Range` を受けうる (動画のシークがそれ) ので、�
 | FV-Q8 | ポートを渡す前の相手の確かめ方 | **親は `targetOrigin` にその開きの origin (`https://ccmsg-view-<id>.<閲覧 site>`) を指定し、閲覧側の頁は `event.origin` で親が webui であることを確かめる** | 渡せる物は親自身の接続だけで実害は薄いが、確かめない理由も無い。確かめる側が 1 行で済む |
 | FV-Q6 (一部) | iframe から外へ出る経路 | **`_top` は `allow-top-navigation` なしで塞ぎ、`_blank` / `window.open` は `allow-popups` で許し、webui 自身の Service Worker が navigation の応答に `Cross-Origin-Opener-Policy: same-origin` を足す** (`allow-popups-to-escape-sandbox` と `allow-top-navigation-by-user-activation` は付けない) | sandbox だけでは WebKit が `_top` を別窓に逃がし、PWA は scope 内の別窓を自分の窓として開くので画面が乗っ取られる。sandbox を継いだ別窓は COOP 付きの文書を読み込めないので、webui の頁に COOP を付ければその経路が全部エラーになる。SW が足した COOP も同じに効く (実測、§2.2)。meta では付けられないので hosting か SW で、build に閉じる SW を取る。外部リンクはアプリ内ブラウザで開いて閉じれば戻る |
 | FV-C1 | iOS / iPadOS の PWA で `_blank` / `window.open` がどう動くか | **外部への別窓はアプリ内ブラウザで開き、閉じれば戻る。同期でも 500ms 後でも同じ。scope 内の URL の別窓は PWA の窓そのものとして開く** (2026-09-24 実測、iPad と iPhone) | 後者が乗っ取りの経路で、FV-Q6 の COOP がそれを塞ぐ。実験頁は `test/manual/pwa-popups/` |
-| FV-Q6 (script) | 閲覧 site の CSP で **script を許すか** | **許す**。描いた物の CSP は `script-src 'self' 'unsafe-inline'` で、`default-src 'self'` 相当に絞る。`worker-src` は `'self'` で、描いた物の Worker は動く。描いた物が自分の SW を登録することは構造上できない — SW の script の取得は他の SW を通らず (仕様)、hosting へ直接行って `/view/...` が無いので失敗する。登録できたとしてもその SW の `fetch()` は親のポートに届かず、自分のアプリの資源を取れない。SW が無いと成立しないアプリはプレビューできず、それは §2.6 の閉じ込めの裏面として受ける | 閉じ込めは site の分離 (§1.3) + トップレベル遷移不可 (§2.2) + バイト列が親経由でしか届かないこと (§2.6) で効いていて、script を止めても閉じ込めは強くならない。許せばビルドした docs や図が動く形で見える (= この機能の値打ちの一部) |
+| FV-Q6 (script) | 閲覧 site の CSP で **script を許すか** | **許す**。描いた物の CSP は `script-src 'self' 'unsafe-inline'` で、`default-src 'self'` 相当に絞る。`worker-src` は `'self'` で、描いた物の Worker は動く。描いた物が自分の script を SW として登録することは構造上できない — SW の script の取得は他の SW を通らず (仕様)、hosting へ直接行って `/view/...` が無いので失敗する。hosting にある閲覧 site 自身の `/sw.js` は登録できるが、同じ scope なら既存の登録が返るだけ、深い scope なら同じコードの別インスタンスがポート無しで立ち (ポートは登録ごとに最初の 1 回、§2.2)、その配下の fetch は断りになる — 権限は増えず自分の配下を壊すだけ。登録できた SW の `fetch()` は親のポートに届かず、自分のアプリの資源を取れない。SW が無いと成立しないアプリはプレビューできず、それは §2.6 の閉じ込めの裏面として受ける | 閉じ込めは site の分離 (§1.3) + トップレベル遷移不可 (§2.2) + バイト列が親経由でしか届かないこと (§2.6) で効いていて、script を止めても閉じ込めは強くならない。許せばビルドした docs や図が動く形で見える (= この機能の値打ちの一部) |
 
 ## 7. 関連
 

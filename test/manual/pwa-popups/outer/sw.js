@@ -10,6 +10,10 @@ self.addEventListener("fetch", (event) => {
       const headers = new Headers(upstream.headers);
       headers.set("Cross-Origin-Opener-Policy", "same-origin");
       headers.set("X-Served-By-SW", "1");
+      // Clear-Site-Data を SW の応答から評価するかを見る (csd.html だけ)
+      if (new URL(event.request.url).pathname === "/csd.html") {
+        headers.set("Clear-Site-Data", '"cookies"');
+      }
       return new Response(upstream.body, {
         status: upstream.status,
         statusText: upstream.statusText,

@@ -13,7 +13,7 @@ import { defineConfig } from "vite";
 
 /** 親頁 (webui) の出自。ポートを渡してよい相手はここだけ (FV-Q8)。
  *
- * ビルド時の定数なのは webui 側の `__VIEW_ORIGIN__` と同じ理由 (FV-Q7): webui を
+ * ビルド時の定数なのは webui 側の `__VIEW_SITE__` と同じ理由 (FV-Q7): webui を
  * build するのも閲覧 site を配るのも hosting で、同じ場所で決まる値を 2 か所に
  * 持たない。 */
 const PARENT_ORIGIN = process.env["CCMSG_WEBUI_ORIGIN"] ?? "";

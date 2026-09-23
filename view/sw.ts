@@ -40,6 +40,7 @@ function contentCsp(): string {
   return [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
+    "worker-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
@@ -59,6 +60,7 @@ function contentCsp(): string {
  * 権限はこれ**そのもの** (§2.6)。持っていなければ何も答えられないので、URL を
  * 人に送られても、直接開かれても、届くのは断りだけ。 */
 let port: MessagePort | undefined;
+let portReceived = false;
 
 /** 往復の番号と、答えを待っている人たち。 */
 let counter = 0;
@@ -79,9 +81,9 @@ self.addEventListener("message", (event) => {
   if (said?.ccmsg !== PORT) return;
   const given = event.ports[0];
   if (given === undefined) return;
-  // 新しい頁が立ったら、そちらの親を相手にする。古いポートの向こうはもう
-  // 居ないか、居ても同じ webui の頁なので、1 本だけ持てば足りる。
-  port?.close();
+  // 中身は起動の頁と同じ origin に居る。後から送られたポートでは親を替えない。
+  if (portReceived) return;
+  portReceived = true;
   port = given;
   given.addEventListener("message", (answer: MessageEvent) => {
     const said = answer.data as { ccmsg?: string } | undefined;
@@ -110,10 +112,21 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (!url.pathname.startsWith(VIEW_PREFIX)) return;
-  // 素で開かれた navigate は**起動の頁**。何も答えなければ配信元がそれを返し、
-  // その頁が親からポートをもらってから、印を付けて中身を頼む (`boot.ts`)。
-  // 中身の要求が常にポートの後に来るのはこの 1 行のため。
-  if (event.request.mode === "navigate" && !url.searchParams.has(CONTENT_MARK)) return;
+  if (event.request.mode === "navigate" && !url.searchParams.has(CONTENT_MARK)) {
+    // 中身の中のリンクを押した遷移は、同じ URL に印を付けて頼み直させる (§2.2)。
+    // 見分けるのは referrer: 同じ origin の `/view/...` から来た遷移がそれ。起動の
+    // 頁 (と、その応答に付く `Clear-Site-Data`) を踏ませないため。
+    const from = event.request.referrer;
+    if (from.startsWith(`${self.location.origin}${VIEW_PREFIX}`)) {
+      url.searchParams.set(CONTENT_MARK, "");
+      event.respondWith(Response.redirect(url.href, 302));
+      return;
+    }
+    // 素で開かれた navigate は**起動の頁**。何も答えなければ配信元がそれを返し、
+    // その頁が親からポートをもらってから、印を付けて中身を頼む (`boot.ts`)。
+    // 中身の要求が常にポートの後に来るのはこの 1 行のため。
+    return;
+  }
   if (port === undefined) {
     event.respondWith(refusal(503, "この頁はまだ親と繋がっていません"));
     return;

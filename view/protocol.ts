@@ -17,6 +17,10 @@ export const VIEW_PREFIX = "/view/";
  * 時に言うので、待ち合わせに時間の当て推量が要らない。 */
 export const READY = "ccmsg-view-ready";
 
+/** 親が origin に残る物を消すよう頼み、同じ nonce を受け取って完了を確かめる。 */
+export const CLEAN = "ccmsg-view-clean";
+export const CLEANED = "ccmsg-view-cleaned";
+
 /** 親がポートを渡す (`postMessage` の transfer に port2 を載せる)。 */
 export const PORT = "ccmsg-view-port";
 

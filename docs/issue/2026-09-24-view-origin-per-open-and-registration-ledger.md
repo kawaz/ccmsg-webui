@@ -41,17 +41,17 @@ DR-0005 §2.1 / §2.5 / §6、FV-Q14 / FV-Q15 の裁定に基づく実装タス�
 
 ## 受け入れ条件
 
-- [ ] 同じファイルを 2 回開くと別 origin になる (test)
-- [ ] 頁を素で読み込んでも SW 登録が増えない (test)
-- [ ] 「片付ける」が origin に紐づく物を届く範囲で全部消す: SW の登録 (`getRegistrations()` 全件)、localStorage / sessionStorage、IndexedDB (`databases()` 全部)、Cache Storage (`keys()` 全部)、OPFS (root の全 entry)、cookie (名前ごとに `Domain` 有り無しの両方で失効) (test: fake の閲覧頁に全種を置いてから片付けて空になる)
-- [ ] hosting は起動の頁の応答に `Clear-Site-Data: "cookies", "storage"` を付ける (中身は SW が答えるので header は付かない)
-- [ ] 描いた物の CSP は `worker-src 'self'` (Worker が動く、test)。描いた物の `register()` は script の取得が hosting へ行って失敗すること (test)
+- [x] 同じファイルを 2 回開くと別 origin になる (test)
+- [x] 頁を素で読み込んでも SW 登録が増えない (test)
+- [x] 「片付ける」が origin に紐づく物を届く範囲で全部消す: SW の登録 (`getRegistrations()` 全件)、localStorage / sessionStorage、IndexedDB (`databases()` 全部)、Cache Storage (`keys()` 全部)、OPFS (root の全 entry)、cookie (名前ごとに `Domain` 有り無しの両方で失効) (test: fake の閲覧頁に全種を置いてから片付けて空になる)
+- [x] hosting は起動の頁の応答に `Clear-Site-Data: "cookies", "storage"` を付ける (中身は SW が答えるので header は付かない)
+- [x] 描いた物の CSP は `worker-src 'self'` (Worker が動く、test)。中身自身の script (`/view/...` 配下) の `register()` は取得が hosting へ行って失敗する。閲覧 site の `/sw.js` は登録できるが、ポートは登録ごとに最初の 1 回だけなので深い scope のインスタンスは何も答えられない (test)
 - [ ] 100 回開いて閉じた後に当該 site の登録と storage 全種が 0 (Chrome は `chrome://serviceworker-internals` と DevTools の Application、Safari は Web Inspector の Storage で手動確認)
-- [ ] 閉じる前にタブを殺した分が次の定期掃除で消える (test: 台帳に残した id が掃除で消えることを fake の閲覧頁で確認)
-- [ ] `view/sw.ts` はポートの受け渡し (`ccmsg: PORT`) を**登録ごとに最初の 1 回だけ**受け、以後は無視する (origin は開くたびに変わるので差し替えは要らない)。描いた中身は同 origin で起動の頁と同じ権限を持ち、自分のポートを送る・起動の頁を自分の中に入れ子で開いてそこから送る、のどちらでも親のポートを追い出せないこと (test)
-- [ ] 「片付ける」は乱数の nonce 付きで送り、台帳から消すのは**主経路 (掃除用に新しく開いた起動の頁、中身なし) で同じ nonce の ack が返った時だけ**。閉じる時の副経路は unregister を試みるだけで台帳に触らない (中身は同 origin なので起動の頁に届いた nonce を読める・掃除の関数を書き換えられる)。中身が ack を偽装しても台帳から消えないこと (test)
-- [ ] webui は閲覧 origin からの message で、iframe の除去と主経路の台帳削除以外の動作をしない (test)
-- [ ] hosting (canddy-app-proxy の Caddyfile) に `ccmsg-view-*` の route と `Clear-Site-Data` の header を足す手順を docs に書く (tmpspace.net の wildcard DNS / 証明書は既にある)
+- [x] 閉じる前にタブを殺した分が次の定期掃除で消える (test: 台帳に残した id が掃除で消えることを fake の閲覧頁で確認)
+- [x] `view/sw.ts` はポートの受け渡し (`ccmsg: PORT`) を**登録ごとに最初の 1 回だけ**受け、以後は無視する (origin は開くたびに変わるので差し替えは要らない)。描いた中身は同 origin で起動の頁と同じ権限を持ち、自分のポートを送る・起動の頁を自分の中に入れ子で開いてそこから送る、のどちらでも親のポートを追い出せないこと (test)
+- [x] 「片付ける」は乱数の nonce 付きで送り、台帳から消すのは**主経路 (掃除用に新しく開いた起動の頁、中身なし) で同じ nonce の ack が返った時だけ**。閉じる時の副経路は unregister を試みるだけで台帳に触らない (中身は同 origin なので起動の頁に届いた nonce を読める・掃除の関数を書き換えられる)。中身が ack を偽装しても台帳から消えないこと (test)
+- [x] webui は閲覧 origin からの message で、iframe の除去と主経路の台帳削除以外の動作をしない (test)
+- [x] hosting (canddy-app-proxy の Caddyfile) に `ccmsg-view-*` の route と `Clear-Site-Data` の header を足す手順を docs に書く (tmpspace.net の wildcard DNS / 証明書は既にある)
 
 ## 関連
 
