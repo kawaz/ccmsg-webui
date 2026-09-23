@@ -1,6 +1,6 @@
 ---
 title: 翻訳の言語/道具セレクタが transcript 上端にあり、末尾読み中の切り替えでスクロール位置が飛ぶ
-status: open
+status: resolved
 category: bug
 created: 2026-09-12T08:52:20+09:00
 last_read:
@@ -9,10 +9,10 @@ wip_entered:
 blocked_entered:
 pending_entered:
 discarded_entered:
-resolved_entered:
+resolved_entered: 2026-09-23T17:12:28+09:00
 discard_reason:
 pending_reason:
-close_reason:
+close_reason: ["done:現 main で解消済み。src/app.css の .timeline-head が position: sticky; top: 36px、item の ⋯ に timeline.toggle-reading (訳⇄原文切替) があり、test/visual/translate.visual.ts:57 が bodyScrollTop 不動を assert"]
 blocked_by:
 origin: 自リポ TODO
 ---
