@@ -130,7 +130,11 @@ visual-redraw-linux:
 [script]
 visual-accept-linux run: check-snapshots
     dir="{{ snapshots-dir }}"
-    gh run download {{ run }} --name linux-baselines --dir "$dir/linux"
+    # `gh run download` は既にある file を上書きしないので、空の所へ落としてから被せる
+    drawn=$(mktemp -d /tmp/linux-baselines.XXXXXX)
+    trap 'rm -rf "$drawn"' EXIT
+    gh run download {{ run }} --name linux-baselines --dir "$drawn"
+    cp -R "$drawn"/. "$dir/linux/"
     bun test/visual/manifest.ts write
     version=$(just version)
     (
