@@ -64,11 +64,19 @@ async function cleanOrigin(): Promise<void> {
  * `Clear-Site-Data: "cookies"` は Chrome では site 全体に効くが WebKit は host の分
  * しか消さない (実測)。だから中身を置く**前**にもここを通す — 前に開いた中身が
  * 仕込んだ物を、次の中身の script が動く前に無くす。見えるのは自分の URL のパスに
- * 前方一致する cookie で、別の sid の中身と共有できるパス (`/`、`/view`) はその中に
- * 入る。パスは名前ごとに両方の綴りで失効させる。 */
+ * 前方一致する cookie で、別の sid の中身と共有できるパスも、この sid を狙って置かれた
+ * パスも、その中に入る。 */
 function expireCookies(): void {
   const site = location.hostname.replace(/^ccmsg-view-[^.]+\./, "");
-  const paths = ["/", "/view"];
+  // cookie の Path は文字列で、実在するパスとは無関係に置ける。文書に見えるのは
+  // segment 境界で前方一致する Path (末尾 `/` の有無を問わず) で、消すには同じ綴りが
+  // 要る — `document.cookie` に Path は出ないので、見える可能性のある綴りを全部使う。
+  const paths = ["/"];
+  const segments = location.pathname.split("/").filter((part) => part !== "");
+  for (let i = 1; i <= segments.length; i += 1) {
+    const prefix = `/${segments.slice(0, i).join("/")}`;
+    paths.push(prefix, `${prefix}/`);
+  }
   for (const pair of document.cookie.split(";")) {
     const name = pair.trim().split("=", 1)[0];
     if (!name) continue;
