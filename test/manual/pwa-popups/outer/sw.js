@@ -4,6 +4,8 @@ self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (event) => {
   if (event.request.mode !== "navigate") return;
+  // hosting 直の応答を見る頁には手を出さない
+  if (new URL(event.request.url).pathname === "/csd-direct.html") return;
   event.respondWith(
     (async () => {
       const upstream = await fetch(event.request);

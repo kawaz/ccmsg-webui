@@ -51,6 +51,18 @@ sandbox を継いだ別窓は COOP が `unsafe-none` でない文書を読み込
 
 3 回目と同じ。WebKit は SW が返した応答の COOP を hosting の header と同じに評価する。`<meta http-equiv>` では COOP は付けられない (仕様上 応答 header 専用)。
 
+## 5 回目: `Clear-Site-Data: "cookies"` が何を消すか
+
+実験頁 `/csd.html` (SW が header を足す) と `/csd-direct.html` (SW を通らず hosting が header を付ける) で、host-only の cookie と `Domain=<site>` 付きの cookie を置いてから頁を開き直す。
+
+| | SW の応答の header | hosting の header: host-only | hosting の header: `Domain=` 付き |
+|---|---|---|---|
+| iOS Safari / PWA (kawaz) | 消えない | 消える | **残る** |
+| playwright WebKit (統括) | — | 消える | **残る** |
+| Mac Chrome (kawaz) / playwright Chromium | — | 消える | 消える |
+
+WebKit は `Clear-Site-Data` を SW の応答からは評価せず、hosting の header でも host の cookie しか消さない (2023 年の "obey origin partition" の変更以来、site 全体には効かない)。別 id origin 間で共有される `Domain=` cookie を消すのは起動の頁の JS (中身を置く前に失効) が主で、header は storage の一掃と Chrome での保険 (DR-0005 §2.1)。
+
 ## 結論 (DR-0005 §2.2、§6 FV-Q6 / FV-C1)
 
 - 閲覧 iframe の sandbox は S1 のまま。`allow-popups-to-escape-sandbox` と `allow-top-navigation*` は付けない

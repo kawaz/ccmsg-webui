@@ -55,12 +55,27 @@ async function cleanOrigin(): Promise<void> {
       await root.removeEntry(name, { recursive: handle.kind === "directory" });
     }
   }
+  expireCookies();
+}
+
+/** この頁から見える cookie を全部失効させる (§2.1)。
+ *
+ * 同じ site の別 id origin が共有できるのは `Domain=` 付きの cookie で、hosting の
+ * `Clear-Site-Data: "cookies"` は Chrome では site 全体に効くが WebKit は host の分
+ * しか消さない (実測)。だから中身を置く**前**にもここを通す — 前に開いた中身が
+ * 仕込んだ物を、次の中身の script が動く前に無くす。見えるのは自分の URL のパスに
+ * 前方一致する cookie で、別の sid の中身と共有できるパス (`/`、`/view`) はその中に
+ * 入る。パスは名前ごとに両方の綴りで失効させる。 */
+function expireCookies(): void {
   const site = location.hostname.replace(/^ccmsg-view-[^.]+\./, "");
+  const paths = ["/", "/view"];
   for (const pair of document.cookie.split(";")) {
     const name = pair.trim().split("=", 1)[0];
     if (!name) continue;
-    document.cookie = `${name}=; Max-Age=0; Path=/`;
-    document.cookie = `${name}=; Max-Age=0; Path=/; Domain=${site}`;
+    for (const path of paths) {
+      document.cookie = `${name}=; Max-Age=0; Path=${path}`;
+      document.cookie = `${name}=; Max-Age=0; Path=${path}; Domain=${site}`;
+    }
   }
 }
 
@@ -86,6 +101,7 @@ function boot(): void {
     // そのファイルのバイト列を返す。置くのは 1 度だけ。
     placed = true;
     show("");
+    expireCookies();
     const inner = document.createElement("iframe");
     inner.className = "content";
     inner.src = `${location.pathname}?${CONTENT_MARK}`;

@@ -108,7 +108,9 @@ export function cleanViewOrigin(
     };
     window.addEventListener("message", heard);
     const deadline = setTimeout(() => finish(false), WAIT_MS * 2);
-    frame.src = `${origin}/`;
+    // 開くのは `/view/` のパス: 中身同士が共有できるパスの cookie (`/`、`/view`) が
+    // 掃除の頁から見えるように (`view/boot.ts` の expireCookies)。
+    frame.src = `${origin}/view/`;
     document.body.append(frame);
   });
 }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clear-Site-Data from hosting (SW を通らない)</title>
+    <style>
+      body {
+        font:
+          17px/1.6 -apple-system,
+          system-ui,
+          sans-serif;
+        padding: 16px;
+      }
+      button,
+      a {
+        display: inline-block;
+        min-height: 44px;
+        line-height: 44px;
+        padding: 0 14px;
+        border-radius: 8px;
+        background: #2a6ee0;
+        color: #fff;
+        border: 0;
+        font: inherit;
+        text-decoration: none;
+        margin: 4px 0;
+      }
+      pre {
+        background: #f3f3f3;
+        padding: 8px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Clear-Site-Data を SW の応答から</h1>
+    <p id="sw"></p>
+    <p>
+      この頁の応答には SW が <code>Clear-Site-Data: "cookies"</code> を足している (hosting
+      は付けていない)。手順: 1 を押す → 2 を押す → cookie が消えていれば SW の header
+      が評価されている。
+    </p>
+    <p><button id="set">1. cookie を置く (Domain 付き / 無し の 2 つ)</button></p>
+    <p><a href="/csd-direct.html">2. この頁を開き直す</a></p>
+    <pre id="out"></pre>
+    <script>
+      document.getElementById("sw").textContent = navigator.serviceWorker.controller
+        ? "SW: 制御中だが、この頁は SW が手を出さない (hosting 直)"
+        : "SW: 制御していない (index に戻って SW が制御中になってから来る)";
+      const out = document.getElementById("out");
+      const show = () => {
+        out.textContent = `document.cookie = ${JSON.stringify(document.cookie)}`;
+      };
+      document.getElementById("set").addEventListener("click", () => {
+        const domain = location.hostname.split(".").slice(1).join(".");
+        document.cookie = `csd_host=1; Path=/; Secure; SameSite=None`;
+        document.cookie = `csd_domain=1; Domain=${domain}; Path=/; Secure; SameSite=None`;
+        show();
+      });
+      show();
+    </script>
+  </body>
+</html>
