@@ -44,7 +44,7 @@ DR-0005 §2.1 / §2.5 / §6、FV-Q14 / FV-Q15 の裁定に基づく実装タス�
 - [x] 同じファイルを 2 回開くと別 origin になる (test)
 - [x] 頁を素で読み込んでも SW 登録が増えない (test)
 - [x] 「片付ける」が origin に紐づく物を届く範囲で全部消す: SW の登録 (`getRegistrations()` 全件)、localStorage / sessionStorage、IndexedDB (`databases()` 全部)、Cache Storage (`keys()` 全部)、OPFS (root の全 entry)、cookie (名前ごとに `Domain` 有り無しの両方で失効) (test: fake の閲覧頁に全種を置いてから片付けて空になる)
-- [x] hosting は起動の頁の応答に `Clear-Site-Data: "cookies", "storage"` を付ける (中身は SW が答えるので header は付かない)
+- [x] hosting は起動の頁の応答に `Clear-Site-Data: "*"` を付ける (中身は SW が答えるので header は付かない)
 - [x] 描いた物の CSP は `worker-src 'self'` (Worker が動く、test)。中身自身の script (`/view/...` 配下) の `register()` は取得が hosting へ行って失敗する。閲覧 site の `/sw.js` は登録できるが、ポートは登録ごとに最初の 1 回だけなので深い scope のインスタンスは何も答えられない (test)
 - [ ] 100 回開いて閉じた後に当該 site の登録と storage 全種が 0 (Chrome は `chrome://serviceworker-internals` と DevTools の Application、Safari は Web Inspector の Storage で手動確認)
 - [x] 閉じる前にタブを殺した分が次の定期掃除で消える (test: 台帳に残した id が掃除で消えることを fake の閲覧頁で確認)

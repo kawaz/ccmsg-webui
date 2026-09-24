@@ -29,7 +29,7 @@ ccmsg daemon passkey add <unit> http://localhost:5173/ --name <label>
 
 Open the `http://localhost:5173/#register=<jwt>` it prints and type in the six digits it showed. The digits are not in the URL, so a leaked URL is not a registration. After that the cookie brings the session back, and a passkey is asked for when it does not.
 
-The file viewer needs a separate viewing site. Set `CCMSG_VIEW_SITE` to its host suffix when building webui (for example `viewer.example.net`); each open uses a new `https://ccmsg-view-<random-id>.viewer.example.net` origin. Build the viewing assets with `CCMSG_WEBUI_ORIGIN` set to the parent webui origin: `CCMSG_WEBUI_ORIGIN=https://webui.example.org just build-view`. Serve `dist-view/` on every `ccmsg-view-*` host with wildcard DNS and TLS: `/view/*` returns `index.html`, `/sw.js` serves the worker, and responses for the startup page carry `Clear-Site-Data: "cookies", "storage"`. The viewing site must be a different site from webui and the endpoint. See DR-0005 for the security boundary.
+The file viewer needs a separate viewing site. Set `CCMSG_VIEW_SITE` to its host suffix when building webui (for example `viewer.example.net`); each open uses a new `https://ccmsg-view-<random-id>.viewer.example.net` origin. Build the viewing assets with `CCMSG_WEBUI_ORIGIN` set to the parent webui origin: `CCMSG_WEBUI_ORIGIN=https://webui.example.org just build-view`. Serve `dist-view/` on every `ccmsg-view-*` host with wildcard DNS and TLS: `/view/*` returns `index.html`, `/sw.js` serves the worker, and responses for the startup page carry `Clear-Site-Data: "*"`. The viewing site must be a different site from webui and the endpoint. See DR-0005 for the security boundary.
 
 ## Development
 

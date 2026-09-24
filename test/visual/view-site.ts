@@ -44,7 +44,7 @@ export async function startViewSite(port: number, parentOrigin: string): Promise
     answer.writeHead(200, {
       "content-type": type,
       "cache-control": "no-store",
-      ...(indexPage ? { "clear-site-data": '"cookies", "storage"' } : {}),
+      ...(indexPage ? { "clear-site-data": '"*"' } : {}),
     });
     answer.end(body);
   });
