@@ -61,7 +61,7 @@ sandbox を継いだ別窓は COOP が `unsafe-none` でない文書を読み込
 | playwright WebKit (統括) | — | 消える | **残る** |
 | Mac Chrome (kawaz) / playwright Chromium | — | 消える | 消える |
 
-WebKit は `Clear-Site-Data` を SW の応答からは評価せず、hosting の header でも host の cookie しか消さない (2023 年の "obey origin partition" の変更以来、site 全体には効かない)。別 id origin 間で共有される `Domain=` cookie を消すのは起動の頁の JS (中身を置く前に失効) が主で、header は storage の一掃と Chrome での保険 (DR-0005 §2.1)。
+WebKit は `Clear-Site-Data` を SW の応答からは評価せず、hosting の header でも host の cookie しか消さない。WebKit main (2026-09 時点、`Source/WebKit/NetworkProcess/cocoa/NetworkStorageSessionCocoa.mm` の `deleteCookies(const ClientOrigin&)`) の述語は `partitionMatched && domain == String(cookie.domain)` で、応答の host と cookie の `domain` の文字列一致 + partition (top-level site) の一致。`Domain=` 付き (`.suffix` で始まる) は一致しないので残り、cross-site iframe で受けた header はその partition の cookie しか消さない。MDN / browser-compat-data には書かれていない (Safari 17 で対応、notes 無し)。別 id origin 間で共有される `Domain=` cookie を消すのは起動の頁の JS (中身を置く前に失効) が主で、header は storage の一掃と Chrome での保険 (DR-0005 §2.1)。
 
 実運用での効き方: 閲覧 iframe は webui (`kawaz.jp`) の下の cross-site iframe なので、Safari / iOS は ITP で third-party cookie を丸ごと遮断し (`document.cookie` は読めず書きも捨てられる)、中身から cookie を置く経路が無い。Chrome は third-party cookie を許すが header が site 全体に効く。起動の頁の JS の失効 (`view/boot.ts` の `expireCookies`) はその外側の保険で、**自動試験では未検証**: harness は http で配るため cross-site iframe から `SameSite=None; Secure` の cookie が置けず、`Domain=localhost` も拒否される。
 
